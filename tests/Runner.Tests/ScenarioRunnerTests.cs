@@ -114,6 +114,18 @@ public class ScenarioRunnerTests
         try { await serverTask; } catch (OperationCanceledException) { }
     }
 
+    [Theory]
+    [InlineData("wait.ms", false)]
+    [InlineData("draw.arm", false)]
+    [InlineData("input.click_text", true)]
+    [InlineData("freeze.begin", true)]
+    public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)
+    {
+        var step = new ScenarioStep { Action = action };
+
+        Assert.Equal(expected, ScenarioRunner.ShouldAutoCaptureStep(step));
+    }
+
     [Fact]
     public async Task StateAssertion_EvaluatesEqualityDsl()
     {

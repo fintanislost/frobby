@@ -22,7 +22,7 @@ namespace SdvTestFramework.Runner.Scenarios;
 /// When a <see cref="RunDirectory"/> is supplied the runner also:
 /// <list type="bullet">
 ///   <item>Populates <see cref="ScenarioReport.Steps"/> with per-step timing.</item>
-///   <item>Auto-captures a best-effort screenshot after each successful step.</item>
+///   <item>Auto-captures a best-effort screenshot after successful visible-action steps.</item>
 ///   <item>Captures the <c>freeze.begin</c> step without unfrozen capture bypass.</item>
 ///   <item>Captures a screenshot on every assertion failure.</item>
 ///   <item>Captures screenshots for explicit <c>screenshot.capture</c> steps.</item>
@@ -304,6 +304,8 @@ public sealed class ScenarioRunner
     {
         if (_recorder is null || _reportDir is null)
             return;
+        if (!ShouldAutoCaptureStep(step))
+            return;
 
         var name = step.Action == "freeze.begin"
             ? $"step-{stepIndex:D2}-after-freeze"
@@ -317,6 +319,15 @@ public sealed class ScenarioRunner
         if (path is not null)
             report.Screenshots.Add(MakeRelativePath(_reportDir, path));
     }
+
+    internal static bool ShouldAutoCaptureStep(ScenarioStep step)
+        => step.Action switch
+        {
+            "wait.ms" => false,
+            "draw.arm" => false,
+            "draw.disarm" => false,
+            _ => true,
+        };
 
     private static string DescribeAssertion(ScenarioAssertion assertion)
     {
