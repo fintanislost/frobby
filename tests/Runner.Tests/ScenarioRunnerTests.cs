@@ -117,6 +117,8 @@ public class ScenarioRunnerTests
     [Theory]
     [InlineData("wait.ms", false)]
     [InlineData("draw.arm", false)]
+    [InlineData("ui.wait_text", false)]
+    [InlineData("ui.click_text", true)]
     [InlineData("input.click_text", true)]
     [InlineData("freeze.begin", true)]
     public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)
@@ -124,6 +126,202 @@ public class ScenarioRunnerTests
         var step = new ScenarioStep { Action = action };
 
         Assert.Equal(expected, ScenarioRunner.ShouldAutoCaptureStep(step));
+    }
+
+    [Fact]
+    public async Task UiWaitText_PollsTextCaptureUntilMatch()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var findCalls = 0;
+        var armParams = default(JsonElement);
+        var findParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "draw.arm" && req.Params is { } arm)
+                        armParams = arm.Clone();
+                    if (req.Method == "draw.text_find" && req.Params is { } find)
+                    {
+                        findParams = find.Clone();
+                        findCalls++;
+                    }
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "draw.text_find" when findCalls < 2 => JsonDocument.Parse("{\"events\":[],\"count\":0}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{}],\"count\":1}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "ui_wait_text",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "ui.wait_text",
+                    Args = JsonDocument.Parse("{\"text\":\"SUBMIT ORDER\",\"case_sensitive\":false,\"timeout_ms\":1000,\"poll_ms\":1,\"capture_ticks\":3,\"bounds_intersects_rect\":[700,500,120,40]}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, findCalls);
+        Assert.Contains("draw.arm", calls);
+        Assert.DoesNotContain("input.click_text", calls);
+        Assert.Equal(3, armParams.GetProperty("ticks").GetInt32());
+        Assert.Equal("SUBMIT ORDER", findParams.GetProperty("text_contains").GetString());
+        Assert.False(findParams.GetProperty("case_sensitive").GetBoolean());
+        Assert.Equal(700, findParams.GetProperty("bounds_intersects_rect")[0].GetInt32());
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task UiClickText_WaitsThenClicksMatchedText()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.click_text" && req.Params is { } click)
+                        clickParams = click.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{},{}],\"count\":2}").RootElement,
+                        "input.click_text" => JsonDocument.Parse("{\"ok\":true,\"tick\":2}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "ui_click_text",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "ui.click_text",
+                    Args = JsonDocument.Parse("{\"text\":\"WIRE IN 1,000g\",\"button\":\"right\",\"occurrence\":2,\"timeout_ms\":1000,\"poll_ms\":1,\"capture_ticks\":3,\"in_rect\":[0,0,640,360]}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(new[] { "scenario.begin", "draw.arm", "draw.text_find", "input.click_text", "scenario.end" }, calls);
+        Assert.Equal("WIRE IN 1,000g", clickParams.GetProperty("text").GetString());
+        Assert.Equal("right", clickParams.GetProperty("button").GetString());
+        Assert.Equal(2, clickParams.GetProperty("occurrence").GetInt32());
+        Assert.Equal(640, clickParams.GetProperty("in_rect")[2].GetInt32());
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task UiWaitText_TimeoutFailsScenario()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[],\"count\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "ui_wait_text_timeout",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "ui.wait_text",
+                    Args = JsonDocument.Parse("{\"text\":\"NEVER\",\"timeout_ms\":20,\"poll_ms\":1,\"capture_ticks\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        Assert.Contains("ui.wait_text timed out after 20ms waiting for text \"NEVER\"", string.Join(";", report.Failures));
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
     }
 
     [Fact]

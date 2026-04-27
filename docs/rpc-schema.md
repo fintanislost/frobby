@@ -662,6 +662,13 @@ Response (no captured match — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickTextHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickTextHandlerTests.cs` (validation, matching, occurrence, region filters, and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+Runner scenario convenience:
+
+- `{ "action": "ui.wait_text", "args": { "text": "SUBMIT ORDER" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
+- `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
+
+Both convenience steps accept `text`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

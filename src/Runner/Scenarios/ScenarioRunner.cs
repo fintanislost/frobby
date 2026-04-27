@@ -178,6 +178,27 @@ public sealed class ScenarioRunner
                                 report.Screenshots.Add(MakeRelativePath(_reportDir, path));
                         }
                     }
+                    else if (step.Action == "ui.wait_text")
+                    {
+                        await WaitForUiTextAsync(step, ct);
+                    }
+                    else if (step.Action == "ui.click_text")
+                    {
+                        var uiText = await WaitForUiTextAsync(step, ct);
+                        var clickParams = ProtocolJson.ToElement(new InputClickTextRequest
+                        {
+                            Text = uiText.Text,
+                            Button = uiText.Button,
+                            CaseSensitive = uiText.CaseSensitive,
+                            Occurrence = uiText.Occurrence,
+                            InRect = uiText.InRect,
+                            BoundsWithinRect = uiText.BoundsWithinRect,
+                            BoundsIntersectsRect = uiText.BoundsIntersectsRect,
+                        });
+                        var resp = await _session.InvokeAsync("input.click_text", clickParams, ct);
+                        if (resp.Error is { } ex)
+                            throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+                    }
                     else
                     {
                         var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
@@ -274,6 +295,84 @@ public sealed class ScenarioRunner
         throw new TimeoutException("world never became ready after fixture.load");
     }
 
+    private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = ParseUiTextArgs(step);
+        var requiredCount = System.Math.Max(args.MinCount, args.Occurrence);
+        var elapsed = Stopwatch.StartNew();
+        var lastCount = 0;
+
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var armParams = ProtocolJson.ToElement(new DrawArmRequest { Ticks = args.CaptureTicks });
+            var armResp = await _session.InvokeAsync("draw.arm", armParams, ct);
+            if (armResp.Error is { } armError)
+                throw new InvalidOperationException($"step '{step.Action}' failed during draw.arm: {armError.Message}");
+
+            await Task.Delay(args.PollMs, ct);
+
+            var findResp = await _session.InvokeAsync("draw.text_find", BuildTextFindParams(args), ct);
+            if (findResp.Error is { } findError)
+                throw new InvalidOperationException($"step '{step.Action}' failed during draw.text_find: {findError.Message}");
+
+            lastCount = findResp.Result is { } result ? ReadTextFindCount(result) : 0;
+            if (lastCount >= requiredCount)
+                return args;
+
+            if (elapsed.ElapsedMilliseconds >= args.TimeoutMs)
+            {
+                throw new TimeoutException(
+                    $"{step.Action} timed out after {args.TimeoutMs}ms waiting for text \"{args.Text}\" " +
+                    $"(matched {lastCount} < {requiredCount})");
+            }
+        }
+    }
+
+    private static UiTextStepArgs ParseUiTextArgs(ScenarioStep step)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<UiTextStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new UiTextStepArgs()
+            : new UiTextStepArgs();
+
+        if (string.IsNullOrWhiteSpace(args.Text))
+            throw new InvalidOperationException($"{step.Action} requires args.text");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+        if (args.CaptureTicks < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.capture_ticks >= 1");
+        if (args.MinCount < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.min_count >= 1");
+        if (args.Occurrence < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.occurrence >= 1");
+
+        return args;
+    }
+
+    private static JsonElement BuildTextFindParams(UiTextStepArgs args)
+        => ProtocolJson.ToElement(new TextDrawFilter
+        {
+            TextContains = args.Text,
+            CaseSensitive = args.CaseSensitive,
+            InRect = args.InRect,
+            BoundsWithinRect = args.BoundsWithinRect,
+            BoundsIntersectsRect = args.BoundsIntersectsRect,
+        });
+
+    private static int ReadTextFindCount(JsonElement result)
+    {
+        if (result.ValueKind != JsonValueKind.Object)
+            return 0;
+        if (result.TryGetProperty("count", out var count) && count.TryGetInt32(out var parsed))
+            return parsed;
+        if (result.TryGetProperty("events", out var events) && events.ValueKind == JsonValueKind.Array)
+            return events.EnumerateArray().Count();
+        return 0;
+    }
+
     private static string DescribeStep(ScenarioStep step)
     {
         return step.Action switch
@@ -286,6 +385,8 @@ public sealed class ScenarioRunner
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
+            "ui.wait_text" => $"Wait for text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
+            "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
@@ -326,6 +427,7 @@ public sealed class ScenarioRunner
             "wait.ms" => false,
             "draw.arm" => false,
             "draw.disarm" => false,
+            "ui.wait_text" => false,
             _ => true,
         };
 
@@ -392,6 +494,21 @@ public sealed class ScenarioRunner
 
         var result = compact.ToString().Trim('-');
         return result.Length == 0 ? "step" : result;
+    }
+
+    private sealed class UiTextStepArgs
+    {
+        public string? Text { get; set; }
+        public string Button { get; set; } = "left";
+        public bool CaseSensitive { get; set; } = true;
+        public int Occurrence { get; set; } = 1;
+        public int MinCount { get; set; } = 1;
+        public int TimeoutMs { get; set; } = 1500;
+        public int PollMs { get; set; } = 300;
+        public int CaptureTicks { get; set; } = 10;
+        public int[]? InRect { get; set; }
+        public int[]? BoundsWithinRect { get; set; }
+        public int[]? BoundsIntersectsRect { get; set; }
     }
 
     /// <summary>
