@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Runner.Dsl;
 using Xunit;
 
@@ -86,6 +87,28 @@ public class PlayerWorldTimeTests
 
         Assert.Equal("world.interact_npc", inv.Calls[0].Method);
         Assert.Contains("\"name\":\"Pierre\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
+    public async Task InteractTile_InvokesWorldInteractTile()
+    {
+        var inv = new CapturingInvoker();
+        inv.NextResponse = JsonDocument.Parse(
+            "{\"ok\":true,\"tick\":42,\"handled\":false,\"target_type\":\"Furniture\",\"tile\":{\"x\":8,\"y\":9}}")
+            .RootElement;
+        SdvTestSession.InitializeForTests(inv);
+        InteractTileResult result;
+        try { result = await World.InteractTile(8, 9, justCheckingForActivity: true); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("world.interact_tile", inv.Calls[0].Method);
+        Assert.Contains("\"x\":8", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":9", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"just_checking_for_activity\":true", inv.Calls[0].ParamsJson);
+        Assert.False(result.Handled);
+        Assert.Equal("Furniture", result.TargetType);
+        Assert.Equal(8, result.Tile.X);
+        Assert.Equal(9, result.Tile.Y);
     }
 
     [Fact]

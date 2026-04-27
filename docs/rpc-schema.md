@@ -439,6 +439,37 @@ Response (unknown item id, non-furniture item, or unknown location — GameState
 **Implemented in:** `src/Harness/Handlers/WorldPlaceFurnitureHandler.cs`
 **Tested in:** `tests/Protocol.Tests/PlaceFurnitureRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldPlaceFurnitureHandlerTests.cs` (error-path unit tests).
 
+### world.interact_tile
+
+Invokes the current location's furniture or object interaction at a tile. Furniture whose top-left `TileLocation` exactly matches the tile is tried first; if none matches, the handler checks `GameLocation.Objects` at that tile.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 13, "method": "world.interact_tile", "params": { "x": 8, "y": 9, "just_checking_for_activity": false } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 13, "result": { "ok": true, "tick": 84201, "handled": true, "target_type": "Furniture", "tile": { "x": 8, "y": 9 } } }
+```
+
+Response (`x` or `y` missing or less than 0 — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.x required" } }
+```
+
+Response (no furniture or object at the tile — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32003, "message": "no furniture or object at tile 8,9 in FarmHouse" } }
+```
+
+`tick` is `Game1.ticks` at the moment the interaction was attempted. `handled` is the boolean returned by SDV's `checkForAction` implementation.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode` and `Game1.hasLoadedGame`); `Game1.currentLocation` must contain furniture or an object at the tile.
+**Side effects:** calls SDV's `checkForAction` on the matched furniture or object, which may open menus or mutate game state depending on the target.
+**Implemented in:** `src/Harness/Handlers/WorldInteractTileHandler.cs`
+**Tested in:** `tests/Protocol.Tests/InteractTileRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldInteractTileHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.
