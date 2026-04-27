@@ -64,6 +64,7 @@ public static class HtmlReportGenerator
         sb.Append("<title>sdv-test run ").Append(WebUtility.HtmlEncode(s.RunId)).AppendLine("</title>");
         sb.AppendLine("<link rel=\"stylesheet\" href=\"assets/styles.css\">");
         sb.AppendLine("</head><body>");
+        sb.AppendLine("<nav class=\"breadcrumbs\"><a href=\"../index.html\">All reports</a></nav>");
         sb.Append("<h1>Run ").Append(WebUtility.HtmlEncode(s.RunId)).AppendLine("</h1>");
         sb.Append("<p class=\"summary\">").Append(passed).Append(" passed").Append(" / ").Append(total).Append(" total");
         sb.Append(" · ").Append(s.DurationMs).Append("ms · ").Append(WebUtility.HtmlEncode(s.Started)).AppendLine("</p>");
@@ -97,7 +98,7 @@ public static class HtmlReportGenerator
         sb.AppendLine("<link rel=\"stylesheet\" href=\"../../assets/styles.css\">");
         sb.AppendLine("</head><body>");
         sb.Append("<h1>").Append(WebUtility.HtmlEncode(s.Name)).AppendLine("</h1>");
-        sb.AppendLine("<p><a href=\"../../index.html\">← back to run</a></p>");
+        sb.AppendLine("<nav class=\"breadcrumbs\"><a href=\"../../index.html\">back to run</a> · <a href=\"../../../index.html\">All reports</a></nav>");
 
         var cls = s.Passed ? "pass" : "fail";
         sb.Append("<p class=\"badge ").Append(cls).Append("\">")
@@ -208,7 +209,7 @@ public static class HtmlReportGenerator
         sb.AppendLine("</head><body>");
         sb.AppendLine("<h1>Frobby Reports</h1>");
         sb.AppendLine("<table class=\"scenarios\">");
-        sb.AppendLine("<thead><tr><th>Run</th><th>Started</th><th>Duration</th><th>Scenarios</th></tr></thead>");
+        sb.AppendLine("<thead><tr><th>Run</th><th>Preview</th><th>Started</th><th>Duration</th><th>Scenarios</th></tr></thead>");
         sb.AppendLine("<tbody>");
 
         foreach (var dir in Directory.EnumerateDirectories(baseDir).OrderBy(Path.GetFileName))
@@ -243,14 +244,39 @@ public static class HtmlReportGenerator
                 }
             }
 
-            sb.Append("<tr><td><a href=\"").Append(WebUtility.HtmlEncode(runName))
-                .Append("/index.html\">").Append(WebUtility.HtmlEncode(runName)).Append("</a></td>");
+            var runUrl = $"{runName}/index.html";
+            sb.Append("<tr><td><a href=\"").Append(WebUtility.HtmlEncode(runUrl))
+                .Append("\">").Append(WebUtility.HtmlEncode(runName)).Append("</a></td>");
+            sb.Append("<td><button type=\"button\" class=\"preview-button\" data-report-src=\"")
+                .Append(WebUtility.HtmlEncode(runUrl))
+                .Append("\" data-report-title=\"")
+                .Append(WebUtility.HtmlEncode(runName))
+                .Append("\">Preview</button></td>");
             sb.Append("<td>").Append(WebUtility.HtmlEncode(started)).Append("</td>");
             sb.Append("<td>").Append(WebUtility.HtmlEncode(duration)).Append("</td>");
             sb.Append("<td>").Append(WebUtility.HtmlEncode(scenarios)).AppendLine("</td></tr>");
         }
 
         sb.AppendLine("</tbody></table>");
+        sb.AppendLine("<dialog id=\"report-modal\" class=\"report-modal\">");
+        sb.AppendLine("<form method=\"dialog\"><button class=\"modal-close\" aria-label=\"Close report preview\">Close</button></form>");
+        sb.AppendLine("<h2 id=\"report-modal-title\">Report preview</h2>");
+        sb.AppendLine("<iframe id=\"report-frame\" title=\"Report preview\"></iframe>");
+        sb.AppendLine("</dialog>");
+        sb.AppendLine("<script>");
+        sb.AppendLine("const modal = document.getElementById('report-modal');");
+        sb.AppendLine("const frame = document.getElementById('report-frame');");
+        sb.AppendLine("const title = document.getElementById('report-modal-title');");
+        sb.AppendLine("document.querySelectorAll('[data-report-src]').forEach(button => {");
+        sb.AppendLine("  button.addEventListener('click', () => {");
+        sb.AppendLine("    frame.src = button.dataset.reportSrc;");
+        sb.AppendLine("    title.textContent = button.dataset.reportTitle || 'Report preview';");
+        sb.AppendLine("    if (typeof modal.showModal === 'function') modal.showModal();");
+        sb.AppendLine("    else window.location.href = button.dataset.reportSrc;");
+        sb.AppendLine("  });");
+        sb.AppendLine("});");
+        sb.AppendLine("modal.addEventListener('close', () => { frame.removeAttribute('src'); });");
+        sb.AppendLine("</script>");
         sb.AppendLine("</body></html>");
         return sb.ToString();
     }
@@ -310,6 +336,14 @@ public static class HtmlReportGenerator
         table.scenarios tr.fail td.fail { color: #b03030; font-weight: bold; }
         a { color: #1556b0; text-decoration: none; }
         a:hover { text-decoration: underline; }
+        .breadcrumbs { margin: 0 0 1em; color: #666; }
+        button.preview-button, button.modal-close { border: 1px solid #bbb; background: #f7f7f7; border-radius: 4px; padding: 0.35em 0.65em; font: inherit; cursor: pointer; }
+        button.preview-button:hover, button.modal-close:hover { background: #eee; }
+        .report-modal { width: min(1200px, 94vw); height: min(860px, 88vh); border: 1px solid #999; border-radius: 6px; padding: 1em; }
+        .report-modal::backdrop { background: rgba(0, 0, 0, 0.35); }
+        .report-modal form { text-align: right; margin: 0; }
+        .report-modal h2 { margin-top: 0.4em; }
+        .report-modal iframe { width: 100%; height: calc(100% - 5.5em); border: 1px solid #ddd; }
         ol.steps li, ul.asserts li { padding: 0.3em 0; }
         ol.steps li.fail, ul.asserts li.fail { color: #b03030; }
         ol.steps li.pass, ul.asserts li.pass { color: #2d6a3e; }

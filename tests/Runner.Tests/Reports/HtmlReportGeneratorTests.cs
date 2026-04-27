@@ -59,6 +59,7 @@ public class HtmlReportGeneratorTests
             Assert.Contains("shop_menu_test", html);
             Assert.Contains("class=\"pass\"", html);
             Assert.DoesNotContain("class=\"fail\"", html);
+            Assert.Contains("<a href=\"../index.html\">All reports</a>", html);
         }
         finally { Directory.Delete(rd.Root, recursive: true); }
     }
@@ -144,6 +145,8 @@ public class HtmlReportGeneratorTests
 
             var html = File.ReadAllText(Path.Combine(rd.ScenariosDir, "visual_path", "report.html"));
             Assert.Contains("Warp to FarmHouse (8,10)", html);
+            Assert.Contains("<a href=\"../../index.html\">back to run</a>", html);
+            Assert.Contains("<a href=\"../../../index.html\">All reports</a>", html);
             Assert.Contains("class=\"step-screenshots\"", html);
             Assert.Contains("screenshots/step-00-player-warp.png", html);
             Assert.Contains("draw.text_contains &quot;OE TICKET&quot;", html);
@@ -170,6 +173,9 @@ public class HtmlReportGeneratorTests
             Assert.Contains("20-starberg-ui-quote-shell/index.html", html);
             Assert.Contains("23-starberg-ui-order-ticket/index.html", html);
             Assert.Contains("Frobby Reports", html);
+            Assert.Contains("<dialog id=\"report-modal\"", html);
+            Assert.Contains("data-report-src=\"20-starberg-ui-quote-shell/index.html\"", html);
+            Assert.Contains("<iframe id=\"report-frame\"", html);
         }
         finally
         {
