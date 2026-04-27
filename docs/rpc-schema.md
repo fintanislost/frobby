@@ -621,6 +621,47 @@ Response (no active menu — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.click_text
+
+Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. `params.text` is required and matches `draw.text_find`'s `text_contains` behavior. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
+
+`input.click_text` also accepts the text-draw region filters `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect` to disambiguate duplicate labels.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text": "SUBMIT ORDER" } }
+```
+
+Request with a region filter:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text": "CLOSE", "bounds_intersects_rect": [730, 58, 70, 22] } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 17, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing text — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.text required" } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32003, "message": "input.click_text requires an active menu" } }
+```
+
+Response (no captured match — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32003, "message": "input.click_text could not find captured text: SUBMIT ORDER" } }
+```
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`). Text events must already be captured by `draw.arm` plus enough wait time for the menu to draw before calling `input.click_text`.
+**Side effects:** calls `receiveLeftClick(centerX, centerY)` or `receiveRightClick(centerX, centerY)` on the active menu, where the coordinates come from the captured text bounds.
+**Implemented in:** `src/Harness/Handlers/InputClickTextHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickTextHandlerTests.cs` (validation, matching, occurrence, region filters, and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

@@ -36,4 +36,25 @@ public static class Input
             ProtocolJson.Options);
         await s.InvokeAsync("input.click", p, ct);
     }
+
+    /// <summary>Click the center of a captured text draw event in the active menu.</summary>
+    public static async Task ClickText(
+        string text,
+        string button = "left",
+        bool caseSensitive = true,
+        int occurrence = 1,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new InputClickTextRequest
+            {
+                Text = text,
+                Button = button,
+                CaseSensitive = caseSensitive,
+                Occurrence = occurrence,
+            },
+            ProtocolJson.Options);
+        await s.InvokeAsync("input.click_text", p, ct);
+    }
 }

@@ -175,6 +175,19 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task InputClickText_InvokesInputClickText()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Input.ClickText("CONTINUE"); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("input.click_text", inv.Calls[0].Method);
+        Assert.Contains("\"text\":\"CONTINUE\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"button\":\"left\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task TimeSet_InvokesTimeSetWithFields()
     {
         var inv = new CapturingInvoker();

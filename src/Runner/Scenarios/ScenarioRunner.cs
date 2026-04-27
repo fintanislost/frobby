@@ -285,6 +285,7 @@ public sealed class ScenarioRunner
             "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
