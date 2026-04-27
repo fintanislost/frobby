@@ -34,12 +34,13 @@ Six curated helpers + one raw passthrough:
 - **`list_fixtures()`** — enumerate `tests/fixtures/`.
 - **`warp_and_assert_draw(location, x, y, texture_asset, min_count?)`** — atomic warp + freeze + draw assertion. Returns `{passed, matched}`.
 - **`capture_state()`** — snapshot `{player, location, time, menu}`.
-- **`scaffold_scenario(name, fixture?, template?)`** — write a starter `.test.json`. Templates: `shop`, `menu`, `warp`, `npc_interaction`, `shop_purchase`, `tool_use`, `inventory_check`.
+- **`scaffold_scenario(name, fixture?, template?)`** — write a starter `.test.json`. Templates: `shop`, `menu`, `warp`, `npc_interaction`, `shop_purchase`, `tool_use`, `inventory_check`, `starberg_terminal`.
 - **`rpc_call(method, params?)`** — raw JSON-RPC passthrough. Escape hatch for everything else.
 
 ## 4. Environment knobs
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).
+- `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/home/fintan/stardewRepos/stonks/src/Starberg.Mod/bin/Release/net6.0`.
 - The MCP server lazy-launches SDV on first tool call that needs it. Tools that don't need SDV (`list_*`, `scaffold_scenario`) never trigger launch.
 - Stdio EOF tears down SDV cleanly.
 

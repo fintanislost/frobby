@@ -110,4 +110,24 @@ public class ScaffoldScenarioToolTests
         }
         finally { if (File.Exists(tmpOut)) File.Delete(tmpOut); }
     }
+
+    [Fact]
+    public async Task Scaffold_StarbergTerminalTemplate_UsesFurnitureInteractionAndMenuAssertion()
+    {
+        var tmpOut = Path.Combine(Path.GetTempPath(), $"mcp-scaf-{Guid.NewGuid():N}.test.json");
+        try
+        {
+            var tool = new ScaffoldScenarioTool();
+            var args = JsonDocument.Parse($"{{\"name\":\"starberg_terminal\",\"template\":\"starberg_terminal\",\"fixture\":\"m0spike_436515781\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
+            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+
+            Assert.False(result.IsError);
+            var json = File.ReadAllText(tmpOut);
+            Assert.Contains("world.place_furniture", json);
+            Assert.Contains("(F)stonks_starberg_terminal_v1", json);
+            Assert.Contains("world.interact_tile", json);
+            Assert.Contains("state.menu.type == 'TerminalMenu'", json);
+        }
+        finally { if (File.Exists(tmpOut)) File.Delete(tmpOut); }
+    }
 }
