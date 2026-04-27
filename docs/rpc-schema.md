@@ -403,6 +403,42 @@ Response (`type` not in the allowed set — InvalidParams):
 **Implemented in:** `src/Harness/Handlers/WorldSetWeatherHandler.cs`
 **Tested in:** `tests/Protocol.Tests/WeatherRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldSetWeatherHandlerTests.cs` (error-path unit tests).
 
+### world.place_furniture
+
+Creates furniture via SDV's `ItemRegistry` and adds it to a loaded location's furniture collection. `params.id` is required (non-empty qualified furniture item id, e.g. `"(F)1308"`); `params.location` is optional and defaults to the current location; `params.x` and `params.y` are required nonnegative tile coordinates; `params.remove_existing` is optional and defaults to `false`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 12, "method": "world.place_furniture", "params": { "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 12, "result": { "ok": true, "tick": 84200, "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "tile": { "x": 8, "y": 9 } } }
+```
+
+Response (missing/empty `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 12, "error": { "code": -32602, "message": "params.id required" } }
+```
+
+Response (`x` or `y` less than 0 — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 12, "error": { "code": -32602, "message": "params.x must be >= 0" } }
+```
+
+Response (unknown item id, non-furniture item, or unknown location — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 12, "error": { "code": -32003, "message": "unknown item id: (F)missing" } }
+```
+
+`tick` is `Game1.ticks` at the moment the furniture was added. When `remove_existing` is true, existing furniture whose top-left `TileLocation` exactly matches `x`/`y` is removed before the new furniture is added. Collision and placement-rule checks are intentionally not enforced by this RPC; it is a test harness mutator for constructing deterministic scenes.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`); `params.id` must resolve through `ItemRegistry.Exists` and create a `StardewValley.Objects.Furniture`; the requested location must exist when provided, otherwise `Game1.currentLocation` must be available.
+**Side effects:** mutates `GameLocation.furniture` by adding a freshly-created furniture instance and optionally removing furniture already anchored at the target tile.
+**Implemented in:** `src/Harness/Handlers/WorldPlaceFurnitureHandler.cs`
+**Tested in:** `tests/Protocol.Tests/PlaceFurnitureRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldPlaceFurnitureHandlerTests.cs` (error-path unit tests).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.
