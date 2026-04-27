@@ -65,6 +65,30 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task NextDay_InvokesTimeNextDayAndReturnsNewDate()
+    {
+        SdvTestSession.ResetForTests();  // Clear any prior state
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":90123,\"year\":1,\"season\":\"spring\",\"day_of_month\":2,\"time_of_day\":600}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        TimeNextDayResult result;
+        try { result = await Time.NextDay(); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("time.next_day", inv.Calls[0].Method);
+        Assert.Equal("", inv.Calls[0].ParamsJson);
+        Assert.Equal(90123, result.Tick);
+        Assert.Equal(1, result.Year);
+        Assert.Equal("spring", result.Season);
+        Assert.Equal(2, result.DayOfMonth);
+        Assert.Equal(600, result.TimeOfDay);
+    }
+
+    [Fact]
     public async Task SetWeather_InvokesWorldSetWeatherWithType()
     {
         SdvTestSession.ResetForTests();  // Clear any prior state

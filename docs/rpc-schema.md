@@ -373,6 +373,33 @@ Internally the handler calls `Game1.performTenMinuteClockUpdate` once per 10-min
 **Implemented in:** `src/Harness/Handlers/TimeAdvanceHandler.cs`
 **Tested in:** `tests/Protocol.Tests/TimeAdvanceRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/TimeAdvanceHandlerTests.cs` (error-path unit tests).
 
+### time.next_day
+
+Advances the active scenario through a deterministic testing day transition and returns the new date. This is not a `time.set` clone, but it also does not run SDV's full sleep/save/end-of-night UI. The handler raises SMAPI `GameLoop.DayEnding`, advances the SDV calendar by exactly one day, sets the clock to 06:00, raises SMAPI `GameLoop.DayStarted`, and returns the post-transition snapshot.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 11, "method": "time.next_day" }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 11, "result": { "ok": true, "tick": 90123, "year": 1, "season": "spring", "day_of_month": 2, "time_of_day": 600 } }
+```
+
+Response (invalid game state):
+```json
+← { "jsonrpc": "2.0", "id": 11, "error": { "code": -32003, "message": "time.next_day requires an active scenario (call scenario.begin first)" } }
+```
+
+`tick` is `Game1.ticks` after the transition. `year`, `season`, `day_of_month`, and `time_of_day` reflect the post-transition SDV date; `time_of_day` is always `600`.
+
+**Preconditions:** an active scenario; world loaded; no active menu; no minigame; no event; not mid-warp.
+**Side effects:** raises exactly one SMAPI `DayEnding`, advances date/time deterministically, then raises exactly one SMAPI `DayStarted`. It does not save, show sleep/end-of-night menus, run overnight farm simulation, or execute SDV's full sleep transition.
+**Fallback seam:** production and unit tests use `DeterministicTimeNextDayTransition`, which applies the same 28-day season/year rollover and fires day-ending then day-started callbacks in order.
+**Implemented in:** `src/Harness/Handlers/TimeNextDayHandler.cs`
+**Tested in:** `tests/Protocol.Tests/TimeNextDayResultSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/TimeNextDayHandlerTests.cs` (preconditions/projection/seam order).
+
 ### world.set_weather
 
 Sets the current location's weather to one of six documented values. `params.type` is required (non-empty string) and must be one of `sun`, `rain`, `storm`, `snow`, `wind`, `festival` (case-insensitive on input; mapped to the SDV 1.6 canonical ids `Sun`/`Rain`/`Storm`/`Snow`/`Wind`/`Festival`).

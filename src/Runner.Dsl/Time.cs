@@ -18,6 +18,17 @@ public static class Time
     }
 
     /// <summary>
+    /// Advance through Frobby's deterministic testing day transition and return the new
+    /// in-game date. This does not run SDV's sleep, save, or end-of-night UI.
+    /// </summary>
+    public static async Task<TimeNextDayResult> NextDay(CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var json = await s.InvokeAsync("time.next_day", null, ct);
+        return json.Deserialize<TimeNextDayResult>(ProtocolJson.Options)!;
+    }
+
+    /// <summary>
     /// Set the in-game clock and/or date directly. All parameters optional — at least one
     /// must be provided. <paramref name="time"/> is HHMM format (e.g. 1530 = 3:30pm).
     /// <paramref name="season"/> is one of "spring", "summer", "fall", "winter" (case-insensitive).
