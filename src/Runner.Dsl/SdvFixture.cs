@@ -50,6 +50,9 @@ public sealed class SdvFixture : IAsyncLifetime
         }
         Directory.CreateDirectory(modsPath);
         SdvTestFramework.Protocol.HarnessDeployer.Deploy(modsPath);
+        ExtraModDeployer.DeployMany(
+            modsPath,
+            ExtraModDeployer.ParseEnvList(Environment.GetEnvironmentVariable("SDV_EXTRA_MODS")));
 
         _sdv = SdvTestFramework.Protocol.SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath);
 

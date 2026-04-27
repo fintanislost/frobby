@@ -124,6 +124,7 @@ public static class BaselinesCommand
             Paths: paths,
             Filter: null,
             ModsPath: modsPath,
+            ExtraMods: Array.Empty<string>(),
             ReporterName: "console",
             OutputPath: null,
             Watch: false,

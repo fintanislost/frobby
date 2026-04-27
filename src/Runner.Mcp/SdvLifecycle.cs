@@ -44,6 +44,9 @@ public class SdvLifecycle : IAsyncDisposable
             }
             Directory.CreateDirectory(modsPath);
             HarnessDeployer.Deploy(modsPath);
+            ExtraModDeployer.DeployMany(
+                modsPath,
+                ExtraModDeployer.ParseEnvList(Environment.GetEnvironmentVariable("SDV_EXTRA_MODS")));
 
             _sdv = SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath);
 

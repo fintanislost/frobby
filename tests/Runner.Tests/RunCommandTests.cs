@@ -118,6 +118,81 @@ public class RunCommandTests
     }
 
     [Fact]
+    public async Task Run_ExtraModFlag_DeploysModIntoModsDir()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"run-extra-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var scenarios = Path.Combine(root, "scenarios");
+        var extra = Path.Combine(root, "extra");
+        Directory.CreateDirectory(mods);
+        Directory.CreateDirectory(scenarios);
+        Directory.CreateDirectory(extra);
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(extra, "manifest.json"),
+                "{\"Name\":\"Probe\",\"UniqueID\":\"Example.Probe\",\"EntryDll\":\"Probe.dll\"}");
+            File.WriteAllText(Path.Combine(extra, "Probe.dll"), "not real");
+
+            var outW = new StringWriter();
+            var priorOut = Console.Out;
+            Console.SetOut(outW);
+            int exit;
+            try
+            {
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[] { "--mods-path", mods, "--extra-mod", extra, scenarios }),
+                    CancellationToken.None);
+            }
+            finally { Console.SetOut(priorOut); }
+
+            Assert.Equal(0, exit);
+            Assert.True(File.Exists(Path.Combine(mods, "Example.Probe", "manifest.json")));
+            Assert.True(File.Exists(Path.Combine(mods, "Example.Probe", "Probe.dll")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Run_ExtraModMissingManifest_ReturnsTwo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"run-extra-bad-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var scenarios = Path.Combine(root, "scenarios");
+        var extra = Path.Combine(root, "extra");
+        Directory.CreateDirectory(mods);
+        Directory.CreateDirectory(scenarios);
+        Directory.CreateDirectory(extra);
+        try
+        {
+            var errW = new StringWriter();
+            var priorErr = Console.Error;
+            Console.SetError(errW);
+            int exit;
+            try
+            {
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[] { "--mods-path", mods, "--extra-mod", extra, scenarios }),
+                    CancellationToken.None);
+            }
+            finally { Console.SetError(priorErr); }
+
+            Assert.Equal(2, exit);
+            Assert.Contains("[extra-mod]", errW.ToString());
+            Assert.Contains("manifest", errW.ToString());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Run_InvalidScenarioFile_ReturnsTwo()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"run-bad-{Guid.NewGuid():N}");

@@ -68,11 +68,13 @@ internal static class Program
         w.WriteLine("                    If [socket] omitted, uses $SDV_TEST_SOCKET.");
         w.WriteLine("  doctor            Verify local environment (.NET, SDV install, SMAPI, Saves dir).");
         w.WriteLine("  list [path]       Scan <path> (default: cwd) recursively for *.test.json and validate each.");
-        w.WriteLine("  run [--filter <p>] [--mods-path <p>] [--reporter <c|tap|junit>] [--output <path>] [--watch] [--update-baselines] [--tier <generic|ci-ubuntu|self-hosted-nvidia>] [paths...]");
+        w.WriteLine("  run [--filter <p>] [--mods-path <p>] [--extra-mod <path>] [--reporter <c|tap|junit>] [--output <path>] [--watch] [--update-baselines] [--tier <generic|ci-ubuntu|self-hosted-nvidia>] [paths...]");
         w.WriteLine("                    Launch SDV, run scenarios, print summary.");
         w.WriteLine("                    --filter: case-insensitive substring on scenario name.");
         w.WriteLine("                    --mods-path: isolated mods dir for the harness to load from.");
         w.WriteLine("                                 Defaults to ~/.cache/sdv-test-framework/mods.");
+        w.WriteLine("                    --extra-mod: repeatable built SMAPI mod folder to stage into --mods-path.");
+        w.WriteLine("                                 Also reads path-list entries from $SDV_EXTRA_MODS.");
         w.WriteLine("                    --reporter: output format. One of 'console' (default),");
         w.WriteLine("                                'tap' (TAP 13), 'junit' (Jenkins XML).");
         w.WriteLine("                    --output: write reporter output to this path. Defaults to stdout.");

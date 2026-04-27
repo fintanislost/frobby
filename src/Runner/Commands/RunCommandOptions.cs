@@ -22,6 +22,7 @@ public sealed record RunCommandOptions(
     IReadOnlyList<string> Paths,
     string? Filter,
     string? ModsPath,
+    IReadOnlyList<string> ExtraMods,
     string ReporterName,
     string? OutputPath,
     bool Watch,

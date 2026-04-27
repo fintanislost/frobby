@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Protocol;
@@ -24,6 +25,7 @@ public static class RunCommand
     {
         // ---- parse args ----
         var paths = new List<string>();
+        var extraMods = new List<string>();
         string? filter = null;
         string? modsPath = null;
         string reporterName = "console";
@@ -40,6 +42,7 @@ public static class RunCommand
             var a = args.Span[i];
             if (a == "--filter" && i + 1 < args.Length) { filter = args.Span[++i]; continue; }
             if (a == "--mods-path" && i + 1 < args.Length) { modsPath = args.Span[++i]; continue; }
+            if (a == "--extra-mod" && i + 1 < args.Length) { extraMods.Add(args.Span[++i]); continue; }
             if (a == "--reporter" && i + 1 < args.Length) { reporterName = args.Span[++i]; continue; }
             if (a == "--output" && i + 1 < args.Length) { outputPath = args.Span[++i]; continue; }
             if (a == "--watch") { watch = true; continue; }
@@ -96,6 +99,7 @@ public static class RunCommand
             Paths: paths,
             Filter: filter,
             ModsPath: modsPath,
+            ExtraMods: extraMods,
             ReporterName: reporterName,
             OutputPath: outputPath,
             Watch: watch,
@@ -147,6 +151,23 @@ public static class RunCommand
         }
         Directory.CreateDirectory(modsPath);
         HarnessDeployer.Deploy(modsPath);
+        try
+        {
+            ExtraModDeployer.DeployMany(
+                modsPath,
+                opts.ExtraMods
+                    .Concat(ExtraModDeployer.ParseEnvList(Environment.GetEnvironmentVariable("SDV_EXTRA_MODS")))
+                    .Distinct(StringComparer.Ordinal));
+        }
+        catch (Exception ex) when (ex is ArgumentException
+            or DirectoryNotFoundException
+            or FileNotFoundException
+            or InvalidOperationException
+            or JsonException)
+        {
+            Console.Error.WriteLine($"[extra-mod] {ex.Message}");
+            return 2;
+        }
 
         // ---- discover + load scenarios ----
         var scenarios = new List<(string Path, ScenarioSpec Spec)>();
