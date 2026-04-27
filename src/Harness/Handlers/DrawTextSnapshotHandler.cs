@@ -40,8 +40,13 @@ public static class DrawTextSnapshotHandler
             Text = e.Text ?? string.Empty,
             X = (int)e.Position.X,
             Y = (int)e.Position.Y,
+            Width = NonNegativeCeiling(e.Size.X),
+            Height = NonNegativeCeiling(e.Size.Y),
             Color = new[] { (int)e.Color.R, (int)e.Color.G, (int)e.Color.B, (int)e.Color.A },
             LayerDepth = e.LayerDepth,
         };
     }
+
+    private static int NonNegativeCeiling(float value) =>
+        Math.Max(0, (int)Math.Ceiling(value));
 }

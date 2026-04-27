@@ -9,6 +9,7 @@ public struct TextDrawEvent
     public int CallIndex;
     public string Text;
     public Vector2 Position;
+    public Vector2 Size;
     public Color Color;
     public float LayerDepth;
 }

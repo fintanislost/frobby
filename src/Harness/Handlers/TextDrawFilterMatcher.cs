@@ -11,14 +11,13 @@ internal static class TextDrawFilterMatcher
     public static void Validate(TextDrawFilter filter)
     {
         if (filter.InRect is { } r)
-        {
-            if (r.Length != 4)
-                throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                    $"filter.in_rect must be [x, y, w, h] (got length {r.Length})");
-            if (r[2] < 0 || r[3] < 0)
-                throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                    "filter.in_rect width/height must be >= 0");
-        }
+            ValidateRect("filter.in_rect", r);
+
+        if (filter.BoundsWithinRect is { } within)
+            ValidateRect("filter.bounds_within_rect", within);
+
+        if (filter.BoundsIntersectsRect is { } intersects)
+            ValidateRect("filter.bounds_intersects_rect", intersects);
 
         if (filter.Color is { } c && c.Length != 4)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
@@ -59,11 +58,42 @@ internal static class TextDrawFilterMatcher
             if (!rect.Contains((int)e.Position.X, (int)e.Position.Y)) return false;
         }
 
+        if (f.BoundsWithinRect is { Length: 4 } within)
+        {
+            var rect = new Rectangle(within[0], within[1], within[2], within[3]);
+            if (!rect.Contains(TextBounds(in e))) return false;
+        }
+
+        if (f.BoundsIntersectsRect is { Length: 4 } intersects)
+        {
+            var rect = new Rectangle(intersects[0], intersects[1], intersects[2], intersects[3]);
+            if (!rect.Intersects(TextBounds(in e))) return false;
+        }
+
         if (f.LayerDepthRange is { Length: 2 } ldr)
         {
             if (e.LayerDepth < ldr[0] || e.LayerDepth > ldr[1]) return false;
         }
 
         return true;
+    }
+
+    private static void ValidateRect(string name, int[] rect)
+    {
+        if (rect.Length != 4)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                $"{name} must be [x, y, w, h] (got length {rect.Length})");
+        if (rect[2] < 0 || rect[3] < 0)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                $"{name} width/height must be >= 0");
+    }
+
+    private static Rectangle TextBounds(in TextDrawEvent e)
+    {
+        return new Rectangle(
+            (int)e.Position.X,
+            (int)e.Position.Y,
+            (int)Math.Ceiling(e.Size.X),
+            (int)Math.Ceiling(e.Size.Y));
     }
 }

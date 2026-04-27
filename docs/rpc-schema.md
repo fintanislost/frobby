@@ -779,6 +779,8 @@ Response:
           "text": "STARBERG TERMINAL v0.1.0",
           "x": 64,
           "y": 48,
+          "width": 180,
+          "height": 24,
           "color": [255, 176, 0, 255],
           "layer_depth": 0.91
         }
@@ -787,7 +789,7 @@ Response:
    } }
 ```
 
-`x` and `y` are the integer projection of the `DrawString` position. `color` is `[r, g, b, a]`. `meta.dropped` counts writes that overflowed the text ring buffer.
+`x` and `y` are the integer projection of the `DrawString` position. `width` and `height` are the measured text bounds from `SpriteFont.MeasureString`, scaled by the `DrawString` scale and rounded up to integer pixels. `color` is `[r, g, b, a]`. `meta.dropped` counts writes that overflowed the text ring buffer.
 
 **Implemented in:** `src/Harness/Handlers/DrawTextSnapshotHandler.cs`
 **Tested in:** `tests/Protocol.Tests/TextDrawEventSnapshotSerializationTests.cs` + `tests/Harness.Tests/DrawTextSnapshotHandlerTests.cs`.
@@ -812,6 +814,8 @@ Filter DSL fields (all optional, all ANDed):
 - `text_equals` (string) — whole-string match.
 - `case_sensitive` (bool) — defaults to `true`.
 - `in_rect` (`[x, y, w, h]`) — captured text position must be inside the rect.
+- `bounds_within_rect` (`[x, y, w, h]`) — captured text bounds must be fully contained in the rect.
+- `bounds_intersects_rect` (`[x, y, w, h]`) — captured text bounds must intersect the rect.
 - `color` (`[r, g, b, a]`) — exact match.
 - `layer_depth_range` (`[min, max]`) — inclusive on both ends.
 

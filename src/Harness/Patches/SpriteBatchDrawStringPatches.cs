@@ -85,40 +85,43 @@ internal static class SpriteBatchDrawStringPatches
     private static string Format(MethodInfo m) =>
         $"SpriteBatch.DrawString({string.Join(", ", m.GetParameters().Select(p => p.ParameterType.Name))})";
 
-    private static void Record(string? text, Vector2 position, Color color, float layerDepth)
+    private static void Record(SpriteFont? font, string? text, Vector2 position, Color color, Vector2 scale, float layerDepth)
     {
         if (!Recorder.IsArmed) return;
+        var value = text ?? string.Empty;
+        var measured = font is null ? Vector2.Zero : font.MeasureString(value) * scale;
         var (tick, call) = Recorder.NextId();
         Recorder.RecordText(new TextDrawEvent
         {
             Tick = tick,
             CallIndex = call,
-            Text = text ?? string.Empty,
+            Text = value,
             Position = position,
+            Size = measured,
             Color = color,
             LayerDepth = layerDepth,
         });
     }
 
     private static void Prefix_StringBasic(SpriteFont spriteFont, string text, Vector2 position, Color color) =>
-        Record(text, position, color, layerDepth: 0f);
+        Record(spriteFont, text, position, color, Vector2.One, layerDepth: 0f);
 
     private static void Prefix_StringScaleFloat(SpriteFont spriteFont, string text, Vector2 position, Color color,
         float rotation, Vector2 origin, float scale, SpriteEffects effects, float layerDepth) =>
-        Record(text, position, color, layerDepth);
+        Record(spriteFont, text, position, color, new Vector2(scale, scale), layerDepth);
 
     private static void Prefix_StringScaleVector(SpriteFont spriteFont, string text, Vector2 position, Color color,
         float rotation, Vector2 origin, Vector2 scale, SpriteEffects effects, float layerDepth) =>
-        Record(text, position, color, layerDepth);
+        Record(spriteFont, text, position, color, scale, layerDepth);
 
     private static void Prefix_StringBuilderBasic(SpriteFont spriteFont, StringBuilder text, Vector2 position, Color color) =>
-        Record(text?.ToString(), position, color, layerDepth: 0f);
+        Record(spriteFont, text?.ToString(), position, color, Vector2.One, layerDepth: 0f);
 
     private static void Prefix_StringBuilderScaleFloat(SpriteFont spriteFont, StringBuilder text, Vector2 position, Color color,
         float rotation, Vector2 origin, float scale, SpriteEffects effects, float layerDepth) =>
-        Record(text?.ToString(), position, color, layerDepth);
+        Record(spriteFont, text?.ToString(), position, color, new Vector2(scale, scale), layerDepth);
 
     private static void Prefix_StringBuilderScaleVector(SpriteFont spriteFont, StringBuilder text, Vector2 position, Color color,
         float rotation, Vector2 origin, Vector2 scale, SpriteEffects effects, float layerDepth) =>
-        Record(text?.ToString(), position, color, layerDepth);
+        Record(spriteFont, text?.ToString(), position, color, scale, layerDepth);
 }

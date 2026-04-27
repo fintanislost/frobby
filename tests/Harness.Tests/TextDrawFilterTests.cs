@@ -8,11 +8,19 @@ namespace SdvTestFramework.Harness.Tests;
 
 public class TextDrawFilterTests
 {
-    private static TextDrawEvent Event(string text = "STARBERG TERMINAL", int x = 64, int y = 48, Color? color = null, float z = 0.5f)
+    private static TextDrawEvent Event(
+        string text = "STARBERG TERMINAL",
+        int x = 64,
+        int y = 48,
+        int width = 120,
+        int height = 24,
+        Color? color = null,
+        float z = 0.5f)
         => new()
         {
             Text = text,
             Position = new Vector2(x, y),
+            Size = new Vector2(width, height),
             Color = color ?? Color.White,
             LayerDepth = z,
         };
@@ -59,6 +67,46 @@ public class TextDrawFilterTests
 
         Assert.True(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48), filter));
         Assert.False(TextDrawFilterMatcher.Matches(Event(x: 90, y: 48), filter));
+    }
+
+    [Fact]
+    public void BoundsWithinRect_RequiresFullTextBoundsInsideRect()
+    {
+        var filter = new TextDrawFilter { BoundsWithinRect = new[] { 60, 40, 140, 40 } };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48, width: 120, height: 24), filter));
+        Assert.False(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48, width: 160, height: 24), filter));
+    }
+
+    [Fact]
+    public void BoundsIntersectsRect_MatchesAnyOverlap()
+    {
+        var filter = new TextDrawFilter { BoundsIntersectsRect = new[] { 180, 50, 40, 20 } };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48, width: 120, height: 24), filter));
+        Assert.False(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48, width: 100, height: 24), filter));
+    }
+
+    [Theory]
+    [InlineData(new int[] { 0, 0, 10 }, "filter.bounds_within_rect must be [x, y, w, h]")]
+    [InlineData(new int[] { 0, 0, 10, -1 }, "filter.bounds_within_rect width/height must be >= 0")]
+    public void Validate_BoundsWithinRectRejectsInvalidRect(int[] rect, string message)
+    {
+        var ex = Assert.Throws<SdvTestFramework.Protocol.JsonRpcException>(() =>
+            TextDrawFilterMatcher.Validate(new TextDrawFilter { BoundsWithinRect = rect }));
+
+        Assert.Contains(message, ex.Message);
+    }
+
+    [Theory]
+    [InlineData(new int[] { 0, 0, 10 }, "filter.bounds_intersects_rect must be [x, y, w, h]")]
+    [InlineData(new int[] { 0, 0, -1, 10 }, "filter.bounds_intersects_rect width/height must be >= 0")]
+    public void Validate_BoundsIntersectsRectRejectsInvalidRect(int[] rect, string message)
+    {
+        var ex = Assert.Throws<SdvTestFramework.Protocol.JsonRpcException>(() =>
+            TextDrawFilterMatcher.Validate(new TextDrawFilter { BoundsIntersectsRect = rect }));
+
+        Assert.Contains(message, ex.Message);
     }
 
     [Fact]
