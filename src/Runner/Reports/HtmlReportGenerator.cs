@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -45,6 +46,12 @@ public static class HtmlReportGenerator
             var scenJson = JsonSerializer.Serialize(s, jsonOpts);
             File.WriteAllText(Path.Combine(scenDir, "steps.json"), scenJson);
         }
+    }
+
+    public static void GenerateHub(string baseDir)
+    {
+        Directory.CreateDirectory(baseDir);
+        File.WriteAllText(Path.Combine(baseDir, "index.html"), RenderHub(baseDir));
     }
 
     private static string RenderIndex(RunSummary s)
@@ -109,14 +116,16 @@ public static class HtmlReportGenerator
         else
         {
             sb.AppendLine("<ol class=\"steps\">");
-            foreach (var step in s.Steps)
+            for (var i = 0; i < s.Steps.Count; i++)
             {
+                var step = s.Steps[i];
                 var stepCls = step.Passed ? "pass" : "fail";
                 sb.Append("<li class=\"").Append(stepCls).Append("\">");
                 sb.Append("<code>").Append(WebUtility.HtmlEncode(step.Action)).Append("</code>");
                 sb.Append(" — ").Append(step.DurationMs).Append("ms");
                 if (step.Detail is { } d)
                     sb.Append(" — ").Append(WebUtility.HtmlEncode(d));
+                AppendStepScreenshots(sb, s.Screenshots, i);
                 sb.AppendLine("</li>");
             }
             sb.AppendLine("</ol>");
@@ -187,6 +196,85 @@ public static class HtmlReportGenerator
         return sb.ToString();
     }
 
+    private static string RenderHub(string baseDir)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html lang=\"en\"><head><meta charset=\"utf-8\">");
+        sb.AppendLine("<title>Frobby Reports</title>");
+        sb.AppendLine("<style>");
+        sb.AppendLine(CssTemplate);
+        sb.AppendLine("</style>");
+        sb.AppendLine("</head><body>");
+        sb.AppendLine("<h1>Frobby Reports</h1>");
+        sb.AppendLine("<table class=\"scenarios\">");
+        sb.AppendLine("<thead><tr><th>Run</th><th>Started</th><th>Duration</th><th>Scenarios</th></tr></thead>");
+        sb.AppendLine("<tbody>");
+
+        foreach (var dir in Directory.EnumerateDirectories(baseDir).OrderBy(Path.GetFileName))
+        {
+            var indexPath = Path.Combine(dir, "index.html");
+            if (!File.Exists(indexPath))
+                continue;
+
+            var runName = Path.GetFileName(dir);
+            var started = string.Empty;
+            var duration = string.Empty;
+            var scenarios = string.Empty;
+            var summaryPath = Path.Combine(dir, "summary.json");
+            if (File.Exists(summaryPath))
+            {
+                try
+                {
+                    var summary = JsonSerializer.Deserialize<RunSummary>(
+                        File.ReadAllText(summaryPath),
+                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+                    if (summary is not null)
+                    {
+                        started = summary.Started;
+                        duration = $"{summary.DurationMs}ms";
+                        var passed = summary.Scenarios.Count(s => s.Passed);
+                        scenarios = $"{passed}/{summary.Scenarios.Count} passed";
+                    }
+                }
+                catch
+                {
+                    // A broken summary should not hide the run link.
+                }
+            }
+
+            sb.Append("<tr><td><a href=\"").Append(WebUtility.HtmlEncode(runName))
+                .Append("/index.html\">").Append(WebUtility.HtmlEncode(runName)).Append("</a></td>");
+            sb.Append("<td>").Append(WebUtility.HtmlEncode(started)).Append("</td>");
+            sb.Append("<td>").Append(WebUtility.HtmlEncode(duration)).Append("</td>");
+            sb.Append("<td>").Append(WebUtility.HtmlEncode(scenarios)).AppendLine("</td></tr>");
+        }
+
+        sb.AppendLine("</tbody></table>");
+        sb.AppendLine("</body></html>");
+        return sb.ToString();
+    }
+
+    private static void AppendStepScreenshots(StringBuilder sb, IReadOnlyList<string> screenshots, int stepIndex)
+    {
+        var prefix = $"step-{stepIndex:D2}-";
+        var matches = screenshots
+            .Where(ss => Path.GetFileName(ss).StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matches.Count == 0)
+            return;
+
+        sb.AppendLine("<div class=\"step-screenshots\">");
+        foreach (var ss in matches)
+        {
+            var fileName = Path.GetFileName(ss);
+            sb.Append("<figure><img src=\"screenshots/").Append(WebUtility.HtmlEncode(fileName));
+            sb.Append("\" alt=\"").Append(WebUtility.HtmlEncode(fileName)).Append("\">");
+            sb.Append("<figcaption>").Append(WebUtility.HtmlEncode(fileName)).AppendLine("</figcaption></figure>");
+        }
+        sb.AppendLine("</div>");
+    }
+
     private static string SanitizeName(string name)
     {
         var invalid = Path.GetInvalidFileNameChars();
@@ -226,6 +314,10 @@ public static class HtmlReportGenerator
         ol.steps li.fail, ul.asserts li.fail { color: #b03030; }
         ol.steps li.pass, ul.asserts li.pass { color: #2d6a3e; }
         code { background: #f5f5f5; padding: 0.1em 0.4em; border-radius: 3px; }
+        .step-screenshots { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.7em; margin: 0.7em 0 0.4em; }
+        .step-screenshots figure { margin: 0; }
+        .step-screenshots img { max-width: 100%; border: 1px solid #ddd; }
+        .step-screenshots figcaption { font-size: 0.8em; color: #666; margin-top: 0.25em; }
         .screenshots { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1em; margin: 1em 0; }
         .screenshots figure { margin: 0; }
         .screenshots img { max-width: 100%; border: 1px solid #ddd; }

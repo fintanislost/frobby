@@ -29,6 +29,9 @@ public sealed class ScenarioReport
     /// <summary>Subset of <see cref="AssertionsRun"/> that passed.</summary>
     public int AssertionsPassed { get; set; }
 
+    /// <summary>Per-assertion outcomes with labels and details suitable for HTML reports.</summary>
+    public List<AssertionOutcome> Assertions { get; set; } = new();
+
     /// <summary>Human-readable failure messages — one per failed assertion or aborted step.</summary>
     public List<string> Failures { get; set; } = new();
 

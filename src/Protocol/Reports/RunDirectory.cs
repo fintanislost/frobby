@@ -27,12 +27,17 @@ public sealed class RunDirectory
     /// <c>YYYY-MM-DDTHH-mm-ss-&lt;hash&gt;</c>. Subdirs (scenarios/, assets/) are
     /// pre-created. Throws if the resulting directory already exists.
     /// </summary>
-    public static RunDirectory Create(string baseDir, string? explicitRunId = null)
+    public static RunDirectory Create(string baseDir, string? explicitRunId = null, bool replaceExisting = false)
     {
         var runId = explicitRunId ?? GenerateRunId();
         var root = Path.Combine(baseDir, runId);
         if (Directory.Exists(root))
-            throw new IOException($"run directory already exists: {root}");
+        {
+            if (replaceExisting)
+                Directory.Delete(root, recursive: true);
+            else
+                throw new IOException($"run directory already exists: {root}");
+        }
         Directory.CreateDirectory(root);
         Directory.CreateDirectory(Path.Combine(root, "scenarios"));
         Directory.CreateDirectory(Path.Combine(root, "assets"));

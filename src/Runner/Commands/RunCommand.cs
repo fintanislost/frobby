@@ -85,7 +85,13 @@ public static class RunCommand
             var baseDir = reportDirPath ?? Path.Combine(Directory.GetCurrentDirectory(), "test-results");
             try
             {
-                runDir = RunDirectory.Create(baseDir);
+                var explicitRunId = reportDirPath is null
+                    ? null
+                    : ReportRunId.ForExplicitReportBase(paths, filter);
+                runDir = RunDirectory.Create(
+                    baseDir,
+                    explicitRunId,
+                    replaceExisting: reportDirPath is not null);
                 Console.Error.WriteLine($"[run] report dir: {runDir.Root}");
             }
             catch (Exception ex)
@@ -383,6 +389,7 @@ public static class RunCommand
         {
             var summary = BuildRunSummary(runDir, runStarted, collected);
             HtmlReportGenerator.Generate(runDir, summary);
+            HtmlReportGenerator.GenerateHub(Directory.GetParent(runDir.Root)?.FullName ?? runDir.Root);
             Console.Out.WriteLine($"[run] report: {Path.Combine(runDir.Root, "index.html")}");
         }
 
@@ -394,10 +401,6 @@ public static class RunCommand
 
     /// <summary>
     /// Assemble a <see cref="RunSummary"/> from the collected scenario reports.
-    /// Per-assertion detail is a pragmatic MVP: passing assertions get type "?", failing
-    /// assertions include the failure message from <see cref="ScenarioReport.Failures"/>.
-    /// Per-assertion type tracking would require richer <see cref="ScenarioReport"/> fields
-    /// (Tier 4 followup).
     /// </summary>
     private static RunSummary BuildRunSummary(
         RunDirectory rd,
@@ -408,13 +411,9 @@ public static class RunCommand
         int totalDuration = 0;
         foreach (var report in reports)
         {
-            // Synthesize assertion outcomes: passing assertions get type "?" (no per-type
-            // tracking yet); failing assertions carry the message from Failures.
-            var assertions = new List<AssertionOutcome>(report.AssertionsRun);
-            for (int i = 0; i < report.AssertionsPassed; i++)
-                assertions.Add(new AssertionOutcome("?", true, null));
-            foreach (var failure in report.Failures)
-                assertions.Add(new AssertionOutcome("?", false, failure));
+            var assertions = report.Assertions.Count > 0
+                ? report.Assertions
+                : BuildFallbackAssertions(report);
 
             scenarioOutcomes.Add(new ScenarioOutcome(
                 Name: report.Name,
@@ -428,6 +427,16 @@ public static class RunCommand
             totalDuration += report.DurationMs;
         }
         return new RunSummary(rd.RunId, started.ToString("o"), totalDuration, scenarioOutcomes);
+    }
+
+    private static List<AssertionOutcome> BuildFallbackAssertions(ScenarioReport report)
+    {
+        var assertions = new List<AssertionOutcome>(report.AssertionsRun);
+        for (int i = 0; i < report.AssertionsPassed; i++)
+            assertions.Add(new AssertionOutcome("assertion", true, null));
+        foreach (var failure in report.Failures)
+            assertions.Add(new AssertionOutcome("assertion", false, failure));
+        return assertions;
     }
 
     /// <summary>

@@ -299,6 +299,9 @@ public class ScenarioRunnerTests
         Assert.Equal("Cash panel should be visible", textContainsParams.GetProperty("message").GetString());
         Assert.Equal("CASH & WIRES", textContainsParams.GetProperty("filter").GetProperty("text_contains").GetString());
         Assert.Equal("Error text should be absent", textNotContainsParams.GetProperty("message").GetString());
+        Assert.Equal("draw.text_contains \"CASH & WIRES\"", report.Assertions[0].Type);
+        Assert.Equal("Cash panel should be visible", report.Assertions[0].Detail);
+        Assert.Equal("draw.text_not_contains \"ERROR\"", report.Assertions[1].Type);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }

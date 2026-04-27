@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,7 +22,8 @@ namespace SdvTestFramework.Runner.Scenarios;
 /// When a <see cref="RunDirectory"/> is supplied the runner also:
 /// <list type="bullet">
 ///   <item>Populates <see cref="ScenarioReport.Steps"/> with per-step timing.</item>
-///   <item>Auto-captures a screenshot after each successful <c>freeze.begin</c>.</item>
+///   <item>Auto-captures a best-effort screenshot after each successful step.</item>
+///   <item>Captures the <c>freeze.begin</c> step without unfrozen capture bypass.</item>
 ///   <item>Captures a screenshot on every assertion failure.</item>
 ///   <item>Captures screenshots for explicit <c>screenshot.capture</c> steps.</item>
 /// </list>
@@ -142,7 +144,7 @@ public sealed class ScenarioRunner
             {
                 var stepSw = Stopwatch.StartNew();
                 bool stepPassed = true;
-                string? stepDetail = null;
+                string? stepDetail = DescribeStep(step);
                 try
                 {
                     // Client-side wait primitive — lets scripts pause between RPCs so async
@@ -170,7 +172,8 @@ public sealed class ScenarioRunner
                             {
                                 name = s;
                             }
-                            var path = await _recorder.CaptureAsync(_reportDir, spec.Name, name, ct);
+                            var path = await _recorder.CaptureAsync(
+                                _reportDir, spec.Name, name, ct, allowUnfrozen: true);
                             if (path is not null)
                                 report.Screenshots.Add(MakeRelativePath(_reportDir, path));
                         }
@@ -180,17 +183,10 @@ public sealed class ScenarioRunner
                         var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
-
-                        // Auto-capture after freeze.begin success so there's always a frozen-world
-                        // screenshot for debugging.
-                        if (step.Action == "freeze.begin" && _recorder is not null && _reportDir is not null)
-                        {
-                            var path = await _recorder.CaptureAsync(
-                                _reportDir, spec.Name, $"step-{stepIndex:D2}-after-freeze", ct);
-                            if (path is not null)
-                                report.Screenshots.Add(MakeRelativePath(_reportDir, path));
-                        }
                     }
+
+                    if (step.Action != "screenshot.capture")
+                        await TryCaptureStepScreenshotAsync(report, spec.Name, step, stepIndex, ct);
                 }
                 catch (Exception ex)
                 {
@@ -216,6 +212,10 @@ public sealed class ScenarioRunner
                 var (passed, detail) = await EvaluateAssertionAsync(a, assertionIndex, ct);
                 if (passed) report.AssertionsPassed++;
                 else report.Failures.Add($"{a.Type}: {detail ?? a.Message ?? "failed"}");
+                report.Assertions.Add(new AssertionOutcome(
+                    DescribeAssertion(a),
+                    passed,
+                    passed ? a.Message : detail ?? a.Message));
                 assertionIndex++;
             }
 
@@ -272,6 +272,113 @@ public sealed class ScenarioRunner
             await Task.Delay(500, ct);
         }
         throw new TimeoutException("world never became ready after fixture.load");
+    }
+
+    private static string DescribeStep(ScenarioStep step)
+    {
+        return step.Action switch
+        {
+            "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
+            "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
+            "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
+            "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
+            "freeze.begin" => "Freeze deterministic frame",
+            "freeze.end" => "Resume live frame",
+            "time.next_day" => "Advance to next day",
+            "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
+            _ => step.Args is null ? step.Action : $"{step.Action} {step.Args.Value.GetRawText()}",
+        };
+    }
+
+    private async Task TryCaptureStepScreenshotAsync(
+        ScenarioReport report,
+        string scenarioName,
+        ScenarioStep step,
+        int stepIndex,
+        CancellationToken ct)
+    {
+        if (_recorder is null || _reportDir is null)
+            return;
+
+        var name = step.Action == "freeze.begin"
+            ? $"step-{stepIndex:D2}-after-freeze"
+            : $"step-{stepIndex:D2}-{SanitizeScreenshotName(step.Action)}";
+        var path = await _recorder.CaptureAsync(
+            _reportDir,
+            scenarioName,
+            name,
+            ct,
+            allowUnfrozen: step.Action != "freeze.begin");
+        if (path is not null)
+            report.Screenshots.Add(MakeRelativePath(_reportDir, path));
+    }
+
+    private static string DescribeAssertion(ScenarioAssertion assertion)
+    {
+        return assertion.Type switch
+        {
+            "draw.text_contains" => $"draw.text_contains \"{GetFilterString(assertion, "text_contains") ?? "<text>"}\"",
+            "draw.text_not_contains" => $"draw.text_not_contains \"{GetFilterString(assertion, "text_contains") ?? "<text>"}\"",
+            "draw.contains" => $"draw.contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
+            "draw.not_contains" => $"draw.not_contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
+            "state" => string.IsNullOrWhiteSpace(assertion.Expr) ? "state" : $"state {assertion.Expr}",
+            "bitmap" => string.IsNullOrWhiteSpace(assertion.Baseline) ? "bitmap" : $"bitmap {assertion.Baseline}",
+            _ => assertion.Type,
+        };
+    }
+
+    private static string? GetStringArg(JsonElement? args, string name)
+        => args is { ValueKind: JsonValueKind.Object } obj
+            && obj.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+    private static int? GetIntArg(JsonElement? args, string name)
+        => args is { ValueKind: JsonValueKind.Object } obj
+            && obj.TryGetProperty(name, out var value)
+            && value.TryGetInt32(out var parsed)
+                ? parsed
+                : null;
+
+    private static bool? GetBoolArg(JsonElement? args, string name)
+        => args is { ValueKind: JsonValueKind.Object } obj
+            && obj.TryGetProperty(name, out var value)
+            && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
+                ? value.GetBoolean()
+                : null;
+
+    private static string? GetFilterString(ScenarioAssertion assertion, string name)
+        => assertion.Filter is { ValueKind: JsonValueKind.Object } obj
+            && obj.TryGetProperty(name, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+
+    private static string SanitizeScreenshotName(string value)
+    {
+        var chars = value.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray();
+        var compact = new System.Text.StringBuilder(chars.Length);
+        var previousDash = false;
+        foreach (var c in chars)
+        {
+            if (c == '-')
+            {
+                if (!previousDash)
+                    compact.Append(c);
+                previousDash = true;
+                continue;
+            }
+
+            compact.Append(c);
+            previousDash = false;
+        }
+
+        var result = compact.ToString().Trim('-');
+        return result.Length == 0 ? "step" : result;
     }
 
     /// <summary>

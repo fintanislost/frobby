@@ -17,7 +17,7 @@ public sealed class ScreenshotRecorder
     /// <summary>Test seam — production implementation calls <see cref="JsonRpcSession"/>.</summary>
     public interface IBitmapInvoker
     {
-        Task<string?> CaptureAsync(CancellationToken ct);
+        Task<string?> CaptureAsync(bool allowUnfrozen, CancellationToken ct);
     }
 
     private readonly IBitmapInvoker _invoker;
@@ -33,12 +33,17 @@ public sealed class ScreenshotRecorder
     /// Returns the absolute destination path, or null on capture failure (logs but
     /// doesn't throw — auto-captures shouldn't fail tests).
     /// </summary>
-    public async Task<string?> CaptureAsync(RunDirectory runDir, string scenarioName, string fileNameWithoutExt, CancellationToken ct)
+    public async Task<string?> CaptureAsync(
+        RunDirectory runDir,
+        string scenarioName,
+        string fileNameWithoutExt,
+        CancellationToken ct,
+        bool allowUnfrozen = false)
     {
         string? source;
         try
         {
-            source = await _invoker.CaptureAsync(ct);
+            source = await _invoker.CaptureAsync(allowUnfrozen, ct);
         }
         catch (Exception ex)
         {
@@ -67,9 +72,15 @@ public sealed class ScreenshotRecorder
         private readonly JsonRpcSession _session;
         public SessionInvoker(JsonRpcSession session) => _session = session;
 
-        public async Task<string?> CaptureAsync(CancellationToken ct)
+        public async Task<string?> CaptureAsync(bool allowUnfrozen, CancellationToken ct)
         {
-            var resp = await _session.InvokeAsync("bitmap.capture", params_: null, ct);
+            JsonElement? args = null;
+            if (allowUnfrozen)
+            {
+                args = JsonSerializer.SerializeToElement(new { allow_unfrozen = true });
+            }
+
+            var resp = await _session.InvokeAsync("bitmap.capture", args, ct);
             if (resp.Error is not null) return null;
             if (resp.Result is not { } r) return null;
             if (!r.TryGetProperty("path", out var pathEl) || pathEl.ValueKind != JsonValueKind.String)

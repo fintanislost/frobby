@@ -116,4 +116,65 @@ public class HtmlReportGeneratorTests
         }
         finally { Directory.Delete(rd.Root, recursive: true); }
     }
+
+    [Fact]
+    public void ScenarioReport_RendersStepScreenshotsNearMatchingStep()
+    {
+        var rd = MakeRunDir("stepshots");
+        try
+        {
+            var summary = new RunSummary(
+                rd.RunId, "2026-04-24T15:30:45Z", 100,
+                Scenarios: new[] { new ScenarioOutcome(
+                    "visual_path", null, true, 100,
+                    Steps: new[]
+                    {
+                        new StepOutcome("player.warp", true, 12, "Warp to FarmHouse (8,10)"),
+                        new StepOutcome("freeze.begin", true, 20, "Freeze deterministic frame"),
+                    },
+                    Assertions: new[] { new AssertionOutcome("draw.text_contains \"OE TICKET\"", true, "Order ticket tab visible") },
+                    Screenshots: new[]
+                    {
+                        "scenarios/visual_path/screenshots/step-00-player-warp.png",
+                        "scenarios/visual_path/screenshots/step-01-after-freeze.png",
+                    },
+                    Diffs: Array.Empty<DiffSet>()) });
+
+            HtmlReportGenerator.Generate(rd, summary);
+
+            var html = File.ReadAllText(Path.Combine(rd.ScenariosDir, "visual_path", "report.html"));
+            Assert.Contains("Warp to FarmHouse (8,10)", html);
+            Assert.Contains("class=\"step-screenshots\"", html);
+            Assert.Contains("screenshots/step-00-player-warp.png", html);
+            Assert.Contains("draw.text_contains &quot;OE TICKET&quot;", html);
+        }
+        finally { Directory.Delete(rd.Root, recursive: true); }
+    }
+
+    [Fact]
+    public void GenerateHub_LinksRunIndexesFromReportBase()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), $"htmlhub-{Guid.NewGuid():N}");
+        try
+        {
+            var first = RunDirectory.Create(baseDir, explicitRunId: "20-starberg-ui-quote-shell");
+            var second = RunDirectory.Create(baseDir, explicitRunId: "23-starberg-ui-order-ticket");
+            File.WriteAllText(Path.Combine(first.Root, "index.html"), "<!doctype html>");
+            File.WriteAllText(Path.Combine(second.Root, "index.html"), "<!doctype html>");
+            File.WriteAllText(Path.Combine(first.Root, "summary.json"), "{\"run_id\":\"20-starberg-ui-quote-shell\",\"started\":\"2026-04-24T15:30:45Z\",\"duration_ms\":12,\"scenarios\":[]}");
+            File.WriteAllText(Path.Combine(second.Root, "summary.json"), "{\"run_id\":\"23-starberg-ui-order-ticket\",\"started\":\"2026-04-24T15:31:45Z\",\"duration_ms\":34,\"scenarios\":[]}");
+
+            HtmlReportGenerator.GenerateHub(baseDir);
+
+            var html = File.ReadAllText(Path.Combine(baseDir, "index.html"));
+            Assert.Contains("20-starberg-ui-quote-shell/index.html", html);
+            Assert.Contains("23-starberg-ui-order-ticket/index.html", html);
+            Assert.Contains("Frobby Reports", html);
+        }
+        finally
+        {
+            if (Directory.Exists(baseDir))
+                Directory.Delete(baseDir, recursive: true);
+        }
+    }
 }

@@ -42,7 +42,11 @@ public static class BitmapCaptureHandler
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "bitmap.capture requires an active scenario (call scenario.begin first)");
 
-        if (!DeterminismController.Frozen)
+        var allowUnfrozen = paramsElement is { ValueKind: JsonValueKind.Object } p0
+            && p0.TryGetProperty("allow_unfrozen", out var allow)
+            && allow.ValueKind == JsonValueKind.True;
+
+        if (!allowUnfrozen && !DeterminismController.Frozen)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "bitmap.capture requires FREEZE phase (call freeze.begin first)");
 
