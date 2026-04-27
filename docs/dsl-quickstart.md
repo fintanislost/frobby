@@ -78,6 +78,7 @@ Environment knobs:
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
 - `World.SetWeather(type)`
+- `Input.Key(key)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`

@@ -50,6 +50,7 @@ public sealed class ModEntry : Mod
         _rpc.Register(WorldInteractNpcHandler.Method, p => WorldInteractNpcHandler.Handle(p));
         _rpc.Register(WorldPlaceFurnitureHandler.Method, p => WorldPlaceFurnitureHandler.Handle(p));
         _rpc.Register(WorldInteractTileHandler.Method, p => WorldInteractTileHandler.Handle(p));
+        _rpc.Register(InputKeyHandler.Method, p => InputKeyHandler.Handle(p));
         _rpc.Register(DrawArmHandler.Method, p => DrawArmHandler.Handle(p));
         _rpc.Register(DrawDisarmHandler.Method, p => DrawDisarmHandler.Handle(p));
         _rpc.Register(DrawSnapshotHandler.Method, p => DrawSnapshotHandler.Handle(p));
@@ -131,7 +132,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
 
         this.Monitor.Log(
-            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, world.set_weather, world.interact_npc, world.place_furniture, world.interact_tile. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture. Diagnostic: diagnostic.build_texture_manifest.",
+            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, world.set_weather, world.interact_npc, world.place_furniture, world.interact_tile, input.key. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture. Diagnostic: diagnostic.build_texture_manifest.",
             LogLevel.Info);
     }
 

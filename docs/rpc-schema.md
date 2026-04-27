@@ -470,6 +470,42 @@ Response (no furniture or object at the tile — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/WorldInteractTileHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InteractTileRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldInteractTileHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.key
+
+Sends a MonoGame key press to the currently active top-level menu (`Game1.activeClickableMenu`). `params.key` is required and is parsed case-insensitively as `Microsoft.Xna.Framework.Input.Keys`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 14, "method": "input.key", "params": { "key": "Enter" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 14, "result": { "ok": true, "tick": 84202 } }
+```
+
+Response (missing/empty `key` or missing `params` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params.key required" } }
+```
+
+Response (unknown key — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "unknown key: Return" } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32003, "message": "input.key requires an active menu" } }
+```
+
+`tick` is `Game1.ticks` at the moment the key press was delivered.
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`).
+**Side effects:** calls `Game1.activeClickableMenu.receiveKeyPress(key)`, so behavior is menu-specific.
+**Implemented in:** `src/Harness/Handlers/InputKeyHandler.cs`
+**Tested in:** `tests/Protocol.Tests/InputKeyRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/InputKeyHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

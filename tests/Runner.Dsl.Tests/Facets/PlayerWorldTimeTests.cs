@@ -112,6 +112,18 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task InputKey_InvokesInputKey()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Input.Key("Enter"); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("input.key", inv.Calls[0].Method);
+        Assert.Contains("\"key\":\"Enter\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task TimeSet_InvokesTimeSetWithFields()
     {
         var inv = new CapturingInvoker();
