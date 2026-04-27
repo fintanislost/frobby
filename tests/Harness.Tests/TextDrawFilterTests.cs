@@ -79,6 +79,14 @@ public class TextDrawFilterTests
     }
 
     [Fact]
+    public void BoundsWithinRect_TreatsNegativeEventSizeAsPositiveBounds()
+    {
+        var filter = new TextDrawFilter { BoundsWithinRect = new[] { 60, 40, 140, 40 } };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event(x: 64, y: 48, width: -120, height: -24), filter));
+    }
+
+    [Fact]
     public void BoundsIntersectsRect_MatchesAnyOverlap()
     {
         var filter = new TextDrawFilter { BoundsIntersectsRect = new[] { 180, 50, 40, 20 } };

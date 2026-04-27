@@ -61,13 +61,13 @@ internal static class TextDrawFilterMatcher
         if (f.BoundsWithinRect is { Length: 4 } within)
         {
             var rect = new Rectangle(within[0], within[1], within[2], within[3]);
-            if (!rect.Contains(TextBounds(in e))) return false;
+            if (!rect.Contains(e.Bounds)) return false;
         }
 
         if (f.BoundsIntersectsRect is { Length: 4 } intersects)
         {
             var rect = new Rectangle(intersects[0], intersects[1], intersects[2], intersects[3]);
-            if (!rect.Intersects(TextBounds(in e))) return false;
+            if (!rect.Intersects(e.Bounds)) return false;
         }
 
         if (f.LayerDepthRange is { Length: 2 } ldr)
@@ -88,12 +88,4 @@ internal static class TextDrawFilterMatcher
                 $"{name} width/height must be >= 0");
     }
 
-    private static Rectangle TextBounds(in TextDrawEvent e)
-    {
-        return new Rectangle(
-            (int)e.Position.X,
-            (int)e.Position.Y,
-            (int)Math.Ceiling(e.Size.X),
-            (int)Math.Ceiling(e.Size.Y));
-    }
 }

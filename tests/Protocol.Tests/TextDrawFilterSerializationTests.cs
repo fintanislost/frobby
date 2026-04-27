@@ -54,4 +54,14 @@ public class TextDrawFilterSerializationTests
 
         Assert.Equal(new[] { 100, 50, 200, 80 }, filter.BoundsWithinRect);
     }
+
+    [Fact]
+    public void Deserialize_AcceptsBoundsIntersectsRect()
+    {
+        var filter = JsonSerializer.Deserialize<TextDrawFilter>(
+            "{\"bounds_intersects_rect\":[100,50,200,80]}",
+            ProtocolJson.Options)!;
+
+        Assert.Equal(new[] { 100, 50, 200, 80 }, filter.BoundsIntersectsRect);
+    }
 }

@@ -789,7 +789,7 @@ Response:
    } }
 ```
 
-`x` and `y` are the integer projection of the `DrawString` position. `width` and `height` are the measured text bounds from `SpriteFont.MeasureString`, scaled by the `DrawString` scale and rounded up to integer pixels. `color` is `[r, g, b, a]`. `meta.dropped` counts writes that overflowed the text ring buffer.
+`x` and `y` are the integer projection of the `DrawString` position. `width` and `height` are the measured text bounds from `SpriteFont.MeasureString`, scaled by the `DrawString` scale, normalized to non-negative dimensions, and rounded up to integer pixels. Bounds are axis-aligned at the `DrawString` position; rotation, origin, and sprite effects are not expanded into transformed bounds. `color` is `[r, g, b, a]`. `meta.dropped` counts writes that overflowed the text ring buffer.
 
 **Implemented in:** `src/Harness/Handlers/DrawTextSnapshotHandler.cs`
 **Tested in:** `tests/Protocol.Tests/TextDrawEventSnapshotSerializationTests.cs` + `tests/Harness.Tests/DrawTextSnapshotHandlerTests.cs`.

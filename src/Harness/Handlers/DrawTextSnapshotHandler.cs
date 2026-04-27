@@ -33,20 +33,18 @@ public static class DrawTextSnapshotHandler
 
     public static TextDrawEventDto ToDto(in TextDrawEvent e)
     {
+        var bounds = e.Bounds;
         return new TextDrawEventDto
         {
             Tick = e.Tick,
             Call = e.CallIndex,
             Text = e.Text ?? string.Empty,
-            X = (int)e.Position.X,
-            Y = (int)e.Position.Y,
-            Width = NonNegativeCeiling(e.Size.X),
-            Height = NonNegativeCeiling(e.Size.Y),
+            X = bounds.X,
+            Y = bounds.Y,
+            Width = bounds.Width,
+            Height = bounds.Height,
             Color = new[] { (int)e.Color.R, (int)e.Color.G, (int)e.Color.B, (int)e.Color.A },
             LayerDepth = e.LayerDepth,
         };
     }
-
-    private static int NonNegativeCeiling(float value) =>
-        Math.Max(0, (int)Math.Ceiling(value));
 }

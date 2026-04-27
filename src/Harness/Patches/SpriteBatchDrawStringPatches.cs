@@ -15,6 +15,7 @@ namespace SdvTestFramework.Harness.Patches;
 internal static class SpriteBatchDrawStringPatches
 {
     private static readonly Dictionary<string, MethodInfo> _prefixes;
+    private static Func<SpriteFont?, string, Vector2> _measureString = DefaultMeasureString;
 
     static SpriteBatchDrawStringPatches()
     {
@@ -85,11 +86,16 @@ internal static class SpriteBatchDrawStringPatches
     private static string Format(MethodInfo m) =>
         $"SpriteBatch.DrawString({string.Join(", ", m.GetParameters().Select(p => p.ParameterType.Name))})";
 
+    internal static void SetMeasureStringForTests(Func<SpriteFont?, string, Vector2>? measureString)
+    {
+        _measureString = measureString ?? DefaultMeasureString;
+    }
+
     private static void Record(SpriteFont? font, string? text, Vector2 position, Color color, Vector2 scale, float layerDepth)
     {
         if (!Recorder.IsArmed) return;
         var value = text ?? string.Empty;
-        var measured = font is null ? Vector2.Zero : font.MeasureString(value) * scale;
+        var measured = TextDrawEvent.NormalizeSize(_measureString(font, value) * scale);
         var (tick, call) = Recorder.NextId();
         Recorder.RecordText(new TextDrawEvent
         {
@@ -102,6 +108,9 @@ internal static class SpriteBatchDrawStringPatches
             LayerDepth = layerDepth,
         });
     }
+
+    private static Vector2 DefaultMeasureString(SpriteFont? font, string value) =>
+        font is null ? Vector2.Zero : font.MeasureString(value);
 
     private static void Prefix_StringBasic(SpriteFont spriteFont, string text, Vector2 position, Color color) =>
         Record(spriteFont, text, position, color, Vector2.One, layerDepth: 0f);

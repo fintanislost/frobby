@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Xna.Framework;
 
 namespace SdvTestFramework.Harness.Recording;
@@ -12,4 +13,16 @@ public struct TextDrawEvent
     public Vector2 Size;
     public Color Color;
     public float LayerDepth;
+
+    public readonly Rectangle Bounds => new(
+        (int)Position.X,
+        (int)Position.Y,
+        ToPixelSize(Size.X),
+        ToPixelSize(Size.Y));
+
+    public static Vector2 NormalizeSize(Vector2 size) =>
+        new(Math.Abs(size.X), Math.Abs(size.Y));
+
+    private static int ToPixelSize(float value) =>
+        Math.Max(0, (int)Math.Ceiling(Math.Abs(value)));
 }

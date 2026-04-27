@@ -76,4 +76,19 @@ public class TextDrawSnapshotHandlerTests
         Assert.Equal(new[] { 255, 176, 0, 255 }, dto.Color);
         Assert.Equal(0.91f, dto.LayerDepth);
     }
+
+    [Fact]
+    public void ToDto_EmitsCeiledNonNegativeTextBounds()
+    {
+        var dto = DrawTextSnapshotHandler.ToDto(new TextDrawEvent
+        {
+            Text = "CASH & WIRES",
+            Position = new Vector2(100, 50),
+            Size = new Vector2(-132.1f, 23.2f),
+            Color = Color.White,
+        });
+
+        Assert.Equal(133, dto.Width);
+        Assert.Equal(24, dto.Height);
+    }
 }
