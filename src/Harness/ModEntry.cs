@@ -57,6 +57,10 @@ public sealed class ModEntry : Mod
         _rpc.Register(DrawFindHandler.Method, p => DrawFindHandler.Handle(p));
         _rpc.Register(DrawAssertContainsHandler.Method, p => DrawAssertContainsHandler.Handle(p));
         _rpc.Register(DrawAssertNotContainsHandler.Method, p => DrawAssertNotContainsHandler.Handle(p));
+        _rpc.Register(DrawTextSnapshotHandler.Method, p => DrawTextSnapshotHandler.Handle(p));
+        _rpc.Register(DrawTextFindHandler.Method, p => DrawTextFindHandler.Handle(p));
+        _rpc.Register(DrawAssertTextContainsHandler.Method, p => DrawAssertTextContainsHandler.Handle(p));
+        _rpc.Register(DrawAssertTextNotContainsHandler.Method, p => DrawAssertTextNotContainsHandler.Handle(p));
         ScenarioBeginHandler.Monitor = this.Monitor;
         _rpc.Register(ScenarioBeginHandler.Method, p => ScenarioBeginHandler.Handle(p));
         _rpc.Register(ScenarioEndHandler.Method, p => ScenarioEndHandler.Handle(p));
@@ -98,6 +102,7 @@ public sealed class ModEntry : Mod
                 LogLevel.Info);
         }
         SpriteBatchDrawPatches.Apply(harmony, this.Monitor);
+        SpriteBatchDrawStringPatches.Apply(harmony, this.Monitor);
         CursorPatches.Apply(harmony, this.Monitor);
         Determinism.TimeFreezePatch.Apply(harmony, this.Monitor);
         Determinism.DeterminismController.UseProductionHooks();
@@ -132,7 +137,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
 
         this.Monitor.Log(
-            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, world.set_weather, world.interact_npc, world.place_furniture, world.interact_tile, input.key. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture. Diagnostic: diagnostic.build_texture_manifest.",
+            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, world.set_weather, world.interact_npc, world.place_furniture, world.interact_tile, input.key. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture. Diagnostic: diagnostic.build_texture_manifest.",
             LogLevel.Info);
     }
 

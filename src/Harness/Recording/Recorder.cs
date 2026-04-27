@@ -22,6 +22,9 @@ public static class Recorder
     private static DrawEvent[] _buffer = Array.Empty<DrawEvent>();
     private static int _bufferHead;
     private static int _dropped;
+    private static TextDrawEvent[] _textBuffer = Array.Empty<TextDrawEvent>();
+    private static int _textBufferHead;
+    private static int _textDropped;
     private static int _callIndex;
     private static int _ticksRemaining;
 
@@ -42,6 +45,9 @@ public static class Recorder
         _buffer = new DrawEvent[capacity];
         _bufferHead = 0;
         _dropped = 0;
+        _textBuffer = new TextDrawEvent[capacity];
+        _textBufferHead = 0;
+        _textDropped = 0;
         _callIndex = 0;
         _capturedTicks = 0;
         _armed = false;
@@ -65,6 +71,8 @@ public static class Recorder
 
         _bufferHead = 0;
         _dropped = 0;
+        _textBufferHead = 0;
+        _textDropped = 0;
         _callIndex = 0;
         _capturedTicks = 0;
         _ticksRemaining = ticks;
@@ -98,6 +106,15 @@ public static class Recorder
         meta = new SnapshotMetadata(_capturedTicks, _dropped);
     }
 
+    /// <summary>Copy the current text draw buffer's contents for inspection.</summary>
+    public static void SnapshotTextEvents(out TextDrawEvent[] events, out SnapshotMetadata meta)
+    {
+        var copy = new TextDrawEvent[_textBufferHead];
+        System.Array.Copy(_textBuffer, copy, _textBufferHead);
+        events = copy;
+        meta = new SnapshotMetadata(_capturedTicks, _textDropped);
+    }
+
     public static void Disarm()
     {
         if (!_armed && !_armPending) return;
@@ -115,6 +132,17 @@ public static class Recorder
             return;
         }
         _buffer[_bufferHead++] = ev;
+    }
+
+    public static void RecordText(in TextDrawEvent ev)
+    {
+        if (!_armed) return;
+        if (_textBufferHead >= _textBuffer.Length)
+        {
+            _textDropped++;
+            return;
+        }
+        _textBuffer[_textBufferHead++] = ev;
     }
 
     public static (int tick, int callIndex) NextId() => (Game1.ticks, ++_callIndex);

@@ -539,7 +539,7 @@ Response (`ticks < 1`, malformed `ticks`, or unparseable params — InvalidParam
 `tick` is `Game1.ticks` at the moment the recorder was armed. If the world isn't ready (title screen / mid-load), arming is deferred until `Game1.gameMode == playingGameMode` — the response still returns `ok:true` immediately; the actual capture begins on the first qualifying tick. Disarm via `draw.disarm` at any time (or let the tick budget expire).
 
 **Preconditions:** none beyond the harness running — works from the title screen via deferred-arm.
-**Side effects:** primes the ring buffer, saves current `Game1.eventUp`/`displayHUD`, sets both per `.claude/rules/determinism.md`. Every `SpriteBatch.Draw` call until disarm is captured. If `output_path` is set, on disarm the buffer is written to disk as NDJSON.
+**Side effects:** primes the ring buffer, saves current `Game1.eventUp`/`displayHUD`, sets both per `.claude/rules/determinism.md`. Every `SpriteBatch.Draw` call and supported `SpriteBatch.DrawString` call until disarm is captured. If `output_path` is set, on disarm the texture draw buffer is written to disk as NDJSON.
 **Implemented in:** `src/Harness/Handlers/DrawArmHandler.cs`
 **Tested in:** `tests/Protocol.Tests/DrawArmRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/DrawArmHandlerTests.cs` (error-path unit tests).
 
@@ -691,6 +691,104 @@ Inverse of `draw.assert_contains` — succeeds when no captured draw event match
 `passed` is `true` iff `matched_count == 0`. `min_count` is always `0` in the response (kept in the shape for parity with `draw.assert_contains`). `message` passes through from the request for consumer display.
 
 **Errors:** `InvalidParams (-32602)` if the filter fails validation (same code path as `draw.assert_contains`).
+
+### draw.text_snapshot
+
+Returns the currently-buffered `SpriteBatch.DrawString` events from the recorder's in-memory text ring buffer. Takes no params. The text buffer is armed and reset by the same `draw.arm` window as texture draw capture.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "draw.text_snapshot" }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 18, "result": {
+      "events": [
+        {
+          "tick": 101,
+          "call": 7,
+          "text": "STARBERG TERMINAL v0.1.0",
+          "x": 64,
+          "y": 48,
+          "color": [255, 176, 0, 255],
+          "layer_depth": 0.91
+        }
+      ],
+      "meta": { "ticks": 30, "events": 1, "dropped": 0 }
+   } }
+```
+
+`x` and `y` are the integer projection of the `DrawString` position. `color` is `[r, g, b, a]`. `meta.dropped` counts writes that overflowed the text ring buffer.
+
+**Implemented in:** `src/Harness/Handlers/DrawTextSnapshotHandler.cs`
+**Tested in:** `tests/Protocol.Tests/TextDrawEventSnapshotSerializationTests.cs` + `tests/Harness.Tests/DrawTextSnapshotHandlerTests.cs`.
+
+### draw.text_find
+
+Query the captured text draw buffer with a `TextDrawFilter` and return every matching event. `params` is optional; omit it to return every captured text event.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "draw.text_find", "params": { "text_contains": "CASH", "case_sensitive": false } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 19, "result": { "events": [/* TextDrawEventDto */], "count": 1 } }
+```
+
+Filter DSL fields (all optional, all ANDed):
+
+- `text_contains` (string) — substring match.
+- `text_equals` (string) — whole-string match.
+- `case_sensitive` (bool) — defaults to `true`.
+- `in_rect` (`[x, y, w, h]`) — captured text position must be inside the rect.
+- `color` (`[r, g, b, a]`) — exact match.
+- `layer_depth_range` (`[min, max]`) — inclusive on both ends.
+
+**Implemented in:** `src/Harness/Handlers/DrawTextFindHandler.cs`
+**Tested in:** `tests/Harness.Tests/TextDrawFilterTests.cs`.
+
+### draw.assert_text_contains
+
+Assertion primitive for captured text. Counts matches of a `TextDrawFilter` against the text buffer and returns `passed: (matched_count >= min_count)`. `min_count` defaults to `1`; `message` is echoed.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 20, "method": "draw.assert_text_contains", "params": {
+      "filter": { "text_contains": "CASH & WIRES", "case_sensitive": true },
+      "min_count": 1,
+      "message": "Cash panel should be visible"
+   } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 20, "result": { "passed": true, "matched_count": 2, "min_count": 1, "message": "Cash panel should be visible" } }
+```
+
+**Errors:** `InvalidParams (-32602)` if params are missing, `min_count < 1`, or the filter shape is invalid.
+
+**Implemented in:** `src/Harness/Handlers/DrawAssertTextContainsHandler.cs`
+**Tested in:** `tests/Harness.Tests/DrawAssertTextContainsHandlerTests.cs`.
+
+### draw.assert_text_not_contains
+
+Inverse text assertion. Succeeds when no captured text event matches the filter.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 21, "method": "draw.assert_text_not_contains", "params": { "filter": { "text_contains": "ERROR" }, "message": "Error text should be absent" } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 21, "result": { "passed": true, "matched_count": 0, "min_count": 0, "message": "Error text should be absent" } }
+```
+
+**Implemented in:** `src/Harness/Handlers/DrawAssertTextNotContainsHandler.cs`
+**Tested in:** `tests/Harness.Tests/DrawAssertTextContainsHandlerTests.cs`.
 
 ### fixture.load
 

@@ -37,6 +37,8 @@ Six curated helpers + one raw passthrough:
 - **`scaffold_scenario(name, fixture?, template?)`** — write a starter `.test.json`. Templates: `shop`, `menu`, `warp`, `npc_interaction`, `shop_purchase`, `tool_use`, `inventory_check`, `starberg_terminal`.
 - **`rpc_call(method, params?)`** — raw JSON-RPC passthrough. Escape hatch for everything else.
 
+The `starberg_terminal` scaffold template arms draw capture, opens the terminal, and includes `draw.text_contains` assertions for visible terminal/cash text.
+
 ## 4. Environment knobs
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).

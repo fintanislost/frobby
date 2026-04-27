@@ -16,7 +16,7 @@ public sealed class ScenarioAssertion
     /// <summary>For <c>state</c> assertions: an expression over <c>state.*</c> queries.</summary>
     public string? Expr { get; set; }
 
-    /// <summary>For draw-call assertions: a <c>DrawFilter</c>-shaped JSON object.</summary>
+    /// <summary>For draw-call assertions: a <c>DrawFilter</c>- or <c>TextDrawFilter</c>-shaped JSON object.</summary>
     public JsonElement? Filter { get; set; }
 
     /// <summary>For draw-contains assertions: minimum match count (schema allows 0; runtime may tighten).</summary>

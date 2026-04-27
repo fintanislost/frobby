@@ -278,6 +278,10 @@ public sealed class ScenarioRunner
     /// Evaluate a single assertion. Currently supports:
     /// <list type="bullet">
     ///   <item><c>draw.contains</c> — delegates to <c>draw.assert_contains</c> RPC.</item>
+    ///   <item><c>draw.not_contains</c> — delegates to <c>draw.assert_not_contains</c> RPC.</item>
+    ///   <item><c>draw.text_contains</c> — delegates to <c>draw.assert_text_contains</c> RPC.</item>
+    ///   <item><c>draw.text_not_contains</c> — delegates to <c>draw.assert_text_not_contains</c> RPC.</item>
+    ///   <item><c>bitmap</c> — captures a screenshot and compares it to a baseline.</item>
     ///   <item><c>state</c> — minimal DSL: <c>state.&lt;method&gt;.&lt;path&gt; == '&lt;literal&gt;'</c>.</item>
     /// </list>
     /// </summary>
@@ -324,6 +328,43 @@ public sealed class ScenarioRunner
                 bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
                 if (!passed) await TryCaptureAssertionFailureAsync(ct);
                 return (passed, null);
+            }
+            case "draw.text_contains":
+            {
+                if (a.Filter is null) return (false, null);
+                var payload = new
+                {
+                    filter = a.Filter,
+                    min_count = a.MinCount,
+                    message = a.Message,
+                };
+                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
+                var resp = await _session.InvokeAsync("draw.assert_text_contains", req, ct);
+                if (resp.Error is not null)
+                {
+                    await TryCaptureAssertionFailureAsync(ct);
+                    return (false, resp.Error.Message);
+                }
+                if (resp.Result is not { } r) return (false, null);
+                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
+                if (!passed) await TryCaptureAssertionFailureAsync(ct);
+                return (passed, passed ? null : TextContainsFailureDetail(r));
+            }
+            case "draw.text_not_contains":
+            {
+                if (a.Filter is null) return (false, null);
+                var payload = new { filter = a.Filter, message = a.Message };
+                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
+                var resp = await _session.InvokeAsync("draw.assert_text_not_contains", req, ct);
+                if (resp.Error is not null)
+                {
+                    await TryCaptureAssertionFailureAsync(ct);
+                    return (false, resp.Error.Message);
+                }
+                if (resp.Result is not { } r) return (false, null);
+                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
+                if (!passed) await TryCaptureAssertionFailureAsync(ct);
+                return (passed, passed ? null : TextNotContainsFailureDetail(r));
             }
             case "bitmap":
             {
@@ -446,6 +487,31 @@ public sealed class ScenarioRunner
             default:
                 return (false, null);
         }
+    }
+
+    private static string? TextContainsFailureDetail(JsonElement result)
+    {
+        if (TryGetInt(result, "matched_count", out var matched) &&
+            TryGetInt(result, "min_count", out var min))
+        {
+            return $"matched {matched} < {min}";
+        }
+        return null;
+    }
+
+    private static string? TextNotContainsFailureDetail(JsonElement result)
+    {
+        if (TryGetInt(result, "matched_count", out var matched))
+            return $"matched {matched}";
+        return null;
+    }
+
+    private static bool TryGetInt(JsonElement obj, string propertyName, out int value)
+    {
+        value = 0;
+        return obj.ValueKind == JsonValueKind.Object
+            && obj.TryGetProperty(propertyName, out var property)
+            && property.TryGetInt32(out value);
     }
 
     /// <summary>

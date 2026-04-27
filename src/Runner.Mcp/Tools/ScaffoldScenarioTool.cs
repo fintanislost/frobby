@@ -147,6 +147,8 @@ public sealed class ScaffoldScenarioTool : ITool
             new JsonArray
             {
                 new JsonObject { ["type"] = "state", ["expr"] = "state.menu.type == 'TerminalMenu'", ["message"] = "Starberg terminal furniture should open TerminalMenu" },
+                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "STARBERG TERMINAL", ["case_sensitive"] = true }, ["message"] = "Starberg terminal title should be visible" },
+                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "CASH", ["case_sensitive"] = false }, ["message"] = "Cash panel text should be visible" },
             }),
 
         _ => new TemplateContent(new JsonArray(), new JsonArray()),
