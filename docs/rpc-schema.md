@@ -580,6 +580,47 @@ Response (no active menu — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputTextHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InputTextRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/InputTextHandlerTests.cs` (validation, text-entry dispatch, and fallback dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.click
+
+Sends a mouse click to the currently active top-level menu (`Game1.activeClickableMenu`). `params.x` and `params.y` are required screen-space coordinates. `params.button` is optional and defaults to `left`; supported values are `left` and `right`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 16, "method": "input.click", "params": { "x": 144, "y": 134 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 16, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing `params` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params required" } }
+```
+
+Response (missing coordinate — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.x required" } }
+```
+
+Response (bad button — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.button must be left or right" } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32003, "message": "input.click requires an active menu" } }
+```
+
+`tick` is `Game1.ticks` at the moment the click was delivered.
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`).
+**Side effects:** calls `Game1.activeClickableMenu.receiveLeftClick(x, y)` for left clicks or `receiveRightClick(x, y)` for right clicks, so behavior is menu-specific.
+**Implemented in:** `src/Harness/Handlers/InputClickHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

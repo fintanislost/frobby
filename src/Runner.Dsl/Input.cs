@@ -26,4 +26,14 @@ public static class Input
             ProtocolJson.Options);
         await s.InvokeAsync("input.text", p, ct);
     }
+
+    /// <summary>Click the active menu at screen coordinates.</summary>
+    public static async Task Click(int x, int y, string button = "left", CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new InputClickRequest { X = x, Y = y, Button = button },
+            ProtocolJson.Options);
+        await s.InvokeAsync("input.click", p, ct);
+    }
 }
