@@ -539,6 +539,47 @@ Response (no active menu — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputKeyHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InputKeyRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/InputKeyHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.text
+
+Sends text to the currently active top-level menu (`Game1.activeClickableMenu`). `params.text` is required. If the concrete menu exposes a `receiveTextInput(char)` or `receiveTextInput(string)` text-entry method, Frobby sends each character through that path. Otherwise it falls back to `receiveKeyPress` for supported characters: `A-Z`, `a-z`, `0-9`, and space. When `params.submit` is `true`, Frobby sends `Enter` after the text.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "input.text", "params": { "text": "OE", "submit": true } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 15, "result": { "ok": true, "tick": 84203 } }
+```
+
+Response (missing `params` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "params required" } }
+```
+
+Response (missing `text` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "params.text required" } }
+```
+
+Response (unsupported fallback character — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "unsupported character for input.text fallback: U+0021" } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32003, "message": "input.text requires an active menu" } }
+```
+
+`tick` is `Game1.ticks` at the moment the text input completed.
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`).
+**Side effects:** calls the active menu's text-input method when available, otherwise calls `receiveKeyPress` for each mapped character; optionally calls `receiveKeyPress(Keys.Enter)`.
+**Implemented in:** `src/Harness/Handlers/InputTextHandler.cs`
+**Tested in:** `tests/Protocol.Tests/InputTextRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/InputTextHandlerTests.cs` (validation, text-entry dispatch, and fallback dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

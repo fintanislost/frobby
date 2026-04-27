@@ -148,6 +148,19 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task InputText_InvokesInputText()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Input.Text("OE", submit: true); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("input.text", inv.Calls[0].Method);
+        Assert.Contains("\"text\":\"OE\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"submit\":true", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task TimeSet_InvokesTimeSetWithFields()
     {
         var inv = new CapturingInvoker();

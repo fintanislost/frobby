@@ -16,4 +16,14 @@ public static class Input
         var p = JsonSerializer.SerializeToElement(new InputKeyRequest { Key = key }, ProtocolJson.Options);
         await s.InvokeAsync("input.key", p, ct);
     }
+
+    /// <summary>Send text to the active menu.</summary>
+    public static async Task Text(string text, bool submit = false, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new InputTextRequest { Text = text, Submit = submit },
+            ProtocolJson.Options);
+        await s.InvokeAsync("input.text", p, ct);
+    }
 }
