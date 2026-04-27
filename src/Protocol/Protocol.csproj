@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Consumed by both Harness (net6.0, SMAPI runtime) and Runner (net8.0+).
+      net6.0 is the compatibility floor; net8.0 consumers can bind to it cleanly.
+    -->
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Protocol</RootNamespace>
+    <AssemblyName>SdvTestFramework.Protocol</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>SdvTestFramework.Protocol</PackageId>
+    <Description>JSON-RPC types and Stardew Valley test-framework transport. Transitive dependency of SdvTestFramework.Runner.Dsl and SdvTestFramework.Cli.</Description>
+    <PackageTags>stardew-valley;testing;json-rpc</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- JsonSchema.Net removed from Protocol — ScenarioLoader moved to Runner/Scenarios.
+       Protocol is shared with the Harness (net6.0 SMAPI mod); SMAPI's assembly rewriter
+       rejects JsonSchema.Net 7.x because it uses net8.0-only System.Text.Json APIs.
+       Runner and Runner.Mcp reference JsonSchema.Net directly at net10.0. -->
+
+  <ItemGroup>
+    <None Include="..\..\nuget\README-Protocol.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+</Project>

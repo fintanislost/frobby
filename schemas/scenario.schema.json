@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdv-test-framework/schemas/scenario.schema.json",
+  "title": "SDV Test Framework Scenario",
+  "type": "object",
+  "required": ["name", "steps"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "fixture": { "type": "string" },
+    "mods": { "type": "array", "items": { "type": "string" } },
+    "config": {
+      "type": "object",
+      "properties": {
+        "seed": { "type": "integer" },
+        "zoom": { "type": "number" },
+        "resolution": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": { "type": "string" },
+          "args": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "type": "string" },
+          "expr": { "type": "string" },
+          "filter": { "type": "object" },
+          "min_count": { "type": "integer", "minimum": 1 },
+          "message": { "type": "string" },
+          "baseline": { "type": "string" },
+          "tolerance": {
+            "type": "number",
+            "description": "Threshold; semantics depend on method. SSIM: float in (0, 1] (higher = stricter). pixel-exact: int >= 0 (max RGB channel delta allowed). dhash: int in [0, 64] (Hamming distance allowed)."
+          },
+          "method": {
+            "type": "string",
+            "enum": ["ssim", "pixel-exact", "dhash"],
+            "description": "Diff method. Default 'ssim'."
+          },
+          "tier": {
+            "type": "string",
+            "enum": ["generic", "ci-ubuntu", "self-hosted-nvidia"],
+            "description": "Per-assertion tier override of the run-wide --tier flag. Optional."
+          },
+          "region": {
+            "type": "object",
+            "required": ["x", "y", "w", "h"],
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 },
+              "w": { "type": "integer", "minimum": 1 },
+              "h": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          },
+          "diff_format": {
+            "type": "string",
+            "enum": ["files", "triptych", "all"],
+            "description": "Per-assertion override of the run-wide --diff-format flag. Optional."
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

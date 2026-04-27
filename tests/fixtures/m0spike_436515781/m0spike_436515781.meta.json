@@ -1,0 +1,15 @@
+{
+  "name": "m0spike_436515781",
+  "description": "Day-1 clean farmhouse from the M0 determinism spike. Manual capture — cannot be regenerated with the scripted builder. Serves as the initial root fixture for all derived fixtures.",
+  "sdv_version": "1.6.15",
+  "smapi_version": "4.5.2",
+  "mods_installed": [],
+  "created_at": "2026-04-22T00:00:00.0000000Z",
+  "created_by": "m0-determinism-spike",
+  "base": null,
+  "regenerate_with": "docs/spikes/2026-04-determinism/REPORT.md",
+  "farmer": {
+    "name": "Tester",
+    "gender": "female"
+  }
+}

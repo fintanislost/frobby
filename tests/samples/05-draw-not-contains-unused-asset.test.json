@@ -1,0 +1,16 @@
+{
+  "name": "draw_not_contains_unused_asset",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "draw.arm", "args": { "ticks": 30 } },
+    { "action": "time.advance", "args": { "minutes": 10 } }
+  ],
+  "assertions": [
+    {
+      "type": "draw.not_contains",
+      "filter": { "texture_asset": "Mods/SdvTestSample/NonExistentAsset" },
+      "message": "an asset the sample mod doesn't define must never render"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "Format": "2.6.0",
+  "Changes": [
+    {
+      "Action": "Load",
+      "Target": "Mods/SdvTestSample/TestMarker",
+      "FromFile": "assets/test-marker.png",
+      "LogName": "Load SdvTestSample/TestMarker"
+    },
+    {
+      "Action": "EditImage",
+      "Target": "LooseSprites/Cursors",
+      "FromFile": "assets/test-marker.png",
+      "ToArea": { "X": 0, "Y": 368, "Width": 16, "Height": 16 },
+      "LogName": "Patch cursor tile with test marker"
+    }
+  ]
+}

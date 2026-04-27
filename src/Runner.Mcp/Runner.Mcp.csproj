@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Runner.Mcp</RootNamespace>
+    <AssemblyName>Runner.Mcp</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Protocol\Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ScenarioLoader (moved out of Protocol to avoid SMAPI harness incompatibility)
+         requires JsonSchema.Net for scenario validation. Runner.Mcp hosts its own copy
+         of ScenarioLoader.cs to avoid a circular Runner.Mcp -> Runner project dependency. -->
+    <PackageReference Include="JsonSchema.Net" Version="7.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runner.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\schemas\scenario.schema.json">
+      <Link>schemas/scenario.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\schemas\fixture.schema.json">
+      <Link>schemas/fixture.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project>
+  <!-- Repo-wide build defaults. Per-project .csproj files may override. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+
+    <!-- Deterministic builds (for reproducible CI artefacts, not cryptographic guarantees). -->
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+
+    <NeutralLanguage>en</NeutralLanguage>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SdvTestFrameworkVersion>0.1.0</SdvTestFrameworkVersion>
+  </PropertyGroup>
+</Project>

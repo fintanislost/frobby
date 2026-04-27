@@ -1,0 +1,14 @@
+<Project>
+  <!-- Loaded AFTER each csproj so the IsPackable condition can see csproj-level
+       <IsPackable>true</IsPackable> values. The version + shared metadata is applied
+       only to packable projects. -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <Version>$(SdvTestFrameworkVersion)</Version>
+    <Authors>fintan + contributors</Authors>
+    <PackageProjectUrl>https://github.com/fintan/sdv-test-framework</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/fintan/sdv-test-framework</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright (c) fintan + sdv-test-framework contributors</Copyright>
+  </PropertyGroup>
+</Project>

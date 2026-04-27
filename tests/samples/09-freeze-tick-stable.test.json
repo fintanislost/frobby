@@ -1,0 +1,12 @@
+{
+  "name": "freeze_tick_stable",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "freeze.begin", "args": {} },
+    { "action": "time.advance", "args": { "minutes": 10 } },
+    { "action": "freeze.status", "args": {} },
+    { "action": "freeze.end", "args": {} }
+  ],
+  "assertions": []
+}

@@ -1,0 +1,10 @@
+{
+  "Name": "SDV Test Framework — M0 Spike Harness",
+  "Author": "sdv-test-framework (M0 spike)",
+  "Version": "0.0.1",
+  "Description": "Throwaway M0 determinism-spike harness. Harmony-patches SpriteBatch.Draw to a ring buffer, pinnable RNG, dumps JSONL on command. Do not ship.",
+  "UniqueID": "SdvTestFramework.SpikeHarness",
+  "EntryDll": "Harness.dll",
+  "MinimumApiVersion": "4.1.10",
+  "UpdateKeys": []
+}

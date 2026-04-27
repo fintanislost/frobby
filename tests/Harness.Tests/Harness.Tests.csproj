@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Unit tests for pieces of Harness that can be exercised without a live SDV (pure data
+      transforms, deterministic serializers). Harness integration tests that need a running
+      game live under tests/Harness.IntegrationTests/ and run via scripts/run-integration-tests.sh.
+    -->
+    <TargetFramework>net6.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>SdvTestFramework.Harness.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+
+    <!-- Same package used by Harness itself: resolves the installed SDV's MonoGame / XNA
+         refs so tests can reference Rectangle, Color, Vector2, SpriteEffects directly. -->
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.3.2" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- The ModBuildConfig is a SMAPI-mod helper; suppress its mod-specific outputs in a test project. -->
+    <EnableModDeploy>false</EnableModDeploy>
+    <EnableModZip>false</EnableModZip>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Harness\Harness.csproj" />
+  </ItemGroup>
+</Project>

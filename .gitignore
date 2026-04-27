@@ -1,0 +1,47 @@
+# .NET build outputs
+bin/
+obj/
+TestResults/
+test-results/
+
+# IDE/editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.DotSettings.user
+*.swp
+*.swo
+*~
+
+# NuGet/package artifacts
+*.nupkg
+*.snupkg
+packages/
+**/packages/**
+!**/packages/build/
+!**/packages/buildMultiTargeting/
+!**/packages/build/**
+!**/packages/buildMultiTargeting/**
+.nuget/
+
+# Local run outputs
+*.log
+*.binlog
+*.tmp
+*.pid
+*.stdout
+*.stderr
+*.commands
+*.jsonl
+
+# Spike/runtime outputs
+docs/spikes/**/scratch/logs/
+docs/spikes/**/scratch/mods-isolated/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini

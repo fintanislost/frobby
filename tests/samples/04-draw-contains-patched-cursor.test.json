@@ -1,0 +1,20 @@
+{
+  "name": "draw_contains_patched_cursor",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "draw.arm", "args": { "ticks": 60 } },
+    { "action": "wait.ms", "args": { "ms": 2000 } }
+  ],
+  "assertions": [
+    {
+      "type": "draw.contains",
+      "filter": {
+        "texture_asset": "LooseSprites/Cursors",
+        "color": [255, 255, 255, 255]
+      },
+      "min_count": 1,
+      "message": "the cursor atlas renders with default white tint — verifies the Color filter path"
+    }
+  ]
+}

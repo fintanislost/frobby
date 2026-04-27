@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      SMAPI 4.x runs on .NET 6 — mod must match the host runtime or it won't load.
+      The runner CLI (later milestone) is a separate process and can target net8.0+ freely.
+      Discrepancy with spec.md §1 is noted in docs/open-questions.md.
+    -->
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>SdvTestFramework.SpikeHarness</RootNamespace>
+    <AssemblyName>Harness</AssemblyName>
+
+    <!-- Spike scratch code, per .claude/rules/tdd.md §Exceptions. Keep iteration fast. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <!-- Pathoschild's ModBuildConfig looks up the SDV install dir and references
+         StardewValley.dll, StardewModdingAPI.dll, and the bundled 0Harmony.dll. -->
+    <EnableHarmony>true</EnableHarmony>
+
+    <!--
+      Do NOT auto-deploy or zip. The spike uses an isolated Mods directory (see
+      deploy-harness.sh) so it can load the harness alongside the user's installed
+      mods without clobbering their default Mods/ folder. The package's default
+      behaviour is to deploy into the game's default Mods/.
+    -->
+    <EnableModDeploy>false</EnableModDeploy>
+    <EnableModZip>false</EnableModZip>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.3.2" />
+  </ItemGroup>
+</Project>

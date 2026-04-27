@@ -1,0 +1,14 @@
+{
+  "name": "freeze_parallax_regression",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "player.warp", "args": { "location": "Beach", "x": 20, "y": 30 } },
+    { "action": "wait.ms", "args": { "ms": 2000 } },
+    { "action": "freeze.begin", "args": {} },
+    { "action": "draw.arm", "args": { "ticks": 60 } },
+    { "action": "wait.ms", "args": { "ms": 1000 } },
+    { "action": "freeze.end", "args": {} }
+  ],
+  "assertions": []
+}

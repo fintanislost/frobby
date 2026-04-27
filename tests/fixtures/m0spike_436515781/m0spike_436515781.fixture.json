@@ -1,0 +1,5 @@
+{
+  "name": "m0spike_436515781",
+  "base": null,
+  "description": "Day-1 clean farmhouse from the M0 determinism spike. Manual capture — cannot be regenerated with the scripted builder. Serves as the initial root fixture for all derived fixtures."
+}

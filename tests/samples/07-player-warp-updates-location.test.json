@@ -1,0 +1,12 @@
+{
+  "name": "player_warp_updates_location",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "player.warp", "args": { "location": "Farm", "x": 64, "y": 15 } },
+    { "action": "wait.ms", "args": { "ms": 2000 } }
+  ],
+  "assertions": [
+    { "type": "state", "expr": "state.location.name == 'Farm'" }
+  ]
+}

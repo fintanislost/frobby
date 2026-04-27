@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Harness/Harness.csproj" />
+    <Project Path="src/Protocol/Protocol.csproj" />
+    <Project Path="src/Runner/Runner.csproj" />
+    <Project Path="src/Runner.Dsl/Runner.Dsl.csproj" />
+    <Project Path="src/Runner.Mcp/Runner.Mcp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Harness.Tests/Harness.Tests.csproj" />
+    <Project Path="tests/Protocol.Tests/Protocol.Tests.csproj" />
+    <Project Path="tests/Runner.Tests/Runner.Tests.csproj" />
+    <Project Path="tests/Runner.Dsl.Tests/Runner.Dsl.Tests.csproj" />
+    <Project Path="tests/Runner.Mcp.Tests/Runner.Mcp.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Runner.Dsl</RootNamespace>
+    <AssemblyName>Runner.Dsl</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>SdvTestFramework.Runner.Dsl</PackageId>
+    <Description>Typed C# DSL for writing Stardew Valley mod tests. Pairs with SdvTestFramework.Cli for SDV launch and MCP server.</Description>
+    <PackageTags>stardew-valley;testing;xunit;dsl</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Protocol\Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Runner.Dsl.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\nuget\README-Dsl.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+</Project>

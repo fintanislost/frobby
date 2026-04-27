@@ -1,0 +1,10 @@
+{
+  "name": "state_time_after_load",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [],
+  "assertions": [
+    { "type": "state", "expr": "state.time.in_save == true" },
+    { "type": "state", "expr": "state.time.season == 'spring'" }
+  ]
+}

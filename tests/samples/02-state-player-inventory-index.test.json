@@ -1,0 +1,9 @@
+{
+  "name": "state_player_inventory_index",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [],
+  "assertions": [
+    { "type": "state", "expr": "state.location.objects[0].name != 'NonexistentObject'" }
+  ]
+}

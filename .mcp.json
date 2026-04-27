@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "description": "Library documentation lookup. Useful for .NET, Harmony, MonoGame API questions without web searches."
+    }
+  },
+  "_comments": {
+    "purpose": "Project-level MCP servers. Loaded when Claude Code runs in this repo.",
+    "superpowers": "The Superpowers plugin is installed separately via the marketplace (see install.sh). It doesn't live in this file.",
+    "future": "Once the framework's own MCP server exists (M3), add it here pointing at the local build for dogfooding."
+  }
+}

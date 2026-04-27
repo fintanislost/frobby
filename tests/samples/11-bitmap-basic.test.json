@@ -1,0 +1,18 @@
+{
+  "name": "bitmap_shop_menu_basic",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "draw.arm", "args": {} },
+    { "action": "wait.ms", "args": { "ms": 500 } },
+    { "action": "freeze.begin", "args": {} }
+  ],
+  "assertions": [
+    {
+      "type": "bitmap",
+      "baseline": "baselines/bitmap_shop_menu_basic.png",
+      "tolerance": 0.95,
+      "message": "shop menu framebuffer matches baseline"
+    }
+  ]
+}

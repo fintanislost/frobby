@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>SdvTestFramework.Runner.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
+    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Runner\Runner.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\schemas\scenario.schema.json">
+      <Link>schemas/scenario.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\schemas\fixture.schema.json">
+      <Link>schemas/fixture.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- The Runner bundles a harness-payload/ into its own output; HarnessDeployer reads it
+       from AppContext.BaseDirectory, which for this test project points here, not there.
+       Mirror the payload into our bin dir so deployer-exercising tests work. -->
+  <Target Name="StageHarnessPayloadForTests"
+          AfterTargets="Build"
+          Inputs="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\Harness.dll;..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\SdvTestFramework.Protocol.dll;..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\manifest.json"
+          Outputs="$(OutDir)harness-payload\Harness.dll;$(OutDir)harness-payload\SdvTestFramework.Protocol.dll;$(OutDir)harness-payload\manifest.json">
+    <MakeDir Directories="$(OutDir)harness-payload" />
+    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\Harness.dll"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\SdvTestFramework.Protocol.dll"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\manifest.json"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

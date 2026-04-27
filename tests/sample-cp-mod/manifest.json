@@ -1,0 +1,13 @@
+{
+  "Name": "SDV Test Framework — Sample CP Mod",
+  "Author": "sdv-test-framework",
+  "Version": "0.1.0",
+  "Description": "Minimal Content Patcher mod used by the framework's sample suite. Patches LooseSprites/Cursors with a recognisable color swatch so scenarios can assert against it via draw.assert_contains. Not intended for real gameplay.",
+  "UniqueID": "SdvTestFramework.SampleCpMod",
+  "MinimumApiVersion": "4.1.10",
+  "UpdateKeys": [],
+  "ContentPackFor": {
+    "UniqueID": "Pathoschild.ContentPatcher",
+    "MinimumVersion": "2.6.0"
+  }
+}

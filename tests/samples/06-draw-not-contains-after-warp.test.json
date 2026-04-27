@@ -1,0 +1,17 @@
+{
+  "name": "draw_not_contains_after_warp",
+  "fixture": "m0spike_436515781",
+  "config": { "seed": 42 },
+  "steps": [
+    { "action": "player.warp", "args": { "location": "Farm", "x": 64, "y": 15 } },
+    { "action": "draw.arm", "args": { "ticks": 30 } },
+    { "action": "time.advance", "args": { "minutes": 10 } }
+  ],
+  "assertions": [
+    {
+      "type": "draw.not_contains",
+      "filter": { "texture_asset": "Maps/townInterior" },
+      "message": "outside-town assets must not render while on the Farm"
+    }
+  ]
+}

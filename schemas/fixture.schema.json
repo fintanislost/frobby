@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdv-test-framework/schemas/fixture.schema.json",
+  "title": "SDV Test Framework Fixture Script",
+  "type": "object",
+  "required": ["name", "description"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "base": {
+      "description": "Name of existing fixture to load as a starting point. May be null for root fixtures captured outside the scripted builder path (e.g. migrated spike saves).",
+      "type": ["string", "null"]
+    },
+    "description": { "type": "string", "minLength": 1 },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": { "type": "string" },
+          "args": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

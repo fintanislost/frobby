@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Harness</RootNamespace>
+    <AssemblyName>Harness</AssemblyName>
+    <EnableHarmony>true</EnableHarmony>
+
+    <!-- Do not auto-deploy or zip. Deployment is managed by scripts (scripts/deploy.sh). -->
+    <EnableModDeploy>false</EnableModDeploy>
+    <EnableModZip>false</EnableModZip>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.3.2" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Protocol\Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="manifest.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test project needs reach into internals (e.g. DrawFilterMatcher for T11). -->
+    <InternalsVisibleTo Include="Harness.Tests" />
+  </ItemGroup>
+
+  <!-- ModBuildConfig suppresses default NuGet DLL copy. Explicitly copy ImageSharp and
+       JsonSchema.Net so SMAPI can resolve them at mod-load time. Protocol.csproj
+       references JsonSchema.Net; it must be staged alongside Protocol.dll or SMAPI's
+       assembly rewriter will fail to load the harness. DLL paths are read from resolved
+       NuGet reference items so we don't hard-code the version or NuGet cache path. -->
+  <Target Name="CopyImageSharpToOutput" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <_ImageSharpDll Include="@(RuntimeCopyLocalItems)"
+                      Condition="'%(Filename)' == 'SixLabors.ImageSharp'" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ImageSharpDll)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- JsonSchema.Net (referenced by Protocol.csproj/ScenarioLoader) must NOT be staged
+       in the mod folder. SMAPI's assembly rewriter tries to rewrite every DLL present
+       and would fail on JsonSchema.Net's net8.0 System.Text.Json API calls (those methods
+       don't exist in the .NET 6 host). Since the Harness never calls ScenarioLoader at
+       runtime, .NET lazy-loads assemblies only on first use, so JsonSchema.Net is never
+       actually resolved when the harness is running. Intentionally not staged. -->
+</Project>

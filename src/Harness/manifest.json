@@ -1,0 +1,10 @@
+{
+  "Name": "SDV Test Framework — Harness",
+  "Author": "sdv-test-framework",
+  "Version": "0.1.0",
+  "Description": "In-game harness for the SDV Test Framework. Only active when SDV_TEST_SOCKET is set. Harmony-patches SpriteBatch.Draw for semantic assertions and exposes an RPC server to the external runner.",
+  "UniqueID": "SdvTestFramework.Harness",
+  "EntryDll": "Harness.dll",
+  "MinimumApiVersion": "4.1.10",
+  "UpdateKeys": []
+}

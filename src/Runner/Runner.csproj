@@ -1,0 +1,104 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Runner is a separate process from the harness; net10.0 lets us use newer APIs.
+         The spec's "net8.0+" floor is satisfied. Harness stays on net6.0 (SMAPI's host runtime). -->
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Runner</RootNamespace>
+    <AssemblyName>sdv-test</AssemblyName>
+    <IsPackable>true</IsPackable>
+    <PackageId>SdvTestFramework.Cli</PackageId>
+    <Description>Stardew Valley test-framework CLI: launch SDV, run scenarios, scaffold templates, build texture manifests, MCP server.</Description>
+    <PackageTags>stardew-valley;testing;cli;mcp</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>sdv-test</ToolCommandName>
+
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Protocol\Protocol.csproj" />
+    <ProjectReference Include="..\Runner.Mcp\Runner.Mcp.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Test project needs reach into internals (e.g. ScenarioWatcher.TriggerForTests). -->
+    <InternalsVisibleTo Include="Runner.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\schemas\scenario.schema.json">
+      <Link>schemas/scenario.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\schemas\fixture.schema.json">
+      <Link>schemas/fixture.schema.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <!-- ScenarioLoader (moved from Protocol) uses JsonSchema.Net for scenario validation.
+         Runner targets net10.0 so the net8.0-targeted JsonSchema.Net 7.x works fine here. -->
+    <PackageReference Include="JsonSchema.Net" Version="7.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Harness artefacts get copied into the Runner's bin dir under harness-payload/
+         so `sdv-test run` can deploy them into the isolated Mods directory at runtime.
+         The ProjectReference below has ReferenceOutputAssembly=false so the Runner
+         doesn't actually link against the Harness (which targets net6.0). -->
+    <ProjectReference Include="..\Harness\Harness.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true"
+                      PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\nuget\README-Cli.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Embedded harness payload — extracted by HarnessDeployer at first NuGet-installed run.
+         Source-tree devs continue to use the StageHarnessPayload-cached version transparently
+         via HarnessDeployer's source-tree-cache-first lookup order.
+         Build-order dependency on Harness via the existing ProjectReference (ReferenceOutputAssembly=false). -->
+    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\Harness.dll"
+                     LogicalName="harness/Harness.dll"
+                     Visible="false" />
+    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll"
+                     LogicalName="harness/SdvTestFramework.Protocol.dll"
+                     Visible="false" />
+    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll"
+                     LogicalName="harness/SixLabors.ImageSharp.dll"
+                     Visible="false" />
+    <EmbeddedResource Include="..\Harness\manifest.json"
+                     LogicalName="harness/manifest.json"
+                     Visible="false" />
+  </ItemGroup>
+
+  <!-- Stage harness DLLs. JsonSchema.Net and its transitive deps are NOT staged because
+       SMAPI's assembly rewriter rejects them (they use net8.0-only System.Text.Json APIs
+       not available in the .NET 6 host). The harness never calls ScenarioLoader so those
+       assemblies are never actually loaded at runtime (lazy resolution). -->
+  <Target Name="StageHarnessPayload"
+          AfterTargets="Build"
+          Inputs="..\Harness\bin\$(Configuration)\net6.0\Harness.dll;..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll;..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll;..\Harness\manifest.json"
+          Outputs="$(OutDir)harness-payload\Harness.dll;$(OutDir)harness-payload\SdvTestFramework.Protocol.dll;$(OutDir)harness-payload\SixLabors.ImageSharp.dll;$(OutDir)harness-payload\manifest.json">
+    <MakeDir Directories="$(OutDir)harness-payload" />
+    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\Harness.dll"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="..\Harness\manifest.json"
+          DestinationFolder="$(OutDir)harness-payload"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
