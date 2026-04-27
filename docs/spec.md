@@ -148,7 +148,7 @@ Thin wrappers around SMAPI's `IReflectionHelper` plus direct access to `Game1.*`
 
 **Queries:**
 - `state.player` — farmer snapshot (money, stamina, health, level, skills, inventory)
-- `state.location(name?)` — current location, or named; objects/TerrainFeatures/NPCs
+- `state.location(name?)` — current location, or named; objects/furniture/TerrainFeatures/NPCs
 - `state.npc(name)` — position, schedule point, portrait, dialogue state
 - `state.friendship(npc)` — points, hearts, gift-given-today flag
 - `state.time` — date, season, year, time-of-day
