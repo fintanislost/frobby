@@ -17,6 +17,9 @@ public sealed class LocationState
     /// <summary>Placeable objects (crops, crafted items, debris) in this location.</summary>
     public List<ObjectSummary> Objects { get; set; } = new();
 
+    /// <summary>Furniture placed in this location.</summary>
+    public List<FurnitureSummary> Furniture { get; set; } = new();
+
     /// <summary>Terrain features (tilled dirt, grass, trees) in this location.</summary>
     public List<TerrainSummary> Terrain { get; set; } = new();
 }
@@ -32,6 +35,14 @@ public sealed class NpcSummary
 public sealed class ObjectSummary
 {
     public TilePoint Tile { get; set; } = new();
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>Minimal furniture descriptor for a location snapshot.</summary>
+public sealed class FurnitureSummary
+{
+    public TilePoint Tile { get; set; } = new();
+    public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
 }
 

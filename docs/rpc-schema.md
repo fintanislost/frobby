@@ -153,11 +153,12 @@ Response (success):
       "is_outdoors": true,
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
       "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds" }],
+      "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
       "terrain": [{ "tile": { "x": 12, "y": 12 }, "kind": "HoeDirt" }]
    } }
 ```
 
-If no location is loaded (e.g. on the title screen) or the requested name is unknown, the result contains an empty-string `name` with empty `npcs`/`objects`/`terrain` lists.
+If no location is loaded (e.g. on the title screen) or the requested name is unknown, the result contains an empty-string `name` with empty `npcs`/`objects`/`furniture`/`terrain` lists.
 
 **Preconditions:** world loaded. Same note as `state.player`.
 **Side effects:** none.

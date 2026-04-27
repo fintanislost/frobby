@@ -48,6 +48,20 @@ public static class StateLocationHandler
             });
         }
 
+        foreach (var furniture in loc.furniture)
+        {
+            state.Furniture.Add(new FurnitureSummary
+            {
+                Tile = new TilePoint
+                {
+                    X = (int)furniture.TileLocation.X,
+                    Y = (int)furniture.TileLocation.Y,
+                },
+                Id = furniture.QualifiedItemId ?? string.Empty,
+                Name = furniture.Name ?? furniture.GetType().Name,
+            });
+        }
+
         foreach (var kv in loc.terrainFeatures.Pairs)
         {
             state.Terrain.Add(new TerrainSummary
