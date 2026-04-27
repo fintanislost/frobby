@@ -50,6 +50,36 @@ public class InputKeyHandlerTests
     }
 
     [Fact]
+    public void Handle_DefinedNumericKey_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse($"{{\"key\":\"{(int)Keys.Enter}\"}}").RootElement;
+        var ex = Assert.Throws<JsonRpcException>(() => InputKeyHandler.Handle(p));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("unknown key", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_CombinedKeyNames_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse("{\"key\":\"A, B\"}").RootElement;
+        var ex = Assert.Throws<JsonRpcException>(() => InputKeyHandler.Handle(p));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("unknown key", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_NoneKey_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse("{\"key\":\"None\"}").RootElement;
+        var ex = Assert.Throws<JsonRpcException>(() => InputKeyHandler.Handle(p));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("unknown key", ex.Message);
+    }
+
+    [Fact]
     public void Handle_NoActiveMenu_ThrowsGameStateInvalid()
     {
         var p = JsonDocument.Parse("{\"key\":\"Enter\"}").RootElement;

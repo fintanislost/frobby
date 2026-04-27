@@ -27,8 +27,7 @@ public static class InputKeyHandler
         if (string.IsNullOrWhiteSpace(req.Key))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.key required");
 
-        if (!Enum.TryParse<Keys>(req.Key, ignoreCase: true, out var key)
-            || !Enum.IsDefined(key))
+        if (!TryParseKeyName(req.Key, out var key))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, $"unknown key: {req.Key}");
 
         var menu = getActiveMenu()
@@ -37,5 +36,21 @@ public static class InputKeyHandler
 
         menu.receiveKeyPress(key);
         return ProtocolJson.ToElement(new MutatorOk { Tick = getTick() });
+    }
+
+    private static bool TryParseKeyName(string rawKey, out Keys key)
+    {
+        key = default;
+        var keyName = rawKey.Trim();
+        foreach (var name in Enum.GetNames(typeof(Keys)))
+        {
+            if (!string.Equals(name, keyName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            key = Enum.Parse<Keys>(name);
+            return key != Keys.None;
+        }
+
+        return false;
     }
 }

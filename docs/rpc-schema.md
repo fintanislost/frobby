@@ -485,12 +485,17 @@ Response (success):
 ← { "jsonrpc": "2.0", "id": 14, "result": { "ok": true, "tick": 84202 } }
 ```
 
-Response (missing/empty `key` or missing `params` — InvalidParams):
+Response (missing `params` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params required" } }
+```
+
+Response (missing/empty `key` — InvalidParams):
 ```json
 ← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params.key required" } }
 ```
 
-Response (unknown key — InvalidParams):
+Response (unknown, numeric, combined, or reserved key — InvalidParams):
 ```json
 ← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "unknown key: Return" } }
 ```
@@ -839,7 +844,7 @@ The `sdv-test record <name>` CLI subcommand (M2 subproject 4) subscribes to the 
 - `state.*` — read-only queries, no replay value.
 - `scenario.begin`, `scenario.end` — the recorded scenario has its own lifecycle.
 
-**Captured:** all other methods — `player.*`, `time.*`, `world.*`, `fixture.load`, `draw.*`, `freeze.*`.
+**Captured:** all other methods — `player.*`, `time.*`, `world.*`, `input.*`, `fixture.load`, `draw.*`, `freeze.*`.
 
 On Ctrl-C (in an interactive terminal), the recorder writes `tests/samples/<name>.test.json` with `config.seed = 42` + recorded steps + empty `assertions` (user adds assertions post-hoc). Background-job SIGINT hits the same TTY/pipe quirk as watch mode — documented as a limitation.
 
