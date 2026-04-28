@@ -477,8 +477,8 @@ public sealed class ScenarioRunner
     {
         return assertion.Type switch
         {
-            "draw.text_contains" => $"draw.text_contains \"{GetFilterString(assertion, "text_contains") ?? "<text>"}\"",
-            "draw.text_not_contains" => $"draw.text_not_contains \"{GetFilterString(assertion, "text_contains") ?? "<text>"}\"",
+            "draw.text_contains" => $"draw.text_contains \"{GetTextFilterLabel(assertion)}\"",
+            "draw.text_not_contains" => $"draw.text_not_contains \"{GetTextFilterLabel(assertion)}\"",
             "draw.contains" => $"draw.contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "draw.not_contains" => $"draw.not_contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "state" => string.IsNullOrWhiteSpace(assertion.Expr) ? "state" : $"state {assertion.Expr}",
@@ -517,6 +517,11 @@ public sealed class ScenarioRunner
             && value.ValueKind == JsonValueKind.String
                 ? value.GetString()
                 : null;
+
+    private static string GetTextFilterLabel(ScenarioAssertion assertion)
+        => GetFilterString(assertion, "text_contains")
+            ?? GetFilterString(assertion, "text_equals")
+            ?? "<text>";
 
     private static string SanitizeScreenshotName(string value)
     {

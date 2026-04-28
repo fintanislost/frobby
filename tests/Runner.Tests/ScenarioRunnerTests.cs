@@ -506,7 +506,7 @@ public class ScenarioRunnerTests
     {
         var socket = SocketPath();
         var calls = new List<string>();
-        var textContainsParams = default(JsonElement);
+        var textContainsParams = new List<JsonElement>();
         var textNotContainsParams = default(JsonElement);
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
@@ -518,7 +518,7 @@ public class ScenarioRunnerTests
                 {
                     calls.Add(req.Method);
                     if (req.Method == "draw.assert_text_contains" && req.Params is { } contains)
-                        textContainsParams = contains.Clone();
+                        textContainsParams.Add(contains.Clone());
                     if (req.Method == "draw.assert_text_not_contains" && req.Params is { } notContains)
                         textNotContainsParams = notContains.Clone();
 
@@ -563,6 +563,13 @@ public class ScenarioRunnerTests
                     Filter = JsonDocument.Parse("{\"text_contains\":\"ERROR\"}").RootElement,
                     Message = "Error text should be absent",
                 },
+                new ScenarioAssertion
+                {
+                    Type = "draw.text_contains",
+                    Filter = JsonDocument.Parse("{\"text_equals\":\"0.00 SBD\",\"bounds_intersects_rect\":[560,190,310,40]}").RootElement,
+                    MinCount = 1,
+                    Message = "Unsettled cell should show zero",
+                },
             },
         };
 
@@ -571,13 +578,16 @@ public class ScenarioRunnerTests
         Assert.True(report.Passed);
         Assert.Contains("draw.assert_text_contains", calls);
         Assert.Contains("draw.assert_text_not_contains", calls);
-        Assert.Equal(1, textContainsParams.GetProperty("min_count").GetInt32());
-        Assert.Equal("Cash panel should be visible", textContainsParams.GetProperty("message").GetString());
-        Assert.Equal("CASH & WIRES", textContainsParams.GetProperty("filter").GetProperty("text_contains").GetString());
+        Assert.Equal(2, textContainsParams.Count);
+        Assert.Equal(1, textContainsParams[0].GetProperty("min_count").GetInt32());
+        Assert.Equal("Cash panel should be visible", textContainsParams[0].GetProperty("message").GetString());
+        Assert.Equal("CASH & WIRES", textContainsParams[0].GetProperty("filter").GetProperty("text_contains").GetString());
+        Assert.Equal("0.00 SBD", textContainsParams[1].GetProperty("filter").GetProperty("text_equals").GetString());
         Assert.Equal("Error text should be absent", textNotContainsParams.GetProperty("message").GetString());
         Assert.Equal("draw.text_contains \"CASH & WIRES\"", report.Assertions[0].Type);
         Assert.Equal("Cash panel should be visible", report.Assertions[0].Detail);
         Assert.Equal("draw.text_not_contains \"ERROR\"", report.Assertions[1].Type);
+        Assert.Equal("draw.text_contains \"0.00 SBD\"", report.Assertions[2].Type);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
