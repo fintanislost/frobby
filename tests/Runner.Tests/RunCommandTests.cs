@@ -118,6 +118,33 @@ public class RunCommandTests
     }
 
     [Fact]
+    public async Task Run_HeadlessFlag_ConsumedNotTreatedAsPath()
+    {
+        var scenarios = Path.Combine(Path.GetTempPath(), $"run-headless-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(scenarios);
+        try
+        {
+            var outW = new StringWriter();
+            var priorOut = Console.Out;
+            Console.SetOut(outW);
+            int exit;
+            try
+            {
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[] { "--headless", scenarios }),
+                    CancellationToken.None);
+            }
+            finally { Console.SetOut(priorOut); }
+            Assert.Equal(0, exit);
+            Assert.Contains("no scenarios matched", outW.ToString());
+        }
+        finally
+        {
+            Directory.Delete(scenarios, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Run_ExtraModFlag_DeploysModIntoModsDir()
     {
         var root = Path.Combine(Path.GetTempPath(), $"run-extra-{Guid.NewGuid():N}");

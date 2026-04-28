@@ -22,6 +22,17 @@ For headless testing:
 sudo pacman -S xorg-server-xvfb
 ```
 
+Frobby's CLI can launch Stardew through `xvfb-run` so test runs do not use the
+active desktop display or mouse cursor:
+
+```bash
+dotnet run --project src/Runner -- run --headless tests/samples
+dotnet run --project src/Runner -- run-suite --headless tests/samples
+```
+
+Set `SDV_TEST_HEADLESS=1` to make all `SdvLauncher` callers use the same Xvfb
+wrapper without adding the CLI flag.
+
 ### Windows specifics
 
 ```powershell
@@ -84,4 +95,5 @@ The RPC loop runs on a background thread; game-thread work runs on `UpdateTicked
 
 **"Harmony patch failed to apply"** — SDV version changed. Run `./scripts/doctor.sh` which will list which patches resolved and which didn't.
 
-**Xvfb tests hang** — `DISPLAY=:99` must be set before SDV launches. Check `scripts/run-integration-tests.sh` sets it correctly.
+**Xvfb tests hang** — use `sdv-test run --headless` or set `SDV_TEST_HEADLESS=1`
+so the runner starts Stardew through `xvfb-run` before SDV launches.

@@ -37,6 +37,7 @@ public static class RunCommand
         DiffFormat diffFormat = DiffFormat.Files;
         string runWideTier = "generic";
         bool noCacheCleanup = false;
+        bool headless = false;
         for (int i = 0; i < args.Length; i++)
         {
             var a = args.Span[i];
@@ -50,6 +51,7 @@ public static class RunCommand
             if (a == "--report-dir" && i + 1 < args.Length) { reportDirPath = args.Span[++i]; continue; }
             if (a == "--no-report") { noReport = true; continue; }
             if (a == "--no-cache-cleanup") { noCacheCleanup = true; continue; }
+            if (a == "--headless") { headless = true; continue; }
             if (a == "--diff-format" && i + 1 < args.Length)
             {
                 var raw = args.Span[++i];
@@ -115,6 +117,7 @@ public static class RunCommand
             DiffFormat: diffFormat,
             Tier: runWideTier,
             NoCacheCleanup: noCacheCleanup,
+            Headless: headless,
             PreCreatedRunDir: runDir);
 
         return await RunFromOptions(opts, ct);
@@ -243,7 +246,7 @@ public static class RunCommand
 
         // ---- launch SDV + connect ----
         var socket = Path.Combine(Path.GetTempPath(), $"sdv-test-{Guid.NewGuid():N}.sock");
-        using var sdv = SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath);
+        using var sdv = SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath, headless: opts.Headless);
         try
         {
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

@@ -250,6 +250,7 @@ Single binary, .NET 8. Commands:
 [tool] run <path>                  # run scenarios matching path
 [tool] run --filter <pattern>      # filter by name
 [tool] run --watch                 # rerun on file change (dev loop)
+[tool] run --headless              # launch SDV under xvfb-run
 [tool] run-suite <path>            # run each scenario in a fresh SDV process
 [tool] record <scenario>           # interactive mode: play manually, framework records steps
 [tool] baseline update <scenario>  # regenerate bitmap baselines
@@ -267,6 +268,8 @@ Single binary, .NET 8. Commands:
 scenario files, then invokes `run` once per scenario so every scenario starts from a
 fresh SMAPI process. When `--report-dir` is supplied, each scenario writes a stable
 numbered report directory under the shared base and the base `index.html` links them.
+Both `run` and `run-suite` accept `--headless`; this wraps SMAPI with `xvfb-run`
+so SDV renders on an isolated X server instead of the active desktop.
 
 **Reporters:** console (default, Playwright-style), TAP (for CI composition), JUnit XML (for GitLab/GitHub CI visualization).
 

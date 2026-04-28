@@ -129,6 +129,10 @@ captures via `await Screenshot.Capture("after_my_action")` from the DSL or
 CLI flag: `sdv-test run --report-dir <path>` to override the default location, or
 `--no-report` to skip generation.
 
+Use `sdv-test run --headless` or `sdv-test run-suite --headless` on Linux to
+launch SDV through `xvfb-run` so the game does not take over the active desktop
+display or mouse cursor.
+
 **DSL caveat:** when running tests via `dotnet test` (the DSL path), only `summary.json` is
 written today — the rich `index.html` + per-scenario reports come from the CLI runner
 (`sdv-test run`). Per-test screenshots from `Screenshot.Capture` ARE saved into the run

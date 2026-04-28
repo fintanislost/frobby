@@ -69,13 +69,15 @@ internal static class Program
         w.WriteLine("                    If [socket] omitted, uses $SDV_TEST_SOCKET.");
         w.WriteLine("  doctor            Verify local environment (.NET, SDV install, SMAPI, Saves dir).");
         w.WriteLine("  list [path]       Scan <path> (default: cwd) recursively for *.test.json and validate each.");
-        w.WriteLine("  run [--filter <p>] [--mods-path <p>] [--extra-mod <path>] [--reporter <c|tap|junit>] [--output <path>] [--watch] [--update-baselines] [--tier <generic|ci-ubuntu|self-hosted-nvidia>] [paths...]");
+        w.WriteLine("  run [--filter <p>] [--mods-path <p>] [--extra-mod <path>] [--headless] [--reporter <c|tap|junit>] [--output <path>] [--watch] [--update-baselines] [--tier <generic|ci-ubuntu|self-hosted-nvidia>] [paths...]");
         w.WriteLine("                    Launch SDV, run scenarios, print summary.");
         w.WriteLine("                    --filter: case-insensitive substring on scenario name.");
         w.WriteLine("                    --mods-path: isolated mods dir for the harness to load from.");
         w.WriteLine("                                 Defaults to ~/.cache/sdv-test-framework/mods.");
         w.WriteLine("                    --extra-mod: repeatable built SMAPI mod folder to stage into --mods-path.");
         w.WriteLine("                                 Also reads path-list entries from $SDV_EXTRA_MODS.");
+        w.WriteLine("                    --headless: launch through xvfb-run so SDV does not use");
+        w.WriteLine("                                the active desktop display or mouse cursor.");
         w.WriteLine("                    --reporter: output format. One of 'console' (default),");
         w.WriteLine("                                'tap' (TAP 13), 'junit' (Jenkins XML).");
         w.WriteLine("                    --output: write reporter output to this path. Defaults to stdout.");
@@ -85,7 +87,7 @@ internal static class Program
         w.WriteLine("                                        write the current capture as the new baseline + pass.");
         w.WriteLine("                    --tier: tolerance preset for bitmap assertions. Maps to per-method");
         w.WriteLine("                            defaults: generic→0.95 SSIM, ci-ubuntu→0.98, self-hosted-nvidia→0.999.");
-        w.WriteLine("  run-suite [--fresh-process-per-scenario] [--filter <p>] [--mods-path <p>]");
+        w.WriteLine("  run-suite [--fresh-process-per-scenario] [--filter <p>] [--mods-path <p>] [--headless]");
         w.WriteLine("            [--extra-mod <path>] [--report-dir <path>] [paths...]");
         w.WriteLine("                    Run each discovered scenario via a separate 'run' invocation.");
         w.WriteLine("                    This is the preferred flow for mod UI suites that need a fresh");

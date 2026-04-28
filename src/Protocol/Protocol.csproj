@@ -22,4 +22,9 @@
   <ItemGroup>
     <None Include="..\..\nuget\README-Protocol.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Protocol.Tests verifies launcher process construction without starting SDV. -->
+    <InternalsVisibleTo Include="Protocol.Tests" />
+  </ItemGroup>
 </Project>

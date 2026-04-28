@@ -46,6 +46,7 @@ public class RunSuiteCommandTests
                         "--report-dir", reports,
                         "--tier", "self-hosted-nvidia",
                         "--diff-format", "triptych",
+                        "--headless",
                         scenarios,
                     }.AsMemory(),
                     CancellationToken.None);
@@ -70,6 +71,7 @@ public class RunSuiteCommandTests
                 Assert.Contains("self-hosted-nvidia", call);
                 Assert.Contains("--diff-format", call);
                 Assert.Contains("triptych", call);
+                Assert.Contains("--headless", call);
             }
         }
         finally

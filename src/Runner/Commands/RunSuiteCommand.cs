@@ -180,6 +180,7 @@ public static class RunSuiteCommand
 
                 case "--update-baselines":
                 case "--no-cache-cleanup":
+                case "--headless":
                     passThrough.Add(value);
                     continue;
 

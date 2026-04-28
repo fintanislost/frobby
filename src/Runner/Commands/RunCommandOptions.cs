@@ -32,4 +32,5 @@ public sealed record RunCommandOptions(
     DiffFormat DiffFormat,
     string Tier,
     bool NoCacheCleanup,
+    bool Headless,
     RunDirectory? PreCreatedRunDir);

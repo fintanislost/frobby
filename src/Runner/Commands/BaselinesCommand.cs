@@ -134,6 +134,7 @@ public static class BaselinesCommand
             DiffFormat: DiffFormat.Files,
             Tier: tier,
             NoCacheCleanup: false,
+            Headless: false,
             PreCreatedRunDir: null);
 
         return await RunExecutor(opts, ct);
