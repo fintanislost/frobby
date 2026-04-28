@@ -657,6 +657,59 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task TextAllWithinAssertion_PassesWhenMatchingTextBoundsFitRegion()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var report = await RunSingleAssertionAsync(
+            new ScenarioAssertion
+            {
+                Type = "draw.text_all_within",
+                Filter = JsonDocument.Parse("{\"text_contains\":\"COMPLIANCE\",\"case_sensitive\":true}").RootElement,
+                Region = JsonDocument.Parse("[100,100,200,80]").RootElement,
+                Message = "Compliance text should fit the document pane",
+            },
+            req => req.Method switch
+            {
+                "draw.text_snapshot" => JsonRpcResponse.Ok(req.Id, JsonDocument.Parse(
+                    "{\"events\":[{\"text\":\"COMPLIANCE WORKFLOW\",\"x\":120,\"y\":110,\"width\":170,\"height\":24,\"color\":[255,176,0,255],\"layer_depth\":0.9}],\"meta\":{\"ticks\":1,\"events\":1,\"dropped\":0}}").RootElement),
+                _ => null,
+            },
+            cts);
+
+        Assert.True(report.Passed);
+        Assert.Single(report.Assertions);
+        Assert.Equal("draw.text_all_within \"COMPLIANCE\"", report.Assertions[0].Type);
+    }
+
+    [Fact]
+    public async Task TextAllWithinAssertion_FailsWhenMatchingTextBoundsOverflowRegion()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var report = await RunSingleAssertionAsync(
+            new ScenarioAssertion
+            {
+                Type = "draw.text_all_within",
+                Filter = JsonDocument.Parse("{\"text_contains\":\"CUSTOMER AGREEMENT\",\"case_sensitive\":true}").RootElement,
+                Region = JsonDocument.Parse("[100,100,200,80]").RootElement,
+                Message = "Agreement body text should fit the document pane",
+            },
+            req => req.Method switch
+            {
+                "draw.text_snapshot" => JsonRpcResponse.Ok(req.Id, JsonDocument.Parse(
+                    "{\"events\":[{\"text\":\"CUSTOMER AGREEMENT BODY OVERFLOW\",\"x\":120,\"y\":110,\"width\":260,\"height\":24,\"color\":[255,255,255,255],\"layer_depth\":0.9}],\"meta\":{\"ticks\":1,\"events\":1,\"dropped\":0}}").RootElement),
+                _ => null,
+            },
+            cts);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("CUSTOMER AGREEMENT BODY OVERFLOW", failure);
+        Assert.Contains("bounds [120,110,260,24] outside [100,100,200,80]", failure);
+    }
+
+    [Fact]
     public async Task DrawTextContainsFailure_IncludesMatchedAndMinCountDetail()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

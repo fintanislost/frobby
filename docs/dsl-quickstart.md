@@ -133,6 +133,25 @@ Use `sdv-test run --headless` or `sdv-test run-suite --headless` on Linux to
 launch SDV through `xvfb-run` so the game does not take over the active desktop
 display or mouse cursor.
 
+### Text-fit assertions
+
+The CLI runner supports `draw.text_all_within` for UI layout guardrails. It snapshots
+captured `SpriteBatch.DrawString` text, applies the optional `filter`, and fails if any
+matching text bounds fall outside the required `region` rectangle.
+
+```json
+{
+  "type": "draw.text_all_within",
+  "filter": { "bounds_intersects_rect": [64, 78, 816, 566] },
+  "region": [64, 78, 816, 566],
+  "message": "Main pane text should remain inside the Starberg body"
+}
+```
+
+Use this for fixed UI panes, tables, button bars, and terminal/status areas where text
+overflow is a regression. `min_count` defaults to `1`; set it higher when the assertion
+should also prove that several expected text events were captured.
+
 **DSL caveat:** when running tests via `dotnet test` (the DSL path), only `summary.json` is
 written today — the rich `index.html` + per-scenario reports come from the CLI runner
 (`sdv-test run`). Per-test screenshots from `Screenshot.Capture` ARE saved into the run

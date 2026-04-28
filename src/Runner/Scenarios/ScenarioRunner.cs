@@ -531,6 +531,7 @@ public sealed class ScenarioRunner
         {
             "draw.text_contains" => $"draw.text_contains \"{GetTextFilterLabel(assertion)}\"",
             "draw.text_not_contains" => $"draw.text_not_contains \"{GetTextFilterLabel(assertion)}\"",
+            "draw.text_all_within" => $"draw.text_all_within \"{GetTextFilterLabel(assertion)}\"",
             "draw.contains" => $"draw.contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "draw.not_contains" => $"draw.not_contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "state" => string.IsNullOrWhiteSpace(assertion.Expr) ? "state" : $"state {assertion.Expr}",
@@ -709,6 +710,12 @@ public sealed class ScenarioRunner
                 if (!passed) await TryCaptureAssertionFailureAsync(ct);
                 return (passed, passed ? null : TextNotContainsFailureDetail(r));
             }
+            case "draw.text_all_within":
+            {
+                var (passed, detail) = await EvaluateTextAllWithinAsync(a, ct);
+                if (!passed) await TryCaptureAssertionFailureAsync(ct);
+                return (passed, detail);
+            }
             case "bitmap":
             {
                 var rpc = new SessionBitmapRpcClient(_session);
@@ -830,6 +837,169 @@ public sealed class ScenarioRunner
             default:
                 return (false, null);
         }
+    }
+
+    private async Task<(bool Passed, string? Detail)> EvaluateTextAllWithinAsync(
+        ScenarioAssertion assertion,
+        CancellationToken ct)
+    {
+        if (!TryReadRect(assertion.Region, "region", out var region, out var rectError))
+            return (false, rectError);
+
+        TextDrawFilter filter;
+        try
+        {
+            filter = assertion.Filter is { } filterJson
+                ? JsonSerializer.Deserialize<TextDrawFilter>(filterJson.GetRawText(), ProtocolJson.Options) ?? new TextDrawFilter()
+                : new TextDrawFilter();
+        }
+        catch (JsonException ex)
+        {
+            return (false, $"invalid text filter: {ex.Message}");
+        }
+
+        var resp = await _session.InvokeAsync("draw.text_snapshot", params_: null, ct);
+        if (resp.Error is not null)
+            return (false, resp.Error.Message);
+        if (resp.Result is not { } root)
+            return (false, "draw.text_snapshot returned no result");
+
+        TextDrawEventSnapshot? snapshot;
+        try
+        {
+            snapshot = JsonSerializer.Deserialize<TextDrawEventSnapshot>(root.GetRawText(), ProtocolJson.Options);
+        }
+        catch (JsonException ex)
+        {
+            return (false, $"invalid draw.text_snapshot result: {ex.Message}");
+        }
+
+        if (snapshot is null)
+            return (false, "draw.text_snapshot returned no result");
+
+        var matched = 0;
+        foreach (var ev in snapshot.Events)
+        {
+            if (!TextMatches(ev, filter))
+                continue;
+
+            matched++;
+            var bounds = new TextRect(ev.X, ev.Y, ev.Width, ev.Height);
+            if (!region.Contains(bounds))
+            {
+                var text = string.IsNullOrEmpty(ev.Text) ? "<empty>" : ev.Text;
+                return (false, $"\"{text}\" bounds {bounds} outside {region}");
+            }
+        }
+
+        return matched >= assertion.MinCount
+            ? (true, null)
+            : (false, $"matched {matched} < {assertion.MinCount}");
+    }
+
+    private static bool TextMatches(TextDrawEventDto ev, TextDrawFilter filter)
+    {
+        var comparison = filter.CaseSensitive
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+
+        if (!string.IsNullOrEmpty(filter.TextContains) &&
+            (ev.Text ?? string.Empty).IndexOf(filter.TextContains, comparison) < 0)
+            return false;
+
+        if (filter.TextEquals is { } equals &&
+            !string.Equals(ev.Text ?? string.Empty, equals, comparison))
+            return false;
+
+        if (filter.Color is { Length: 4 } color)
+        {
+            if (ev.Color.Length < 4 ||
+                ev.Color[0] != color[0] ||
+                ev.Color[1] != color[1] ||
+                ev.Color[2] != color[2] ||
+                ev.Color[3] != color[3])
+                return false;
+        }
+
+        var bounds = new TextRect(ev.X, ev.Y, ev.Width, ev.Height);
+
+        if (TryReadRect(filter.InRect, out var inRect) &&
+            !inRect.ContainsPoint(ev.X, ev.Y))
+            return false;
+
+        if (TryReadRect(filter.BoundsWithinRect, out var within) &&
+            !within.Contains(bounds))
+            return false;
+
+        if (TryReadRect(filter.BoundsIntersectsRect, out var intersects) &&
+            !intersects.Intersects(bounds))
+            return false;
+
+        if (filter.LayerDepthRange is { Length: 2 } range &&
+            (ev.LayerDepth < range[0] || ev.LayerDepth > range[1]))
+            return false;
+
+        return true;
+    }
+
+    private static bool TryReadRect(JsonElement? value, string name, out TextRect rect, out string? error)
+    {
+        rect = default;
+        error = null;
+        if (value is not { ValueKind: JsonValueKind.Array } array || array.GetArrayLength() != 4)
+        {
+            error = $"{name} must be [x, y, w, h]";
+            return false;
+        }
+
+        var values = new int[4];
+        var i = 0;
+        foreach (var item in array.EnumerateArray())
+        {
+            if (!item.TryGetInt32(out values[i]))
+            {
+                error = $"{name} values must be integers";
+                return false;
+            }
+            i++;
+        }
+
+        if (values[2] < 0 || values[3] < 0)
+        {
+            error = $"{name} width/height must be >= 0";
+            return false;
+        }
+
+        rect = new TextRect(values[0], values[1], values[2], values[3]);
+        return true;
+    }
+
+    private static bool TryReadRect(int[]? value, out TextRect rect)
+    {
+        rect = default;
+        if (value is not { Length: 4 } || value[2] < 0 || value[3] < 0)
+            return false;
+
+        rect = new TextRect(value[0], value[1], value[2], value[3]);
+        return true;
+    }
+
+    private readonly record struct TextRect(int X, int Y, int Width, int Height)
+    {
+        public int Right => X + Width;
+        public int Bottom => Y + Height;
+
+        public bool Contains(TextRect other)
+            => other.X >= X && other.Y >= Y && other.Right <= Right && other.Bottom <= Bottom;
+
+        public bool ContainsPoint(int x, int y)
+            => x >= X && y >= Y && x < Right && y < Bottom;
+
+        public bool Intersects(TextRect other)
+            => X < other.Right && Right > other.X && Y < other.Bottom && Bottom > other.Y;
+
+        public override string ToString()
+            => $"[{X},{Y},{Width},{Height}]";
     }
 
     private static string? TextContainsFailureDetail(JsonElement result)
