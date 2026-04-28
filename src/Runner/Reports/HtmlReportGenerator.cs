@@ -227,12 +227,13 @@ public static class HtmlReportGenerator
             foreach (var ss in s.Screenshots)
             {
                 var fileName = Path.GetFileName(ss);
-                sb.Append("<figure><img src=\"screenshots/").Append(WebUtility.HtmlEncode(fileName));
-                sb.Append("\" alt=\"").Append(WebUtility.HtmlEncode(fileName)).Append("\">");
-                sb.Append("<figcaption>").Append(WebUtility.HtmlEncode(fileName)).AppendLine("</figcaption></figure>");
+                AppendImageFigure(sb, $"screenshots/{fileName}", fileName);
             }
             sb.AppendLine("</div>");
         }
+
+        if (s.Screenshots.Count > 0 || s.Diffs.Count > 0)
+            AppendImageModal(sb);
 
         sb.AppendLine("</body></html>");
         return sb.ToString();
@@ -335,9 +336,7 @@ public static class HtmlReportGenerator
         foreach (var ss in matches)
         {
             var fileName = Path.GetFileName(ss);
-            sb.Append("<figure><img src=\"screenshots/").Append(WebUtility.HtmlEncode(fileName));
-            sb.Append("\" alt=\"").Append(WebUtility.HtmlEncode(fileName)).Append("\">");
-            sb.Append("<figcaption>").Append(WebUtility.HtmlEncode(fileName)).AppendLine("</figcaption></figure>");
+            AppendImageFigure(sb, $"screenshots/{fileName}", fileName);
         }
         sb.AppendLine("</div>");
     }
@@ -358,9 +357,47 @@ public static class HtmlReportGenerator
     /// </summary>
     private static void AppendDiffFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption)
     {
-        sb.Append("<figure><img src=\"").Append(WebUtility.HtmlEncode(urlRelativeToScenarioPage))
-          .Append("\" alt=\"").Append(WebUtility.HtmlEncode(caption)).Append("\">");
-        sb.Append("<figcaption>").Append(WebUtility.HtmlEncode(caption)).AppendLine("</figcaption></figure>");
+        AppendImageFigure(sb, urlRelativeToScenarioPage, caption);
+    }
+
+    private static void AppendImageFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption)
+    {
+        var safeUrl = WebUtility.HtmlEncode(urlRelativeToScenarioPage);
+        var safeCaption = WebUtility.HtmlEncode(caption);
+        sb.Append("<figure><a class=\"image-link\" href=\"").Append(safeUrl)
+          .Append("\" data-full-image-src=\"").Append(safeUrl)
+          .Append("\" data-full-image-title=\"").Append(safeCaption)
+          .Append("\"><img src=\"").Append(safeUrl)
+          .Append("\" alt=\"").Append(safeCaption).Append("\"></a>");
+        sb.Append("<figcaption>").Append(safeCaption).AppendLine("</figcaption></figure>");
+    }
+
+    private static void AppendImageModal(StringBuilder sb)
+    {
+        sb.AppendLine("<dialog id=\"image-modal\" class=\"image-modal\">");
+        sb.AppendLine("<form method=\"dialog\"><button class=\"modal-close\" aria-label=\"Close image preview\">Close</button></form>");
+        sb.AppendLine("<img id=\"image-modal-img\" alt=\"\">");
+        sb.AppendLine("<p id=\"image-modal-caption\"></p>");
+        sb.AppendLine("</dialog>");
+        sb.AppendLine("<script>");
+        sb.AppendLine("const imageModal = document.getElementById('image-modal');");
+        sb.AppendLine("if (imageModal) {");
+        sb.AppendLine("  const imageModalImg = document.getElementById('image-modal-img');");
+        sb.AppendLine("  const imageModalCaption = document.getElementById('image-modal-caption');");
+        sb.AppendLine("  document.querySelectorAll('[data-full-image-src]').forEach(link => {");
+        sb.AppendLine("    link.addEventListener('click', event => {");
+        sb.AppendLine("      if (typeof imageModal.showModal !== 'function') return;");
+        sb.AppendLine("      event.preventDefault();");
+        sb.AppendLine("      imageModalImg.src = link.dataset.fullImageSrc;");
+        sb.AppendLine("      imageModalImg.alt = link.dataset.fullImageTitle || '';");
+        sb.AppendLine("      imageModalCaption.textContent = link.dataset.fullImageTitle || link.dataset.fullImageSrc;");
+        sb.AppendLine("      imageModal.showModal();");
+        sb.AppendLine("    });");
+        sb.AppendLine("  });");
+        sb.AppendLine("  imageModal.addEventListener('click', event => { if (event.target === imageModal) imageModal.close(); });");
+        sb.AppendLine("  imageModal.addEventListener('close', () => { imageModalImg.removeAttribute('src'); });");
+        sb.AppendLine("}");
+        sb.AppendLine("</script>");
     }
 
     private const string CssTemplate = """
@@ -404,6 +441,12 @@ public static class HtmlReportGenerator
         .screenshots figure { margin: 0; }
         .screenshots img { max-width: 100%; border: 1px solid #ddd; }
         .screenshots figcaption { font-size: 0.85em; color: #666; margin-top: 0.3em; }
+        .image-link { display: block; cursor: zoom-in; }
+        .image-modal { width: min(96vw, 1600px); max-width: none; height: min(94vh, 1000px); border: 1px solid #999; border-radius: 6px; padding: 1em; }
+        .image-modal::backdrop { background: rgba(0, 0, 0, 0.72); }
+        .image-modal form { text-align: right; margin: 0 0 0.75em; }
+        .image-modal img { display: block; max-width: 100%; max-height: calc(100% - 4.5em); margin: 0 auto; object-fit: contain; }
+        .image-modal p { margin: 0.75em 0 0; text-align: center; color: #444; overflow-wrap: anywhere; }
         section.forensics { background: #fff5f5; border-left: 4px solid #b03030; padding: 1em; margin: 1em 0; }
         section.forensics h2 { margin-top: 0; color: #b03030; }
         .diff-set h3 { font-family: monospace; font-size: 1em; margin: 0.5em 0; }

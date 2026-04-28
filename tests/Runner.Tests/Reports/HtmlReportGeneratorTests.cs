@@ -206,6 +206,43 @@ public class HtmlReportGeneratorTests
     }
 
     [Fact]
+    public void ScenarioReport_RendersClickableImageModal()
+    {
+        var rd = MakeRunDir("imagemodal");
+        try
+        {
+            var diff = new DiffSet(
+                Baseline: "scenarios/visual_path/diffs/assertion-03-bitmap/baseline.png",
+                Capture: "scenarios/visual_path/diffs/assertion-03-bitmap/capture.png",
+                Diff: "scenarios/visual_path/diffs/assertion-03-bitmap/diff.png",
+                Triptych: null);
+            var summary = new RunSummary(
+                rd.RunId, "2026-04-24T15:30:45Z", 100,
+                Scenarios: new[] { new ScenarioOutcome(
+                    "visual_path", null, false, 100,
+                    Steps: new[] { new StepOutcome("player.warp", true, 12, "Warp to FarmHouse (8,10)") },
+                    Assertions: new[] { new AssertionOutcome("bitmap", false, "SSIM mismatch") },
+                    Screenshots: new[]
+                    {
+                        "scenarios/visual_path/screenshots/step-00-player-warp.png",
+                        "scenarios/visual_path/screenshots/final.png",
+                    },
+                    Diffs: new[] { diff }) });
+
+            HtmlReportGenerator.Generate(rd, summary);
+
+            var html = File.ReadAllText(Path.Combine(rd.ScenariosDir, "visual_path", "report.html"));
+            Assert.Contains("<dialog id=\"image-modal\"", html);
+            Assert.Contains("data-full-image-src=\"screenshots/step-00-player-warp.png\"", html);
+            Assert.Contains("data-full-image-src=\"screenshots/final.png\"", html);
+            Assert.Contains("data-full-image-src=\"diffs/assertion-03-bitmap/diff.png\"", html);
+            Assert.Contains("id=\"image-modal-img\"", html);
+            Assert.Contains("showModal", html);
+        }
+        finally { Directory.Delete(rd.Root, recursive: true); }
+    }
+
+    [Fact]
     public void GenerateHub_LinksRunIndexesFromReportBase()
     {
         var baseDir = Path.Combine(Path.GetTempPath(), $"htmlhub-{Guid.NewGuid():N}");
