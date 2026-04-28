@@ -142,8 +142,11 @@ matching text bounds fall outside the required `region` rectangle.
 ```json
 {
   "type": "draw.text_all_within",
-  "filter": { "bounds_intersects_rect": [64, 78, 816, 566] },
-  "region": [64, 78, 816, 566],
+  "filter": {
+    "in_rect": [64, 78, 816, 566],
+    "color_any": [[255, 214, 128, 255], [236, 229, 206, 255]]
+  },
+  "region": { "x": 64, "y": 78, "w": 816, "h": 566 },
   "message": "Main pane text should remain inside the Starberg body"
 }
 ```
@@ -151,6 +154,8 @@ matching text bounds fall outside the required `region` rectangle.
 Use this for fixed UI panes, tables, button bars, and terminal/status areas where text
 overflow is a regression. `min_count` defaults to `1`; set it higher when the assertion
 should also prove that several expected text events were captured.
+The optional `color_any` filter is useful when the game HUD or another mod draws text
+near the same screen area and the assertion should target a known UI palette.
 
 **DSL caveat:** when running tests via `dotnet test` (the DSL path), only `summary.json` is
 written today — the rich `index.html` + per-scenario reports come from the CLI runner

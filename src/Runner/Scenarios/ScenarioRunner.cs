@@ -921,6 +921,9 @@ public sealed class ScenarioRunner
                 return false;
         }
 
+        if (filter.ColorAny is { Length: > 0 } colorAny && !MatchesAnyColor(ev.Color, colorAny))
+            return false;
+
         var bounds = new TextRect(ev.X, ev.Y, ev.Width, ev.Height);
 
         if (TryReadRect(filter.InRect, out var inRect) &&
@@ -942,26 +945,70 @@ public sealed class ScenarioRunner
         return true;
     }
 
+    private static bool MatchesAnyColor(int[] eventColor, int[][] colors)
+    {
+        foreach (var color in colors)
+        {
+            if (color.Length == 4 &&
+                eventColor.Length >= 4 &&
+                eventColor[0] == color[0] &&
+                eventColor[1] == color[1] &&
+                eventColor[2] == color[2] &&
+                eventColor[3] == color[3])
+                return true;
+        }
+
+        return false;
+    }
+
     private static bool TryReadRect(JsonElement? value, string name, out TextRect rect, out string? error)
     {
         rect = default;
         error = null;
-        if (value is not { ValueKind: JsonValueKind.Array } array || array.GetArrayLength() != 4)
+        if (value is not { } element)
         {
-            error = $"{name} must be [x, y, w, h]";
+            error = $"{name} must be [x, y, w, h] or {{x,y,w,h}}";
             return false;
         }
 
-        var values = new int[4];
-        var i = 0;
-        foreach (var item in array.EnumerateArray())
+        int[] values;
+        if (element.ValueKind == JsonValueKind.Array)
         {
-            if (!item.TryGetInt32(out values[i]))
+            if (element.GetArrayLength() != 4)
             {
-                error = $"{name} values must be integers";
+                error = $"{name} must be [x, y, w, h]";
                 return false;
             }
-            i++;
+
+            values = new int[4];
+            var i = 0;
+            foreach (var item in element.EnumerateArray())
+            {
+                if (!item.TryGetInt32(out values[i]))
+                {
+                    error = $"{name} values must be integers";
+                    return false;
+                }
+                i++;
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Object)
+        {
+            if (!TryReadRectProperty(element, "x", out var x) ||
+                !TryReadRectProperty(element, "y", out var y) ||
+                !TryReadRectProperty(element, "w", out var w) ||
+                !TryReadRectProperty(element, "h", out var h))
+            {
+                error = $"{name} object values must be integers";
+                return false;
+            }
+
+            values = new[] { x, y, w, h };
+        }
+        else
+        {
+            error = $"{name} must be [x, y, w, h] or {{x,y,w,h}}";
+            return false;
         }
 
         if (values[2] < 0 || values[3] < 0)
@@ -972,6 +1019,13 @@ public sealed class ScenarioRunner
 
         rect = new TextRect(values[0], values[1], values[2], values[3]);
         return true;
+    }
+
+    private static bool TryReadRectProperty(JsonElement element, string propertyName, out int value)
+    {
+        value = 0;
+        return element.TryGetProperty(propertyName, out var property) &&
+            property.TryGetInt32(out value);
     }
 
     private static bool TryReadRect(int[]? value, out TextRect rect)

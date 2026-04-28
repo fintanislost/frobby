@@ -41,6 +41,10 @@ Automated testing framework for Stardew Valley mods using draw-call interception
 
 Stardew Valley renders through `SpriteBatch.Draw` calls with structured arguments (texture, source rect, dest rect, color, layer depth). By Harmony-patching these calls, we can capture rendering as a queryable event stream and assert semantically ("Abigail's happy portrait was drawn at tile X with tint Y") instead of diffing framebuffers. This dodges GPU nondeterminism, animation timing issues, and resolution coupling. Combined with direct state manipulation via SMAPI APIs and RNG/time pinning, scenarios become deterministic and reproducible. Pixel diffing survives as a 5% fallback for shader and procedural content.
 
+## Current runner notes
+
+The CLI runner supports semantic text assertions for real mod UI testing, including `draw.text_contains`, `draw.text_not_contains`, bounds filters such as `bounds_within_rect`, palette filters such as `color_any`, and pane-level `draw.text_all_within` guardrails. Use `draw.text_all_within` when a fixed UI container should never let body copy, table values, button labels, or status text escape its rectangle. See `docs/dsl-quickstart.md` for the assertion shape and report behavior.
+
 ## Milestones
 
 - **M0** — Determinism spike (prove the foundation before building)

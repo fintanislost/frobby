@@ -130,4 +130,29 @@ public class TextDrawFilterTests
         Assert.False(TextDrawFilterMatcher.Matches(Event(color: Color.White, z: 0.91f), filter));
         Assert.False(TextDrawFilterMatcher.Matches(Event(color: new Color(255, 176, 0, 255), z: 0.5f), filter));
     }
+
+    [Fact]
+    public void ColorAny_MatchesAnyListedColor()
+    {
+        var filter = new TextDrawFilter
+        {
+            ColorAny = new[]
+            {
+                new[] { 255, 214, 128, 255 },
+                new[] { 236, 229, 206, 255 },
+            },
+        };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event(color: new Color(236, 229, 206, 255)), filter));
+        Assert.False(TextDrawFilterMatcher.Matches(Event(color: new Color(120, 80, 40, 255)), filter));
+    }
+
+    [Fact]
+    public void Validate_ColorAnyRejectsInvalidColor()
+    {
+        var ex = Assert.Throws<SdvTestFramework.Protocol.JsonRpcException>(() =>
+            TextDrawFilterMatcher.Validate(new TextDrawFilter { ColorAny = new[] { new[] { 255, 214, 128 } } }));
+
+        Assert.Contains("filter.color_any[0] must be [r, g, b, a]", ex.Message);
+    }
 }

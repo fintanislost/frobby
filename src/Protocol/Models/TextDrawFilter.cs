@@ -13,5 +13,6 @@ public sealed class TextDrawFilter
     public int[]? BoundsWithinRect { get; set; }
     public int[]? BoundsIntersectsRect { get; set; }
     public int[]? Color { get; set; }
+    public int[][]? ColorAny { get; set; }
     public float[]? LayerDepthRange { get; set; }
 }

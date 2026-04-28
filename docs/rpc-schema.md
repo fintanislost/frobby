@@ -980,6 +980,7 @@ Filter DSL fields (all optional, all ANDed):
 - `bounds_within_rect` (`[x, y, w, h]`) — captured text bounds must be fully contained in the rect.
 - `bounds_intersects_rect` (`[x, y, w, h]`) — captured text bounds must intersect the rect.
 - `color` (`[r, g, b, a]`) — exact match.
+- `color_any` (`[[r, g, b, a], ...]`) — event color must match one listed color.
 - `layer_depth_range` (`[min, max]`) — inclusive on both ends.
 
 **Implemented in:** `src/Harness/Handlers/DrawTextFindHandler.cs`

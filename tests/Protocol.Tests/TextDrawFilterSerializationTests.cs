@@ -19,6 +19,7 @@ public class TextDrawFilterSerializationTests
             BoundsWithinRect = new[] { 10, 10, 300, 160 },
             BoundsIntersectsRect = new[] { 20, 20, 120, 60 },
             Color = new[] { 255, 176, 0, 255 },
+            ColorAny = new[] { new[] { 255, 214, 128, 255 }, new[] { 236, 229, 206, 255 } },
             LayerDepthRange = new[] { 0.9f, 1.0f },
         };
 
@@ -31,6 +32,7 @@ public class TextDrawFilterSerializationTests
         Assert.Contains("\"bounds_within_rect\":[10,10,300,160]", json);
         Assert.Contains("\"bounds_intersects_rect\":[20,20,120,60]", json);
         Assert.Contains("\"color\":[255,176,0,255]", json);
+        Assert.Contains("\"color_any\":[[255,214,128,255],[236,229,206,255]]", json);
         Assert.Contains("\"layer_depth_range\":[0.9,1]", json);
     }
 
@@ -63,5 +65,17 @@ public class TextDrawFilterSerializationTests
             ProtocolJson.Options)!;
 
         Assert.Equal(new[] { 100, 50, 200, 80 }, filter.BoundsIntersectsRect);
+    }
+
+    [Fact]
+    public void Deserialize_AcceptsColorAny()
+    {
+        var filter = JsonSerializer.Deserialize<TextDrawFilter>(
+            "{\"color_any\":[[255,214,128,255],[236,229,206,255]]}",
+            ProtocolJson.Options)!;
+
+        Assert.NotNull(filter.ColorAny);
+        Assert.Equal(new[] { 255, 214, 128, 255 }, filter.ColorAny![0]);
+        Assert.Equal(new[] { 236, 229, 206, 255 }, filter.ColorAny![1]);
     }
 }

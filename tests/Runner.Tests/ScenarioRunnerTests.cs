@@ -666,7 +666,7 @@ public class ScenarioRunnerTests
             {
                 Type = "draw.text_all_within",
                 Filter = JsonDocument.Parse("{\"text_contains\":\"COMPLIANCE\",\"case_sensitive\":true}").RootElement,
-                Region = JsonDocument.Parse("[100,100,200,80]").RootElement,
+                Region = JsonDocument.Parse("{\"x\":100,\"y\":100,\"w\":200,\"h\":80}").RootElement,
                 Message = "Compliance text should fit the document pane",
             },
             req => req.Method switch
@@ -707,6 +707,33 @@ public class ScenarioRunnerTests
         var failure = Assert.Single(report.Failures);
         Assert.Contains("CUSTOMER AGREEMENT BODY OVERFLOW", failure);
         Assert.Contains("bounds [120,110,260,24] outside [100,100,200,80]", failure);
+    }
+
+    [Fact]
+    public async Task TextAllWithinAssertion_ColorAnyIgnoresNonMatchingOverflow()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var report = await RunSingleAssertionAsync(
+            new ScenarioAssertion
+            {
+                Type = "draw.text_all_within",
+                Filter = JsonDocument.Parse("{\"text_contains\":\"PANE\",\"color_any\":[[236,229,206,255]]}").RootElement,
+                Region = JsonDocument.Parse("{\"x\":100,\"y\":100,\"w\":200,\"h\":80}").RootElement,
+                Message = "Only terminal palette text should be checked",
+            },
+            req => req.Method switch
+            {
+                "draw.text_snapshot" => JsonRpcResponse.Ok(req.Id, JsonDocument.Parse(
+                    "{\"events\":[" +
+                    "{\"text\":\"PANE OK\",\"x\":120,\"y\":110,\"width\":80,\"height\":24,\"color\":[236,229,206,255],\"layer_depth\":0.9}," +
+                    "{\"text\":\"PANE HUD OVERFLOW\",\"x\":120,\"y\":110,\"width\":260,\"height\":24,\"color\":[120,80,40,255],\"layer_depth\":0.9}" +
+                    "],\"meta\":{\"ticks\":1,\"events\":2,\"dropped\":0}}").RootElement),
+                _ => null,
+            },
+            cts);
+
+        Assert.True(report.Passed);
     }
 
     [Fact]

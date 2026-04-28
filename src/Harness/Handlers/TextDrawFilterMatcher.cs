@@ -23,6 +23,16 @@ internal static class TextDrawFilterMatcher
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 $"filter.color must be [r, g, b, a] (got length {c.Length})");
 
+        if (filter.ColorAny is { } colors)
+        {
+            for (var i = 0; i < colors.Length; i++)
+            {
+                if (colors[i].Length != 4)
+                    throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                        $"filter.color_any[{i}] must be [r, g, b, a] (got length {colors[i].Length})");
+            }
+        }
+
         if (filter.LayerDepthRange is { } ldr)
         {
             if (ldr.Length != 2)
@@ -52,6 +62,9 @@ internal static class TextDrawFilterMatcher
             (e.Color.R != c[0] || e.Color.G != c[1] || e.Color.B != c[2] || e.Color.A != c[3]))
             return false;
 
+        if (f.ColorAny is { Length: > 0 } colorAny && !MatchesAnyColor(e.Color, colorAny))
+            return false;
+
         if (f.InRect is { Length: 4 } r)
         {
             var rect = new Rectangle(r[0], r[1], r[2], r[3]);
@@ -76,6 +89,21 @@ internal static class TextDrawFilterMatcher
         }
 
         return true;
+    }
+
+    private static bool MatchesAnyColor(Color eventColor, int[][] colors)
+    {
+        foreach (var c in colors)
+        {
+            if (c.Length == 4 &&
+                eventColor.R == c[0] &&
+                eventColor.G == c[1] &&
+                eventColor.B == c[2] &&
+                eventColor.A == c[3])
+                return true;
+        }
+
+        return false;
     }
 
     private static void ValidateRect(string name, int[] rect)
