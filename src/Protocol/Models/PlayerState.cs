@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace SdvTestFramework.Protocol.Models;
 
 /// <summary>Snapshot of the local farmer. Response shape of <c>state.player</c>.</summary>
@@ -10,6 +12,16 @@ public sealed class PlayerState
     public int Health { get; set; }
     public string Location { get; set; } = string.Empty;
     public TilePoint Tile { get; set; } = new();
+    public List<PlayerItemSummary> Items { get; set; } = new();
+}
+
+/// <summary>Minimal inventory item descriptor for a player snapshot.</summary>
+public sealed class PlayerItemSummary
+{
+    public int Slot { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int Stack { get; set; }
 }
 
 public sealed class TilePoint

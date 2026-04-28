@@ -134,7 +134,10 @@ public sealed class ScenarioRunner
                 if (fxResp.Error is { } fe)
                     throw new InvalidOperationException($"fixture.load failed: {fe.Message}");
 
-                // Poll state.player until the location is populated (proxy for world-ready).
+                // Poll state.player until the location is populated and SDV is no longer
+                // mid-warp. The location field can become non-empty before the save-load
+                // transition is fully settled; starting steps during that window can wedge
+                // later freeze.begin calls behind Game1.isWarping.
                 await WaitForWorldReady(ct);
             }
 
@@ -281,7 +284,8 @@ public sealed class ScenarioRunner
     }
 
     /// <summary>
-    /// Poll <c>state.player</c> until the farmer's <c>location</c> field is a non-empty string.
+    /// Poll <c>state.player</c> until the farmer's <c>location</c> field is a non-empty string
+    /// and <c>freeze.status</c> reports that SDV is not mid-warp.
     /// Used as a proxy for "world finished loading" post-<c>fixture.load</c>.
     /// Times out at 30s.
     /// </summary>
@@ -295,13 +299,29 @@ public sealed class ScenarioRunner
             if (resp.Result is { } r
                 && r.TryGetProperty("location", out var loc)
                 && loc.ValueKind == JsonValueKind.String
-                && !string.IsNullOrEmpty(loc.GetString()))
+                && !string.IsNullOrEmpty(loc.GetString())
+                && await IsWarpSettledAsync(ct))
             {
                 return;
             }
-            await Task.Delay(500, ct);
+            await Task.Delay(100, ct);
         }
         throw new TimeoutException("world never became ready after fixture.load");
+    }
+
+    private async Task<bool> IsWarpSettledAsync(CancellationToken ct)
+    {
+        var resp = await _session.InvokeAsync("freeze.status", params_: null, ct);
+        if (resp.Error is not null || resp.Result is not { } status)
+            return false;
+
+        if (!status.TryGetProperty("is_warping", out var isWarping)
+            || (isWarping.ValueKind != JsonValueKind.True && isWarping.ValueKind != JsonValueKind.False))
+        {
+            return true;
+        }
+
+        return !isWarping.GetBoolean();
     }
 
     private async Task InvokeTimeNextDayAsync(ScenarioStep step, CancellationToken ct)

@@ -16,6 +16,7 @@ public static class FreezeStatusHandler
         return ProtocolJson.ToElement(new FreezeStatusResult
         {
             Frozen = DeterminismController.Frozen,
+            IsWarping = Game1.isWarping,
             Tick = Game1.ticks,
         });
     }

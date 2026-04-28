@@ -102,13 +102,13 @@ Returns the local farmer's current state.
 
 ```json
 → { "jsonrpc": "2.0", "id": 2, "method": "state.player" }
-← { "jsonrpc": "2.0", "id": 2, "result": { "name": "Tester", "money": 1000, "stamina": 270, "max_stamina": 270, "health": 100, "location": "Farm", "tile": { "x": 64, "y": 15 } } }
+← { "jsonrpc": "2.0", "id": 2, "result": { "name": "Tester", "money": 1000, "stamina": 270, "max_stamina": 270, "health": 100, "location": "Farm", "tile": { "x": 64, "y": 15 }, "items": [{ "slot": 5, "id": "(F)stonks_starberg_terminal_v1", "name": "Starberg Terminal - Model 4201", "stack": 1 }] } }
 ```
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`). No request-time check yet; result fields will reflect title/loading-screen defaults if invoked too early.
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StatePlayerHandler.cs`
-**Tested in:** `tests/Runner.Tests/ProbeCommandTests.cs` (end-to-end runner → harness round-trip over a real Unix socket, with a faked harness response).
+**Tested in:** `tests/Harness.Tests/StatePlayerHandlerTests.cs` + `tests/Runner.Tests/ProbeCommandTests.cs` (end-to-end runner → harness round-trip over a real Unix socket, with a faked harness response).
 
 ### state.time
 
@@ -722,6 +722,27 @@ Response:
 **Implemented in:** `src/Harness/Handlers/ShopPurchaseHandler.cs`
 **Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopPurchaseHandlerTests.cs`.
 
+### world.place_inventory_furniture
+
+Moves a furniture item from the player's inventory into a loaded location. This differs
+from `world.place_furniture`, which creates a new item through `ItemRegistry`; use this
+when a test needs to prove a purchased or otherwise obtained furniture item is usable.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 20, "method": "world.place_inventory_furniture", "params": { "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 20, "result": { "ok": true, "tick": 84206, "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "tile": { "x": 8, "y": 9 }, "source_slot": 5 } }
+```
+
+**Preconditions:** a world must be loaded; the player inventory must contain the requested qualified item ID; the matching item must be furniture.
+**Side effects:** removes the matched inventory item from its source slot and adds it to the target location's furniture collection.
+**Implemented in:** `src/Harness/Handlers/WorldPlaceInventoryFurnitureHandler.cs`
+**Tested in:** `tests/Protocol.Tests/PlaceInventoryFurnitureRequestSerializationTests.cs` + `tests/Harness.Tests/WorldPlaceInventoryFurnitureHandlerTests.cs`.
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.
@@ -1095,7 +1116,7 @@ Pure query — returns the current FREEZE state without mutating anything.
 **Response:**
 
 ```json
-{"frozen": true, "tick": 8421}
+{"frozen": true, "is_warping": false, "tick": 8421}
 ```
 
 ## `bitmap.capture`

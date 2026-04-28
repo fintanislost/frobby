@@ -4,5 +4,6 @@ namespace SdvTestFramework.Protocol.Models;
 public sealed class FreezeStatusResult
 {
     public bool Frozen { get; set; }
+    public bool IsWarping { get; set; }
     public int Tick { get; set; }
 }
