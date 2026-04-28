@@ -246,7 +246,9 @@ public static class RunCommand
 
         // ---- launch SDV + connect ----
         var socket = Path.Combine(Path.GetTempPath(), $"sdv-test-{Guid.NewGuid():N}.sock");
-        using var sdv = SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath, headless: opts.Headless);
+        var effectiveHeadless = SdvLauncher.IsHeadlessRequested(opts.Headless);
+        var launcher = effectiveHeadless ? "xvfb-run" : "StardewModdingAPI";
+        using var sdv = SdvLauncher.Launch(socket, installPath: null, modsPath: modsPath, headless: effectiveHeadless);
         try
         {
             using var connectCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -270,7 +272,7 @@ public static class RunCommand
             await readyTcs.Task.WaitAsync(TimeSpan.FromSeconds(60), ct);
 
             var writer = fileWriter ?? Console.Out;
-            int failed = await RunOnceAsync(session, opts, reporter, writer, ct);
+            int failed = await RunOnceAsync(session, opts, reporter, writer, effectiveHeadless, launcher, ct);
 
             if (opts.Watch)
             {
@@ -282,7 +284,7 @@ public static class RunCommand
                     opts.Paths,
                     rerun: async innerCt =>
                     {
-                        await RunOnceAsync(session, opts, reporter, writer, innerCt);
+                        await RunOnceAsync(session, opts, reporter, writer, effectiveHeadless, launcher, innerCt);
                     },
                     writer,
                     ct);
@@ -340,6 +342,8 @@ public static class RunCommand
         RunCommandOptions opts,
         SdvTestFramework.Runner.Reporters.IReporter reporter,
         TextWriter reporterOutput,
+        bool effectiveHeadless,
+        string launcher,
         CancellationToken ct)
     {
         var runStarted = DateTime.UtcNow;
@@ -390,7 +394,7 @@ public static class RunCommand
         // 4. Generate HTML run report if a run directory was created.
         if (runDir is not null)
         {
-            var summary = BuildRunSummary(runDir, runStarted, collected);
+            var summary = BuildRunSummary(runDir, runStarted, collected, opts, effectiveHeadless, launcher);
             HtmlReportGenerator.Generate(runDir, summary);
             HtmlReportGenerator.GenerateHub(Directory.GetParent(runDir.Root)?.FullName ?? runDir.Root);
             Console.Out.WriteLine($"[run] report: {Path.Combine(runDir.Root, "index.html")}");
@@ -408,7 +412,10 @@ public static class RunCommand
     private static RunSummary BuildRunSummary(
         RunDirectory rd,
         DateTime started,
-        IReadOnlyList<ScenarioReport> reports)
+        IReadOnlyList<ScenarioReport> reports,
+        RunCommandOptions opts,
+        bool effectiveHeadless,
+        string launcher)
     {
         var scenarioOutcomes = new List<ScenarioOutcome>(reports.Count);
         int totalDuration = 0;
@@ -429,7 +436,10 @@ public static class RunCommand
                 Diffs: ConvertDiffs(rd, report.Diffs)));
             totalDuration += report.DurationMs;
         }
-        return new RunSummary(rd.RunId, started.ToString("o"), totalDuration, scenarioOutcomes);
+        return new RunSummary(rd.RunId, started.ToString("o"), totalDuration, scenarioOutcomes)
+        {
+            Metadata = RunMetadataBuilder.Build(opts, effectiveHeadless, launcher),
+        };
     }
 
     private static List<AssertionOutcome> BuildFallbackAssertions(ScenarioReport report)

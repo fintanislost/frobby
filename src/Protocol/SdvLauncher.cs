@@ -24,12 +24,15 @@ public static class SdvLauncher
         string? modsPath = null,
         bool headless = false)
     {
-        var effectiveHeadless = headless || IsTruthy(Environment.GetEnvironmentVariable("SDV_TEST_HEADLESS"));
+        var effectiveHeadless = IsHeadlessRequested(headless);
         var psi = CreateStartInfo(socketPath, installPath, modsPath, effectiveHeadless);
 
         return Process.Start(psi)
             ?? throw new InvalidOperationException("failed to start SMAPI process");
     }
+
+    public static bool IsHeadlessRequested(bool headless)
+        => headless || IsTruthy(Environment.GetEnvironmentVariable("SDV_TEST_HEADLESS"));
 
     internal static ProcessStartInfo CreateStartInfo(
         string socketPath,

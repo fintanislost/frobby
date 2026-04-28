@@ -68,6 +68,7 @@ public static class HtmlReportGenerator
         sb.Append("<h1>Run ").Append(WebUtility.HtmlEncode(s.RunId)).AppendLine("</h1>");
         sb.Append("<p class=\"summary\">").Append(passed).Append(" passed").Append(" / ").Append(total).Append(" total");
         sb.Append(" · ").Append(s.DurationMs).Append("ms · ").Append(WebUtility.HtmlEncode(s.Started)).AppendLine("</p>");
+        AppendRunMetadata(sb, s.Metadata);
         sb.AppendLine("<table class=\"scenarios\">");
         sb.AppendLine("<thead><tr><th>Scenario</th><th>Outcome</th><th>Duration</th><th>Steps/Asserts</th></tr></thead>");
         sb.AppendLine("<tbody>");
@@ -87,6 +88,46 @@ public static class HtmlReportGenerator
         sb.AppendLine("</tbody></table>");
         sb.AppendLine("</body></html>");
         return sb.ToString();
+    }
+
+    private static void AppendRunMetadata(StringBuilder sb, RunMetadata? metadata)
+    {
+        if (metadata is null)
+            return;
+
+        sb.AppendLine("<section class=\"metadata\">");
+        sb.AppendLine("<h2>Run metadata</h2>");
+        sb.AppendLine("<dl>");
+        AppendDefinition(sb, "Launch mode", metadata.LaunchMode);
+        AppendDefinition(sb, "Launcher", metadata.Launcher);
+        AppendDefinition(sb, "Command", metadata.Command);
+        AppendDefinition(sb, "Working directory", metadata.WorkingDirectory);
+        sb.AppendLine("</dl>");
+
+        if (metadata.Repositories.Count > 0)
+        {
+            sb.AppendLine("<table class=\"repositories\">");
+            sb.AppendLine("<thead><tr><th>Source</th><th>Commit</th><th>State</th><th>Path</th></tr></thead>");
+            sb.AppendLine("<tbody>");
+            foreach (var repo in metadata.Repositories)
+            {
+                sb.AppendLine("<tr>");
+                sb.Append("<td>").Append(WebUtility.HtmlEncode(repo.Label)).AppendLine("</td>");
+                sb.Append("<td><code>").Append(WebUtility.HtmlEncode(repo.Commit ?? "(unknown)")).AppendLine("</code></td>");
+                sb.Append("<td>").Append(repo.Dirty ? "dirty" : "clean").AppendLine("</td>");
+                sb.Append("<td>").Append(WebUtility.HtmlEncode(repo.Path)).AppendLine("</td>");
+                sb.AppendLine("</tr>");
+            }
+            sb.AppendLine("</tbody></table>");
+        }
+
+        sb.AppendLine("</section>");
+    }
+
+    private static void AppendDefinition(StringBuilder sb, string term, string value)
+    {
+        sb.Append("<dt>").Append(WebUtility.HtmlEncode(term)).AppendLine("</dt>");
+        sb.Append("<dd>").Append(WebUtility.HtmlEncode(value)).AppendLine("</dd>");
     }
 
     private static string RenderScenarioReport(ScenarioOutcome s)
@@ -334,6 +375,13 @@ public static class HtmlReportGenerator
         table.scenarios th, table.scenarios td { padding: 0.6em 0.8em; text-align: left; border-bottom: 1px solid #eee; }
         table.scenarios tr.pass td.pass { color: #2d6a3e; font-weight: bold; }
         table.scenarios tr.fail td.fail { color: #b03030; font-weight: bold; }
+        .metadata { border: 1px solid #ddd; border-radius: 6px; padding: 0.8em 1em; margin: 1em 0; background: #fafafa; }
+        .metadata h2 { margin-top: 0; }
+        .metadata dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35em 1em; margin: 0 0 1em; }
+        .metadata dt { font-weight: 700; color: #444; }
+        .metadata dd { margin: 0; overflow-wrap: anywhere; }
+        table.repositories { border-collapse: collapse; width: 100%; }
+        table.repositories th, table.repositories td { padding: 0.45em 0.6em; text-align: left; border-bottom: 1px solid #e6e6e6; vertical-align: top; }
         a { color: #1556b0; text-decoration: none; }
         a:hover { text-decoration: underline; }
         .breadcrumbs { margin: 0 0 1em; color: #666; }

@@ -119,6 +119,57 @@ public class HtmlReportGeneratorTests
     }
 
     [Fact]
+    public void RunMetadata_RendersInSummaryJsonAndIndex()
+    {
+        var rd = MakeRunDir("metadata");
+        try
+        {
+            var summary = new RunSummary(
+                rd.RunId, "2026-04-24T15:30:45Z", 0,
+                Scenarios: Array.Empty<ScenarioOutcome>())
+            {
+                Metadata = new RunMetadata(
+                    Command: "sdv-test run --headless tests/sdv",
+                    WorkingDirectory: "/home/fintan/stardewRepos/frobby/sdv-test-framework",
+                    LaunchMode: "headless",
+                    Headless: true,
+                    Launcher: "xvfb-run",
+                    Repositories: new[]
+                    {
+                        new RunRepositoryMetadata(
+                            Label: "runner:sdv-test-framework",
+                            Path: "/home/fintan/stardewRepos/frobby/sdv-test-framework",
+                            Commit: "0ad28e7",
+                            Dirty: false),
+                        new RunRepositoryMetadata(
+                            Label: "extra-mod:stonks",
+                            Path: "/home/fintan/stardewRepos/stonks",
+                            Commit: "4e62c75",
+                            Dirty: true),
+                    }),
+            };
+
+            HtmlReportGenerator.Generate(rd, summary);
+
+            var json = File.ReadAllText(Path.Combine(rd.Root, "summary.json"));
+            Assert.Contains("\"launch_mode\": \"headless\"", json);
+            Assert.Contains("\"launcher\": \"xvfb-run\"", json);
+            Assert.Contains("\"label\": \"extra-mod:stonks\"", json);
+            Assert.Contains("\"commit\": \"4e62c75\"", json);
+
+            var html = File.ReadAllText(Path.Combine(rd.Root, "index.html"));
+            Assert.Contains("headless", html);
+            Assert.Contains("xvfb-run", html);
+            Assert.Contains("runner:sdv-test-framework", html);
+            Assert.Contains("0ad28e7", html);
+            Assert.Contains("extra-mod:stonks", html);
+            Assert.Contains("4e62c75", html);
+            Assert.Contains("dirty", html);
+        }
+        finally { Directory.Delete(rd.Root, recursive: true); }
+    }
+
+    [Fact]
     public void ScenarioReport_RendersStepScreenshotsNearMatchingStep()
     {
         var rd = MakeRunDir("stepshots");
