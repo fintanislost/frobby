@@ -25,13 +25,25 @@
     "steps": {
       "type": "array",
       "items": {
-        "type": "object",
-        "required": ["action"],
-        "properties": {
-          "action": { "type": "string" },
-          "args": { "type": "object" }
-        },
-        "additionalProperties": false
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+              "action": { "type": "string", "minLength": 1 },
+              "args": { "type": "object" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["include"],
+            "properties": {
+              "include": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": false
+          }
+        ]
       }
     },
     "assertions": {

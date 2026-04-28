@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -82,12 +83,93 @@ public static class ScenarioLoader
 
         try
         {
-            return JsonSerializer.Deserialize<ScenarioSpec>(json, ProtocolJson.Options)
+            var spec = JsonSerializer.Deserialize<ScenarioSpec>(json, ProtocolJson.Options)
                 ?? throw new ScenarioLoadException(path, "deserialization returned null");
+            var fullPath = Path.GetFullPath(path);
+            spec.Steps = ExpandSteps(
+                spec.Steps,
+                fullPath,
+                Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory(),
+                new Stack<string>());
+            return spec;
         }
         catch (JsonException ex)
         {
             throw new ScenarioLoadException(path, $"deserialization failed: {ex.Message}", ex);
         }
     }
+
+    private static List<ScenarioStep> ExpandSteps(
+        IEnumerable<ScenarioStep> steps,
+        string sourcePath,
+        string baseDirectory,
+        Stack<string> includeStack)
+    {
+        var expanded = new List<ScenarioStep>();
+        foreach (var step in steps)
+        {
+            var hasAction = !string.IsNullOrWhiteSpace(step.Action);
+            var hasInclude = !string.IsNullOrWhiteSpace(step.Include);
+
+            if (hasAction && hasInclude)
+                throw new ScenarioLoadException(sourcePath, "step cannot specify both action and include");
+            if (!hasAction && !hasInclude)
+                throw new ScenarioLoadException(sourcePath, "step requires action or include");
+            if (hasInclude && step.Args is not null)
+                throw new ScenarioLoadException(sourcePath, "include step cannot specify args");
+
+            if (!hasInclude)
+            {
+                expanded.Add(step);
+                continue;
+            }
+
+            var includePath = ResolveIncludePath(baseDirectory, step.Include!);
+            expanded.AddRange(LoadIncludedSteps(includePath, includeStack));
+        }
+
+        return expanded;
+    }
+
+    private static List<ScenarioStep> LoadIncludedSteps(string path, Stack<string> includeStack)
+    {
+        var fullPath = Path.GetFullPath(path);
+        if (includeStack.Contains(fullPath))
+        {
+            var cycle = includeStack.Reverse().Append(fullPath).Select(Path.GetFileName);
+            throw new ScenarioLoadException(fullPath, $"include cycle: {string.Join(" -> ", cycle)}");
+        }
+
+        if (!File.Exists(fullPath))
+            throw new ScenarioLoadException(fullPath, "include file not found");
+
+        string json;
+        try { json = File.ReadAllText(fullPath); }
+        catch (IOException ex) { throw new ScenarioLoadException(fullPath, $"include read failed: {ex.Message}", ex); }
+
+        List<ScenarioStep>? steps;
+        try { steps = JsonSerializer.Deserialize<List<ScenarioStep>>(json, ProtocolJson.Options); }
+        catch (JsonException ex) { throw new ScenarioLoadException(fullPath, $"invalid include JSON: {ex.Message}", ex); }
+        if (steps is null)
+            throw new ScenarioLoadException(fullPath, "include deserialization returned null");
+
+        includeStack.Push(fullPath);
+        try
+        {
+            return ExpandSteps(
+                steps,
+                fullPath,
+                Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory(),
+                includeStack);
+        }
+        finally
+        {
+            includeStack.Pop();
+        }
+    }
+
+    private static string ResolveIncludePath(string baseDirectory, string include)
+        => Path.IsPathFullyQualified(include)
+            ? include
+            : Path.Combine(baseDirectory, include);
 }

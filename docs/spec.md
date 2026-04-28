@@ -230,6 +230,14 @@ JSON (not YAML — Claude Code handles JSON schemas better, and the tooling is s
 }
 ```
 
+Scenario steps can also include reusable step fragments:
+
+```json
+{ "include": "fragments/open-terminal.steps.json" }
+```
+
+Include paths resolve relative to the file containing the include. A fragment is a JSON array of step objects, may include other fragments, and is expanded by `ScenarioLoader` before execution so runners and reports still operate on concrete action steps. Cycles are rejected at load time.
+
 An alternate C# DSL can wrap this for modders who prefer typed fluent APIs; both compile to the same JSON-RPC calls.
 
 ### 4.7 Test Runner (CLI)
