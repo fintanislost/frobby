@@ -30,8 +30,8 @@ public static class InputClickTextHandler
         Func<TextDrawEvent[]> getTextEvents)
     {
         var req = RpcParams.Required<InputClickTextRequest>(paramsElement);
-        if (string.IsNullOrWhiteSpace(req.Text))
-            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.text required");
+        if (string.IsNullOrWhiteSpace(req.Text) && string.IsNullOrWhiteSpace(req.TextEquals))
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.text or params.text_equals required");
         if (req.Occurrence < 1)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.occurrence must be >= 1");
 
@@ -42,6 +42,7 @@ public static class InputClickTextHandler
         var filter = new TextDrawFilter
         {
             TextContains = req.Text,
+            TextEquals = req.TextEquals,
             CaseSensitive = req.CaseSensitive,
             InRect = req.InRect,
             BoundsWithinRect = req.BoundsWithinRect,
@@ -56,7 +57,7 @@ public static class InputClickTextHandler
         if (match is null)
             throw new JsonRpcException(
                 JsonRpcErrorCode.GameStateInvalid,
-                $"{Method} could not find captured text: {req.Text}");
+                $"{Method} could not find captured text: {TextLabel(req)}");
 
         var bounds = match.Value.Bounds;
         var x = bounds.X + bounds.Width / 2;
@@ -91,4 +92,7 @@ public static class InputClickTextHandler
 
         return null;
     }
+
+    private static string TextLabel(InputClickTextRequest req)
+        => string.IsNullOrWhiteSpace(req.TextEquals) ? req.Text ?? string.Empty : req.TextEquals;
 }

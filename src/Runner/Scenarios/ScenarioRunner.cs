@@ -188,6 +188,7 @@ public sealed class ScenarioRunner
                         var clickParams = ProtocolJson.ToElement(new InputClickTextRequest
                         {
                             Text = uiText.Text,
+                            TextEquals = uiText.TextEquals,
                             Button = uiText.Button,
                             CaseSensitive = uiText.CaseSensitive,
                             Occurrence = uiText.Occurrence,
@@ -198,6 +199,10 @@ public sealed class ScenarioRunner
                         var resp = await _session.InvokeAsync("input.click_text", clickParams, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+                    }
+                    else if (step.Action == "time.next_day")
+                    {
+                        await InvokeTimeNextDayAsync(step, ct);
                     }
                     else
                     {
@@ -295,6 +300,34 @@ public sealed class ScenarioRunner
         throw new TimeoutException("world never became ready after fixture.load");
     }
 
+    private async Task InvokeTimeNextDayAsync(ScenarioStep step, CancellationToken ct)
+    {
+        int settleTimeoutMs = GetIntArg(step.Args, "settle_timeout_ms") ?? 3000;
+        int pollMs = GetIntArg(step.Args, "poll_ms") ?? 100;
+        if (settleTimeoutMs < 1)
+            throw new InvalidOperationException("time.next_day requires args.settle_timeout_ms >= 1");
+        if (pollMs < 1)
+            throw new InvalidOperationException("time.next_day requires args.poll_ms >= 1");
+
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
+            if (resp.Error is null)
+                return;
+
+            if (!IsTransientTimeNextDayWarp(resp.Error) || elapsed.ElapsedMilliseconds >= settleTimeoutMs)
+                throw new InvalidOperationException($"step '{step.Action}' failed: {resp.Error.Message}");
+
+            await Task.Delay(pollMs, ct);
+        }
+    }
+
+    private static bool IsTransientTimeNextDayWarp(JsonRpcError error)
+        => error.Code == JsonRpcErrorCode.GameStateInvalid
+            && string.Equals(error.Message, "time.next_day requires no active warp", StringComparison.Ordinal);
+
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
     {
         var args = ParseUiTextArgs(step);
@@ -318,16 +351,24 @@ public sealed class ScenarioRunner
                 throw new InvalidOperationException($"step '{step.Action}' failed during draw.text_find: {findError.Message}");
 
             lastCount = findResp.Result is { } result ? ReadTextFindCount(result) : 0;
+            await DisarmDrawCaptureAsync(step.Action, ct);
             if (lastCount >= requiredCount)
                 return args;
 
             if (elapsed.ElapsedMilliseconds >= args.TimeoutMs)
             {
                 throw new TimeoutException(
-                    $"{step.Action} timed out after {args.TimeoutMs}ms waiting for text \"{args.Text}\" " +
+                    $"{step.Action} timed out after {args.TimeoutMs}ms waiting for text \"{args.TextLabel}\" " +
                     $"(matched {lastCount} < {requiredCount})");
             }
         }
+    }
+
+    private async Task DisarmDrawCaptureAsync(string action, CancellationToken ct)
+    {
+        var resp = await _session.InvokeAsync("draw.disarm", params_: null, ct);
+        if (resp.Error is { } error)
+            throw new InvalidOperationException($"step '{action}' failed during draw.disarm: {error.Message}");
     }
 
     private static UiTextStepArgs ParseUiTextArgs(ScenarioStep step)
@@ -336,8 +377,8 @@ public sealed class ScenarioRunner
             ? JsonSerializer.Deserialize<UiTextStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new UiTextStepArgs()
             : new UiTextStepArgs();
 
-        if (string.IsNullOrWhiteSpace(args.Text))
-            throw new InvalidOperationException($"{step.Action} requires args.text");
+        if (string.IsNullOrWhiteSpace(args.Text) && string.IsNullOrWhiteSpace(args.TextEquals))
+            throw new InvalidOperationException($"{step.Action} requires args.text or args.text_equals");
         if (args.TimeoutMs < 1)
             throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
         if (args.PollMs < 1)
@@ -356,6 +397,7 @@ public sealed class ScenarioRunner
         => ProtocolJson.ToElement(new TextDrawFilter
         {
             TextContains = args.Text,
+            TextEquals = args.TextEquals,
             CaseSensitive = args.CaseSensitive,
             InRect = args.InRect,
             BoundsWithinRect = args.BoundsWithinRect,
@@ -384,9 +426,9 @@ public sealed class ScenarioRunner
             "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
-            "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
-            "ui.wait_text" => $"Wait for text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
-            "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetStringArg(step.Args, "text") ?? string.Empty}\"",
+            "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
+            "ui.wait_text" => $"Wait for text \"{GetUiTextLabel(step.Args)}\"",
+            "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
@@ -452,6 +494,9 @@ public sealed class ScenarioRunner
                 ? value.GetString()
                 : null;
 
+    private static string GetUiTextLabel(JsonElement? args)
+        => GetStringArg(args, "text_equals") ?? GetStringArg(args, "text") ?? string.Empty;
+
     private static int? GetIntArg(JsonElement? args, string name)
         => args is { ValueKind: JsonValueKind.Object } obj
             && obj.TryGetProperty(name, out var value)
@@ -499,16 +544,20 @@ public sealed class ScenarioRunner
     private sealed class UiTextStepArgs
     {
         public string? Text { get; set; }
+        public string? TextEquals { get; set; }
         public string Button { get; set; } = "left";
         public bool CaseSensitive { get; set; } = true;
         public int Occurrence { get; set; } = 1;
         public int MinCount { get; set; } = 1;
         public int TimeoutMs { get; set; } = 1500;
-        public int PollMs { get; set; } = 300;
+        public int PollMs { get; set; } = 50;
         public int CaptureTicks { get; set; } = 10;
         public int[]? InRect { get; set; }
         public int[]? BoundsWithinRect { get; set; }
         public int[]? BoundsIntersectsRect { get; set; }
+
+        public string TextLabel
+            => string.IsNullOrWhiteSpace(TextEquals) ? Text ?? string.Empty : TextEquals;
     }
 
     /// <summary>

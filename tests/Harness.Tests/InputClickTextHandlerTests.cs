@@ -66,6 +66,21 @@ public class InputClickTextHandlerTests
     }
 
     [Fact]
+    public void Handle_TextEquals_ClicksExactTextInsteadOfInstructionSubstring()
+    {
+        var menu = new CapturingMenu();
+        var p = JsonDocument.Parse("{\"text_equals\":\"CONTINUE\"}").RootElement;
+
+        InputClickTextHandler.Handle(
+            p,
+            () => menu,
+            () => 0,
+            () => Events(Label("Click CONTINUE to begin.", x: 10, y: 20), Label("CONTINUE", x: 100, y: 200)));
+
+        Assert.Equal((140, 214), menu.LastLeftClick);
+    }
+
+    [Fact]
     public void Handle_UsesOccurrenceAfterFiltering()
     {
         var menu = new CapturingMenu();

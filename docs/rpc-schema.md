@@ -394,11 +394,13 @@ Response (invalid game state):
 
 `tick` is `Game1.ticks` after the transition. `year`, `season`, `day_of_month`, and `time_of_day` reflect the post-transition SDV date; `time_of_day` is always `600`.
 
+When `time.next_day` is used as a runner scenario step, the runner retries the RPC briefly if the harness reports `time.next_day requires no active warp`. This covers the common UI-testing case where a semantic click has just closed a menu and the game is still settling. Scenario authors may override the retry window with `args.settle_timeout_ms` and `args.poll_ms`.
+
 **Preconditions:** an active scenario; world loaded; no active menu; no minigame; no event; not mid-warp.
 **Side effects:** raises exactly one SMAPI `DayEnding`, advances date/time deterministically, then raises exactly one SMAPI `DayStarted`. It does not save, show sleep/end-of-night menus, run overnight farm simulation, or execute SDV's full sleep transition.
 **Fallback seam:** production and unit tests use `DeterministicTimeNextDayTransition`, which applies the same 28-day season/year rollover and fires day-ending then day-started callbacks in order.
 **Implemented in:** `src/Harness/Handlers/TimeNextDayHandler.cs`
-**Tested in:** `tests/Protocol.Tests/TimeNextDayResultSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/TimeNextDayHandlerTests.cs` (preconditions/projection/seam order).
+**Tested in:** `tests/Protocol.Tests/TimeNextDayResultSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/TimeNextDayHandlerTests.cs` (preconditions/projection/seam order) + `tests/Runner.Tests/ScenarioRunnerTests.cs` (runner active-warp retry).
 
 ### world.set_weather
 
@@ -623,7 +625,7 @@ Response (no active menu — GameStateInvalid):
 
 ### input.click_text
 
-Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. `params.text` is required and matches `draw.text_find`'s `text_contains` behavior. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
+Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
 
 `input.click_text` also accepts the text-draw region filters `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect` to disambiguate duplicate labels.
 
@@ -637,6 +639,11 @@ Request with a region filter:
 → { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text": "CLOSE", "bounds_intersects_rect": [730, 58, 70, 22] } }
 ```
 
+Request with exact text matching:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text_equals": "CONTINUE" } }
+```
+
 Response (success):
 ```json
 ← { "jsonrpc": "2.0", "id": 17, "result": { "ok": true, "tick": 84204 } }
@@ -644,7 +651,7 @@ Response (success):
 
 Response (missing text — InvalidParams):
 ```json
-← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.text required" } }
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.text or params.text_equals required" } }
 ```
 
 Response (no active menu — GameStateInvalid):
@@ -667,7 +674,7 @@ Runner scenario convenience:
 - `{ "action": "ui.wait_text", "args": { "text": "SUBMIT ORDER" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 
-Both convenience steps accept `text`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+Both convenience steps accept `text`, `text_equals`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
 ### draw.arm
 
