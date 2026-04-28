@@ -676,6 +676,52 @@ Runner scenario convenience:
 
 Both convenience steps accept `text`, `text_equals`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
+### shop.open
+
+Opens a data-backed Stardew shop by shop ID. This is a semantic test primitive for
+shop-data validation; use `world.interact_npc` plus click/text steps when the NPC
+conversation path itself is under test.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "shop.open", "params": { "shop_id": "Carpenter", "owner_name": "Robin", "force_open": true } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 18, "result": { "ok": true, "tick": 84204, "shop_id": "Carpenter", "menu_type": "ShopMenu" } }
+```
+
+`force_open` defaults to `true`, which opens the shop data directly and bypasses
+schedule/open-hours checks for deterministic scenarios. Set it to `false` when the
+test specifically needs Stardew's normal shop-availability behavior.
+
+**Preconditions:** a world must be loaded.
+**Side effects:** opens `Game1.activeClickableMenu` via Stardew's shop-opening API.
+**Implemented in:** `src/Harness/Handlers/ShopOpenHandler.cs`
+**Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopOpenHandlerTests.cs`.
+
+### shop.purchase
+
+Purchases an item from the active `ShopMenu` by qualified item ID. The handler searches
+the full shop inventory, not just the currently visible page, checks the player's gold,
+creates the salable instance, debits the total price, and adds the item to inventory.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "shop.purchase", "params": { "item_id": "(F)stonks_starberg_terminal_v1", "count": 1 } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)stonks_starberg_terminal_v1", "display_name": "Starberg Terminal - Model 4201", "count": 1, "unit_price": 25000, "previous_money": 30000, "money": 5000 } }
+```
+
+**Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
+**Side effects:** debits player gold and adds the purchased item to inventory.
+**Implemented in:** `src/Harness/Handlers/ShopPurchaseHandler.cs`
+**Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopPurchaseHandlerTests.cs`.
+
 ### draw.arm
 
 Arms the draw-event recorder for the next N update ticks. When `params.output_path` is set, the buffer is also flushed to a JSONL file at disarm time; when omitted, capture is in-memory only and retrievable via `draw.snapshot`. `params` is entirely optional — omit to arm for the default 30-tick budget with in-memory capture.

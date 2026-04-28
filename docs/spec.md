@@ -158,6 +158,7 @@ Thin wrappers around SMAPI's `IReflectionHelper` plus direct access to `Game1.*`
 **Manipulators:**
 - `player.give_item(id, count)`, `player.set_money(n)`, `player.warp(location, x, y)`
 - `time.advance(minutes)`, `time.set(day, season, year)`, `time.sleep()`
+- `shop.open(shop_id, owner_name?, force_open?)`, `shop.purchase(item_id, count?)`
 - `npc.set_position(name, x, y)`, `npc.trigger_event(id)`
 - `world.set_flag(key, value)`, `world.set_weather(type)`
 
