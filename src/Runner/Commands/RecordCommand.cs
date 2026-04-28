@@ -112,7 +112,7 @@ public static class RecordCommand
         }
         finally
         {
-            try { if (!sdv.HasExited) { sdv.Kill(); sdv.WaitForExit(5000); } } catch { }
+            SdvLauncher.Terminate(sdv);
         }
     }
 }

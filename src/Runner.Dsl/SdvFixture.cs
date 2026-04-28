@@ -123,11 +123,8 @@ public sealed class SdvFixture : IAsyncLifetime
         try { _session?.Dispose(); } catch { }
         try
         {
-            if (_sdv is { HasExited: false })
-            {
-                _sdv.Kill();
-                _sdv.WaitForExit(5000);
-            }
+            if (_sdv is not null)
+                SdvTestFramework.Protocol.SdvLauncher.Terminate(_sdv);
         } catch { }
         _lifetimeCts?.Cancel();
         _lifetimeCts?.Dispose();

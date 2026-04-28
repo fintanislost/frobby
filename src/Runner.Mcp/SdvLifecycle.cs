@@ -86,11 +86,8 @@ public class SdvLifecycle : IAsyncDisposable
         try { _session?.Dispose(); } catch { }
         try
         {
-            if (_sdv is { HasExited: false })
-            {
-                _sdv.Kill();
-                _sdv.WaitForExit(5000);
-            }
+            if (_sdv is not null)
+                SdvLauncher.Terminate(_sdv);
         } catch { }
         _launchLock.Dispose();
         await Task.CompletedTask;

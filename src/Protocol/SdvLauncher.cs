@@ -34,6 +34,38 @@ public static class SdvLauncher
     public static bool IsHeadlessRequested(bool headless)
         => headless || IsTruthy(Environment.GetEnvironmentVariable("SDV_TEST_HEADLESS"));
 
+    /// <summary>
+    /// Best-effort SDV teardown. Kills the entire process tree so wrapper launchers like
+    /// <c>xvfb-run</c> do not leave SMAPI or Xvfb children running after the parent exits.
+    /// </summary>
+    public static void Terminate(Process process, int timeoutMs = 5000)
+    {
+        try
+        {
+            if (process.HasExited)
+                return;
+        }
+        catch
+        {
+            return;
+        }
+
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (NotSupportedException)
+        {
+            try { process.Kill(); } catch { }
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        try { process.WaitForExit(timeoutMs); } catch { }
+    }
+
     internal static ProcessStartInfo CreateStartInfo(
         string socketPath,
         string? installPath = null,

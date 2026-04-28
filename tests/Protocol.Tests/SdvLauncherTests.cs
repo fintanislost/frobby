@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using SdvTestFramework.Protocol;
 using Xunit;
 
@@ -69,11 +71,54 @@ public class SdvLauncherTests
         }
     }
 
+    [Fact]
+    public void Terminate_KillsChildProcessTree()
+    {
+        var psi = new ProcessStartInfo("/bin/sh")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        psi.ArgumentList.Add("-c");
+        psi.ArgumentList.Add("sleep 60 & echo $!; wait");
+
+        using var process = Process.Start(psi)
+            ?? throw new InvalidOperationException("failed to start shell process");
+        var childPid = int.Parse(process.StandardOutput.ReadLine()!);
+
+        SdvLauncher.Terminate(process, timeoutMs: 5000);
+
+        Assert.True(process.HasExited);
+        Assert.False(IsProcessAlive(childPid));
+    }
+
     private static string CreateFakeInstall()
     {
         var root = Path.Combine(Path.GetTempPath(), $"sdv-launcher-install-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         File.WriteAllText(Path.Combine(root, "StardewModdingAPI"), string.Empty);
         return root;
+    }
+
+    private static bool IsProcessAlive(int pid)
+    {
+        for (var i = 0; i < 20; i++)
+        {
+            try
+            {
+                using var process = Process.GetProcessById(pid);
+                if (process.HasExited)
+                    return false;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+
+            Thread.Sleep(100);
+        }
+
+        return true;
     }
 }
