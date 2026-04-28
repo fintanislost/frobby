@@ -40,6 +40,7 @@ internal static class Program
             "doctor" => await DoctorCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "list" => await ListCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "run" => await RunCommand.RunAsync(args.AsMemory()[1..], cts.Token),
+            "run-suite" => await RunSuiteCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "fixture" => await FixtureCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "record" => await RecordCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "mcp" => await McpCommand.RunAsync(args.AsMemory()[1..], cts.Token),
@@ -84,6 +85,11 @@ internal static class Program
         w.WriteLine("                                        write the current capture as the new baseline + pass.");
         w.WriteLine("                    --tier: tolerance preset for bitmap assertions. Maps to per-method");
         w.WriteLine("                            defaults: generic→0.95 SSIM, ci-ubuntu→0.98, self-hosted-nvidia→0.999.");
+        w.WriteLine("  run-suite [--fresh-process-per-scenario] [--filter <p>] [--mods-path <p>]");
+        w.WriteLine("            [--extra-mod <path>] [--report-dir <path>] [paths...]");
+        w.WriteLine("                    Run each discovered scenario via a separate 'run' invocation.");
+        w.WriteLine("                    This is the preferred flow for mod UI suites that need a fresh");
+        w.WriteLine("                    SMAPI process per scenario while sharing one report hub.");
         w.WriteLine("  fixture create <name> --from <script>");
         w.WriteLine("                    Build a reproducible save-state fixture in tests/fixtures/.");
         w.WriteLine("  fixture list      Enumerate existing fixtures.");

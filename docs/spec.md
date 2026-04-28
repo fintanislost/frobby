@@ -248,6 +248,7 @@ Single binary, .NET 8. Commands:
 [tool] run <path>                  # run scenarios matching path
 [tool] run --filter <pattern>      # filter by name
 [tool] run --watch                 # rerun on file change (dev loop)
+[tool] run-suite <path>            # run each scenario in a fresh SDV process
 [tool] record <scenario>           # interactive mode: play manually, framework records steps
 [tool] baseline update <scenario>  # regenerate bitmap baselines
 [tool] doctor                      # verify SDV install, SMAPI version, harness mod present
@@ -259,6 +260,11 @@ Single binary, .NET 8. Commands:
 3. Wait for `ready` event (timeout 60s)
 4. Stream scenarios over RPC
 5. On batch complete, send `shutdown`, wait 5s, SIGTERM if needed
+
+`run-suite` is the same execution path composed at the CLI layer: it discovers matching
+scenario files, then invokes `run` once per scenario so every scenario starts from a
+fresh SMAPI process. When `--report-dir` is supplied, each scenario writes a stable
+numbered report directory under the shared base and the base `index.html` links them.
 
 **Reporters:** console (default, Playwright-style), TAP (for CI composition), JUnit XML (for GitLab/GitHub CI visualization).
 

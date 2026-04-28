@@ -204,6 +204,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeTimeNextDayAsync(step, ct);
                     }
+                    else if (step.Action == "freeze.begin")
+                    {
+                        await InvokeFreezeBeginAsync(step, ct);
+                    }
                     else
                     {
                         var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
@@ -327,6 +331,34 @@ public sealed class ScenarioRunner
     private static bool IsTransientTimeNextDayWarp(JsonRpcError error)
         => error.Code == JsonRpcErrorCode.GameStateInvalid
             && string.Equals(error.Message, "time.next_day requires no active warp", StringComparison.Ordinal);
+
+    private async Task InvokeFreezeBeginAsync(ScenarioStep step, CancellationToken ct)
+    {
+        int settleTimeoutMs = GetIntArg(step.Args, "settle_timeout_ms") ?? 5000;
+        int pollMs = GetIntArg(step.Args, "poll_ms") ?? 100;
+        if (settleTimeoutMs < 1)
+            throw new InvalidOperationException("freeze.begin requires args.settle_timeout_ms >= 1");
+        if (pollMs < 1)
+            throw new InvalidOperationException("freeze.begin requires args.poll_ms >= 1");
+
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
+            if (resp.Error is null)
+                return;
+
+            if (!IsTransientFreezeBeginWarp(resp.Error) || elapsed.ElapsedMilliseconds >= settleTimeoutMs)
+                throw new InvalidOperationException($"step '{step.Action}' failed: {resp.Error.Message}");
+
+            await Task.Delay(pollMs, ct);
+        }
+    }
+
+    private static bool IsTransientFreezeBeginWarp(JsonRpcError error)
+        => error.Code == JsonRpcErrorCode.GameStateInvalid
+            && string.Equals(error.Message, "freeze.begin requires !Game1.isWarping (mid-warp)", StringComparison.Ordinal);
 
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
     {

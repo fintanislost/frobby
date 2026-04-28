@@ -1015,6 +1015,11 @@ tick number.
 
 Any violation → `GameStateInvalid (-32003)` with the failing check named.
 
+When `freeze.begin` is used as a runner scenario step, the runner retries briefly if
+the harness reports `freeze.begin requires !Game1.isWarping (mid-warp)`. This covers
+UI tests that open/close menus or warp immediately before freezing. Scenario authors
+may override the retry window with `args.settle_timeout_ms` and `args.poll_ms`.
+
 **Response:**
 
 ```json

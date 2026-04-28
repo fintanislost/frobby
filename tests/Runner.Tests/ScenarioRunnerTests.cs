@@ -725,6 +725,73 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task FreezeBegin_RetriesTransientMidWarp()
+    {
+        var socket = SocketPath();
+        var freezeCalls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    if (req.Method == "freeze.begin")
+                    {
+                        freezeCalls++;
+                        if (freezeCalls == 1)
+                        {
+                            await session.SendResponseAsync(
+                                JsonRpcResponse.Fail(req.Id, new JsonRpcError(JsonRpcErrorCode.GameStateInvalid, "freeze.begin requires !Game1.isWarping (mid-warp)")),
+                                tok);
+                            return;
+                        }
+                    }
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "freeze_after_warp",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "freeze.begin",
+                    Args = JsonDocument.Parse("{\"settle_timeout_ms\":100,\"poll_ms\":1}").RootElement,
+                },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, freezeCalls);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task StepFailure_RecordedInFailures()
     {
         var socket = SocketPath();
