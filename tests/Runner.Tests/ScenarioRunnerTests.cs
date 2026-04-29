@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
+using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Runner.Scenarios;
 using Xunit;
 
@@ -277,6 +278,91 @@ public class ScenarioRunnerTests
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task ScreenshotCaptureNextFrame_UsesNextFrameBitmapRpc()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"scenario-next-frame-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var source = Path.Combine(tmp, "source.png");
+        File.WriteAllBytes(source, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+        var calls = new List<string>();
+        var captureParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    JsonElement r;
+                    if (req.Method == "bitmap.capture_next_frame")
+                    {
+                        captureParams = req.Params!.Value.Clone();
+                        r = JsonSerializer.SerializeToElement(new
+                        {
+                            path = source,
+                            width = 1,
+                            height = 1,
+                        });
+                    }
+                    else
+                    {
+                        r = req.Method switch
+                        {
+                            "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                            "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                            _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                        };
+                    }
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "next_frame_screenshot",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "screenshot.capture_next_frame",
+                        Args = JsonDocument.Parse("{\"name\":\"chart-1m\",\"timeout_ms\":3000}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed);
+            Assert.Contains("bitmap.capture_next_frame", calls);
+            Assert.DoesNotContain("bitmap.capture", calls);
+            Assert.Equal(3000, captureParams.GetProperty("timeout_ms").GetInt32());
+            Assert.True(captureParams.GetProperty("allow_unfrozen").GetBoolean());
+            Assert.Contains("scenarios/next_frame_screenshot/screenshots/chart-1m.png", report.Screenshots);
+            Assert.Equal("Capture next-frame screenshot \"chart-1m\"", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
     }
 
     [Fact]

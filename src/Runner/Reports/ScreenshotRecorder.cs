@@ -8,6 +8,12 @@ using SdvTestFramework.Protocol.Reports;
 
 namespace SdvTestFramework.Runner.Reports;
 
+public enum ScreenshotCaptureMode
+{
+    Immediate,
+    NextFrame,
+}
+
 /// <summary>
 /// Runner-side orchestrator for screenshot capture. Calls <c>bitmap.capture</c> via
 /// the RPC session, then copies the resulting PNG into the per-scenario report dir.
@@ -17,7 +23,11 @@ public sealed class ScreenshotRecorder
     /// <summary>Test seam — production implementation calls <see cref="JsonRpcSession"/>.</summary>
     public interface IBitmapInvoker
     {
-        Task<string?> CaptureAsync(bool allowUnfrozen, CancellationToken ct);
+        Task<string?> CaptureAsync(
+            bool allowUnfrozen,
+            ScreenshotCaptureMode mode,
+            int timeoutMs,
+            CancellationToken ct);
     }
 
     private readonly IBitmapInvoker _invoker;
@@ -38,12 +48,14 @@ public sealed class ScreenshotRecorder
         string scenarioName,
         string fileNameWithoutExt,
         CancellationToken ct,
-        bool allowUnfrozen = false)
+        bool allowUnfrozen = false,
+        ScreenshotCaptureMode captureMode = ScreenshotCaptureMode.Immediate,
+        int timeoutMs = 2000)
     {
         string? source;
         try
         {
-            source = await _invoker.CaptureAsync(allowUnfrozen, ct);
+            source = await _invoker.CaptureAsync(allowUnfrozen, captureMode, timeoutMs, ct);
         }
         catch (Exception ex)
         {
@@ -72,15 +84,26 @@ public sealed class ScreenshotRecorder
         private readonly JsonRpcSession _session;
         public SessionInvoker(JsonRpcSession session) => _session = session;
 
-        public async Task<string?> CaptureAsync(bool allowUnfrozen, CancellationToken ct)
+        public async Task<string?> CaptureAsync(
+            bool allowUnfrozen,
+            ScreenshotCaptureMode mode,
+            int timeoutMs,
+            CancellationToken ct)
         {
             JsonElement? args = null;
-            if (allowUnfrozen)
+            if (allowUnfrozen || mode == ScreenshotCaptureMode.NextFrame || timeoutMs != 2000)
             {
-                args = JsonSerializer.SerializeToElement(new { allow_unfrozen = true });
+                args = JsonSerializer.SerializeToElement(new
+                {
+                    allow_unfrozen = allowUnfrozen,
+                    timeout_ms = timeoutMs,
+                });
             }
 
-            var resp = await _session.InvokeAsync("bitmap.capture", args, ct);
+            var method = mode == ScreenshotCaptureMode.NextFrame
+                ? "bitmap.capture_next_frame"
+                : "bitmap.capture";
+            var resp = await _session.InvokeAsync(method, args, ct);
             if (resp.Error is not null) return null;
             if (resp.Result is not { } r) return null;
             if (!r.TryGetProperty("path", out var pathEl) || pathEl.ValueKind != JsonValueKind.String)

@@ -164,22 +164,21 @@ public sealed class ScenarioRunner
                     }
                     else if (step.Action == "screenshot.capture")
                     {
-                        // Explicit screenshot step — capture + record in report.
-                        if (_recorder is not null && _reportDir is not null)
-                        {
-                            string name = "explicit";
-                            if (step.Args is { ValueKind: JsonValueKind.Object } a
-                                && a.TryGetProperty("name", out var nameEl)
-                                && nameEl.ValueKind == JsonValueKind.String
-                                && nameEl.GetString() is { } s && s.Length > 0)
-                            {
-                                name = s;
-                            }
-                            var path = await _recorder.CaptureAsync(
-                                _reportDir, spec.Name, name, ct, allowUnfrozen: true);
-                            if (path is not null)
-                                report.Screenshots.Add(MakeRelativePath(_reportDir, path));
-                        }
+                        await CaptureExplicitScreenshotAsync(
+                            step,
+                            spec.Name,
+                            report,
+                            ct,
+                            ScreenshotCaptureMode.Immediate);
+                    }
+                    else if (step.Action == "screenshot.capture_next_frame")
+                    {
+                        await CaptureExplicitScreenshotAsync(
+                            step,
+                            spec.Name,
+                            report,
+                            ct,
+                            ScreenshotCaptureMode.NextFrame);
                     }
                     else if (step.Action == "ui.wait_text")
                     {
@@ -222,7 +221,7 @@ public sealed class ScenarioRunner
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
                     }
 
-                    if (step.Action != "screenshot.capture")
+                    if (step.Action != "screenshot.capture" && step.Action != "screenshot.capture_next_frame")
                         await TryCaptureStepScreenshotAsync(report, spec.Name, step, stepIndex, ct);
                 }
                 catch (Exception ex)
@@ -513,8 +512,33 @@ public sealed class ScenarioRunner
             "state.assert" => $"Assert {GetStringArg(step.Args, "expr") ?? "state"}",
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
+            "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             _ => step.Args is null ? step.Action : $"{step.Action} {step.Args.Value.GetRawText()}",
         };
+    }
+
+    private async Task CaptureExplicitScreenshotAsync(
+        ScenarioStep step,
+        string scenarioName,
+        ScenarioReport report,
+        CancellationToken ct,
+        ScreenshotCaptureMode captureMode)
+    {
+        if (_recorder is null || _reportDir is null)
+            return;
+
+        string name = GetStringArg(step.Args, "name") ?? "explicit";
+        int timeoutMs = GetIntArg(step.Args, "timeout_ms") ?? 2000;
+        var path = await _recorder.CaptureAsync(
+            _reportDir,
+            scenarioName,
+            name,
+            ct,
+            allowUnfrozen: true,
+            captureMode: captureMode,
+            timeoutMs: timeoutMs);
+        if (path is not null)
+            report.Screenshots.Add(MakeRelativePath(_reportDir, path));
     }
 
     private async Task TryCaptureStepScreenshotAsync(
