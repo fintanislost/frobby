@@ -39,9 +39,66 @@ public sealed class GameThreadDispatch
         return tcs.Task;
     }
 
+    public Task<T> RunTaskAsync<T>(Func<Task<T>> fn, CancellationToken ct = default)
+    {
+        var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        CancellationTokenRegistration reg = default;
+        if (ct.CanBeCanceled)
+            reg = ct.Register(() => tcs.TrySetCanceled(ct));
+
+        _queue.Enqueue(() =>
+        {
+            if (ct.IsCancellationRequested)
+            {
+                reg.Dispose();
+                tcs.TrySetCanceled(ct);
+                return;
+            }
+
+            Task<T> inner;
+            try { inner = fn(); }
+            catch (Exception ex)
+            {
+                reg.Dispose();
+                tcs.TrySetException(ex);
+                return;
+            }
+
+            _ = CompleteAsync(inner, tcs, reg, ct);
+        });
+
+        return tcs.Task;
+    }
+
+    private static async Task CompleteAsync<T>(
+        Task<T> inner,
+        TaskCompletionSource<T> tcs,
+        CancellationTokenRegistration reg,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await inner.ConfigureAwait(false);
+            tcs.TrySetResult(result);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            tcs.TrySetCanceled(ct);
+        }
+        catch (Exception ex)
+        {
+            tcs.TrySetException(ex);
+        }
+        finally
+        {
+            reg.Dispose();
+        }
+    }
+
     /// <summary>Run <paramref name="fn"/> on the game thread; return a task that completes when it finishes.</summary>
     public Task RunAsync(Action fn, CancellationToken ct = default)
-        => RunAsync<object?>(() => { fn(); return null; }, ct);
+        => RunAsync<object?>(() => { fn(); return default!; }, ct);
 
     /// <summary>
     /// Drain the queue. Call from an <c>UpdateTicked</c> handler. Exceptions inside user

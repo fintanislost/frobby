@@ -15,7 +15,7 @@ namespace SdvTestFramework.Harness.Rpc;
 /// </summary>
 public sealed class RpcDispatcher
 {
-    private readonly Dictionary<string, Func<JsonElement?, JsonElement?>> _handlers =
+    private readonly Dictionary<string, Func<JsonElement?, Task<JsonElement?>>> _handlers =
         new(StringComparer.Ordinal);
 
     private readonly GameThreadDispatch _gameThread;
@@ -26,6 +26,9 @@ public sealed class RpcDispatcher
     }
 
     public void Register(string method, Func<JsonElement?, JsonElement?> handler)
+        => RegisterAsync(method, p => Task.FromResult(handler(p)));
+
+    public void RegisterAsync(string method, Func<JsonElement?, Task<JsonElement?>> handler)
     {
         if (_handlers.ContainsKey(method))
             throw new InvalidOperationException($"duplicate method registration: {method}");
@@ -42,7 +45,7 @@ public sealed class RpcDispatcher
 
         try
         {
-            var result = await _gameThread.RunAsync(() => handler(request.Params), ct).ConfigureAwait(false);
+            var result = await _gameThread.RunTaskAsync(() => handler(request.Params), ct).ConfigureAwait(false);
             return JsonRpcResponse.Ok(request.Id, result ?? NullElement);
         }
         catch (OperationCanceledException)

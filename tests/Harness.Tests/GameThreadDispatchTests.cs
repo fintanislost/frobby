@@ -71,4 +71,22 @@ public class GameThreadDispatchTests
 
         Assert.Equal(new[] { 1, 2, 3 }, log);
     }
+
+    [Fact]
+    public async Task RunAsync_AsyncCallback_DoesNotBlockDrain()
+    {
+        var d = new GameThreadDispatch();
+        var inner = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var task = d.RunTaskAsync(async () => await inner.Task);
+
+        d.Drain();
+
+        Assert.False(task.IsCompleted);
+        Assert.Equal(0, d.PendingCount);
+
+        inner.SetResult(42);
+
+        Assert.Equal(42, await task);
+    }
 }

@@ -104,4 +104,26 @@ public class RpcDispatcherTests
 
         Assert.True(ran);
     }
+
+    [Fact]
+    public async Task Dispatch_AsyncHandler_CompletesAfterHandlerTask()
+    {
+        var gameThread = new GameThreadDispatch();
+        var disp = new RpcDispatcher(gameThread);
+        var inner = new TaskCompletionSource<JsonElement?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        disp.RegisterAsync("wait", _ => inner.Task);
+
+        var task = disp.DispatchAsync(
+            new JsonRpcRequest { Id = 5, Method = "wait" },
+            CancellationToken.None);
+
+        gameThread.Drain();
+        Assert.False(task.IsCompleted);
+
+        inner.SetResult(JsonDocument.Parse("{\"ok\":true}").RootElement);
+        var resp = await task;
+
+        Assert.Null(resp.Error);
+        Assert.True(resp.Result!.Value.GetProperty("ok").GetBoolean());
+    }
 }
