@@ -43,7 +43,7 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 
 ## Current runner notes
 
-The CLI runner supports semantic text assertions for real mod UI testing, including `draw.text_contains`, `draw.text_not_contains`, bounds filters such as `bounds_within_rect`, palette filters such as `color_any`, and pane-level `draw.text_all_within` guardrails. Use `draw.text_all_within` when a fixed UI container should never let body copy, table values, button labels, or status text escape its rectangle. See `docs/dsl-quickstart.md` for the assertion shape and report behavior.
+The CLI runner supports semantic text assertions for real mod UI testing, including `draw.text_contains`, `draw.text_not_contains`, bounds filters such as `bounds_within_rect`, palette filters such as `color_any`, and pane-level `draw.text_all_within` guardrails. Use `draw.text_all_within` when a fixed UI container should never let body copy, table values, button labels, or status text escape its rectangle. Report screenshots can use `screenshot.capture` for immediate captures or `screenshot.capture_next_frame` after UI-changing clicks that need the next rendered frame. See `docs/dsl-quickstart.md` for the assertion shape and report behavior.
 
 ## Milestones
 

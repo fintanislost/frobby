@@ -1122,7 +1122,8 @@ Pure query — returns the current FREEZE state without mutating anything.
 
 ## `bitmap.capture`
 
-Capture the current backbuffer as a PNG. FREEZE-phase only.
+Capture the current backbuffer as a PNG. FREEZE-phase only unless
+`allow_unfrozen` is explicitly set.
 
 **Preconditions:**
 - `scenario.begin` has been called (active scenario required).
@@ -1130,8 +1131,10 @@ Capture the current backbuffer as a PNG. FREEZE-phase only.
 
 **Params:**
 ```json
-{ "region": { "x": 0, "y": 0, "w": 640, "h": 480 } }
+{ "allow_unfrozen": false, "region": { "x": 0, "y": 0, "w": 640, "h": 480 } }
 ```
+- `allow_unfrozen` — optional bool, default `false`. Set to `true` for best-effort
+  report screenshots outside a frozen assertion phase.
 - `region` — optional object. All four fields required if present. Region must fit within the backbuffer; otherwise `InvalidParams -32602`.
 - Omit `region` to capture the full backbuffer.
 
@@ -1154,6 +1157,35 @@ Capture the current backbuffer as a PNG. FREEZE-phase only.
 - `GameStateInvalid -32003` — not in FREEZE phase.
 - `InvalidParams -32602` — region out of bounds.
 - `InternalError -32603` — backbuffer read / PNG encode / write failure.
+
+## `bitmap.capture_next_frame`
+
+Queue a bitmap capture and complete it from the next SMAPI `Display.Rendered` event.
+Use this after a state-changing input RPC when immediate backbuffer capture might race
+the render that reflects the new UI state.
+
+The written PNG and response shape are identical to `bitmap.capture`; the capture
+callback uses the same `allow_unfrozen` and `region` params at render time.
+
+**Preconditions:**
+- `scenario.begin` has been called (active scenario required).
+- Unless `allow_unfrozen` is true, the scenario is still in FREEZE phase when the
+  next render event fires.
+
+**Params:**
+```json
+{ "allow_unfrozen": false, "timeout_ms": 2000, "region": { "x": 0, "y": 0, "w": 640, "h": 480 } }
+```
+- `timeout_ms` — optional int, default `2000`, must be `>= 1`. The request fails if
+  no render event arrives before the timeout.
+- `allow_unfrozen` and `region` match `bitmap.capture`.
+
+**Response:** same as `bitmap.capture`.
+
+**Errors:**
+- `InvalidParams -32602` — `timeout_ms < 1` or region out of bounds.
+- `GameStateInvalid -32003` — no active scenario, or not frozen when required.
+- `InternalError -32603` — timeout, backbuffer read, PNG encode, or write failure.
 
 ### fixture.save
 

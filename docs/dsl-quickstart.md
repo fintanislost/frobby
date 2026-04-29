@@ -125,6 +125,10 @@ Every test run produces a directory at `./test-results/<run-id>/` containing:
 Auto-screenshots fire at `freeze.begin` and on assertion failure. Add explicit named
 captures via `await Screenshot.Capture("after_my_action")` from the DSL or
 `{ "action": "screenshot.capture", "args": { "name": "after_my_action" } }` in JSON.
+When the screenshot should reflect a click or other input that changes the current
+menu, prefer the JSON runner action
+`{ "action": "screenshot.capture_next_frame", "args": { "name": "after_click", "timeout_ms": 3000 } }`;
+it waits for the next rendered frame before copying the PNG into the report.
 
 CLI flag: `sdv-test run --report-dir <path>` to override the default location, or
 `--no-report` to skip generation.
