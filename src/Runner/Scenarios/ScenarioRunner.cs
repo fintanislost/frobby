@@ -211,6 +211,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeFreezeBeginAsync(step, ct);
                     }
+                    else if (step.Action == "state.assert")
+                    {
+                        await InvokeStateAssertAsync(step, ct);
+                    }
                     else
                     {
                         var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
@@ -380,6 +384,27 @@ public sealed class ScenarioRunner
         => error.Code == JsonRpcErrorCode.GameStateInvalid
             && string.Equals(error.Message, "freeze.begin requires !Game1.isWarping (mid-warp)", StringComparison.Ordinal);
 
+    private async Task InvokeStateAssertAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var expr = GetStringArg(step.Args, "expr");
+        if (string.IsNullOrWhiteSpace(expr))
+            throw new InvalidOperationException("state.assert requires args.expr");
+
+        var message = GetStringArg(step.Args, "message");
+        var (passed, detail) = await EvaluateAssertionAsync(
+            new ScenarioAssertion
+            {
+                Type = "state",
+                Expr = expr,
+                Message = message,
+            },
+            assertionIndex: -1,
+            ct);
+
+        if (!passed)
+            throw new InvalidOperationException($"step 'state.assert' failed: {message ?? detail ?? expr}");
+    }
+
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
     {
         var args = ParseUiTextArgs(step);
@@ -479,11 +504,13 @@ public sealed class ScenarioRunner
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
+            "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"",
             "ui.wait_text" => $"Wait for text \"{GetUiTextLabel(step.Args)}\"",
             "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
+            "state.assert" => $"Assert {GetStringArg(step.Args, "expr") ?? "state"}",
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             _ => step.Args is null ? step.Action : $"{step.Action} {step.Args.Value.GetRawText()}",
@@ -516,14 +543,20 @@ public sealed class ScenarioRunner
     }
 
     internal static bool ShouldAutoCaptureStep(ScenarioStep step)
-        => step.Action switch
+    {
+        if (GetBoolArg(step.Args, "auto_screenshot") == false)
+            return false;
+
+        return step.Action switch
         {
             "wait.ms" => false,
             "draw.arm" => false,
             "draw.disarm" => false,
+            "state.assert" => false,
             "ui.wait_text" => false,
             _ => true,
         };
+    }
 
     private static string DescribeAssertion(ScenarioAssertion assertion)
     {
@@ -549,6 +582,9 @@ public sealed class ScenarioRunner
 
     private static string GetUiTextLabel(JsonElement? args)
         => GetStringArg(args, "text_equals") ?? GetStringArg(args, "text") ?? string.Empty;
+
+    private static string GetMenuButtonLabel(JsonElement? args)
+        => GetStringArg(args, "label") ?? GetStringArg(args, "text_equals") ?? GetStringArg(args, "id") ?? string.Empty;
 
     private static int? GetIntArg(JsonElement? args, string name)
         => args is { ValueKind: JsonValueKind.Object } obj

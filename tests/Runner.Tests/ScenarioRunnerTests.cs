@@ -180,6 +180,7 @@ public class ScenarioRunnerTests
     [Theory]
     [InlineData("wait.ms", false)]
     [InlineData("draw.arm", false)]
+    [InlineData("state.assert", false)]
     [InlineData("ui.wait_text", false)]
     [InlineData("ui.click_text", true)]
     [InlineData("input.click_text", true)]
@@ -189,6 +190,18 @@ public class ScenarioRunnerTests
         var step = new ScenarioStep { Action = action };
 
         Assert.Equal(expected, ScenarioRunner.ShouldAutoCaptureStep(step));
+    }
+
+    [Fact]
+    public void ShouldAutoCaptureStep_CanBeDisabledPerStep()
+    {
+        var step = new ScenarioStep
+        {
+            Action = "input.click",
+            Args = JsonDocument.Parse("{\"x\":1156,\"y\":143,\"auto_screenshot\":false}").RootElement,
+        };
+
+        Assert.False(ScenarioRunner.ShouldAutoCaptureStep(step));
     }
 
     [Fact]
@@ -502,6 +515,62 @@ public class ScenarioRunnerTests
         Assert.Equal(1, report.AssertionsPassed);
         Assert.False(report.Passed);
         Assert.Single(report.Failures);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task StateAssertStep_EvaluatesStateDslDuringSteps()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.menu" => JsonDocument.Parse("{\"type\":\"ShopMenu\",\"present\":true,\"extra\":{}}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "state_assert_step",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "state.assert",
+                    Args = JsonDocument.Parse("{\"expr\":\"state.menu.type == 'ShopMenu'\"}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Contains("state.menu", calls);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
