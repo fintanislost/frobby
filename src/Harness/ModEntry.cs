@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HarmonyLib;
 using SdvTestFramework.Harness.Determinism;
+using SdvTestFramework.Harness.Capture;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Harness.Patches;
 using SdvTestFramework.Harness.Recording;
@@ -82,6 +83,12 @@ public sealed class ModEntry : Mod
         _rpc.Register(FreezeEndHandler.Method, p => FreezeEndHandler.Handle(p));
         _rpc.Register(FreezeStatusHandler.Method, p => FreezeStatusHandler.Handle(p));
         _rpc.Register(BitmapCaptureHandler.Method, p => BitmapCaptureHandler.Handle(p));
+        var renderCapture = new RenderSynchronizedCaptureService();
+        BitmapCaptureNextFrameHandler.CaptureService = renderCapture;
+        BitmapCaptureNextFrameHandler.CaptureNow = BitmapCaptureWriter.CaptureCurrent;
+        _rpc.RegisterAsync(
+            BitmapCaptureNextFrameHandler.Method,
+            p => BitmapCaptureNextFrameHandler.HandleAsync(p, _shutdownCts.Token));
         _rpc.Register(DiagnosticBuildManifestHandler.Method, p => DiagnosticBuildManifestHandler.Handle(p));
         ScenarioEndHandler.Monitor = this.Monitor;
 
@@ -141,12 +148,13 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += Recorder.OnUpdateTicked;
         helper.Events.Player.Warped += this.OnPlayerWarped;
         helper.Events.Display.MenuChanged += this.OnMenuChanged;
+        helper.Events.Display.Rendered += (_, _) => renderCapture.OnRendered();
         helper.Events.GameLoop.TimeChanged += this.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTickedDrain;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
 
         this.Monitor.Log(
-            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, time.next_day, shop.open, shop.purchase, world.set_weather, world.interact_npc, world.place_furniture, world.place_inventory_furniture, world.interact_tile, input.key, input.text, input.click, input.click_text, input.click_menu_button. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture. Diagnostic: diagnostic.build_texture_manifest.",
+            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.npc, state.menu, state.mods. Manipulators: player.warp, player.give_item, player.set_money, time.advance, time.set, time.next_day, shop.open, shop.purchase, world.set_weather, world.interact_npc, world.place_furniture, world.place_inventory_furniture, world.interact_tile, input.key, input.text, input.click, input.click_text, input.click_menu_button. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture, bitmap.capture_next_frame. Diagnostic: diagnostic.build_texture_manifest.",
             LogLevel.Info);
     }
 
