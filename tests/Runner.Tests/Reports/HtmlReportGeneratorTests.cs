@@ -243,6 +243,36 @@ public class HtmlReportGeneratorTests
     }
 
     [Fact]
+    public void ScenarioReport_CacheBustsEmbeddedImageUrlsWhenFilesExist()
+    {
+        var rd = MakeRunDir("imagecache");
+        try
+        {
+            var scenDir = rd.ScenarioDir("visual_path");
+            var screenshotsDir = Path.Combine(scenDir, "screenshots");
+            Directory.CreateDirectory(screenshotsDir);
+            File.WriteAllBytes(Path.Combine(screenshotsDir, "final.png"), new byte[] { 1, 2, 3 });
+
+            var summary = new RunSummary(
+                rd.RunId, "2026-04-24T15:30:45Z", 100,
+                Scenarios: new[] { new ScenarioOutcome(
+                    "visual_path", null, true, 100,
+                    Steps: Array.Empty<StepOutcome>(),
+                    Assertions: Array.Empty<AssertionOutcome>(),
+                    Screenshots: new[] { "scenarios/visual_path/screenshots/final.png" },
+                    Diffs: Array.Empty<DiffSet>()) });
+
+            HtmlReportGenerator.Generate(rd, summary);
+
+            var html = File.ReadAllText(Path.Combine(rd.ScenariosDir, "visual_path", "report.html"));
+            Assert.Contains("href=\"screenshots/final.png\"", html);
+            Assert.Contains("data-full-image-src=\"screenshots/final.png?v=", html);
+            Assert.Contains("<img src=\"screenshots/final.png?v=", html);
+        }
+        finally { Directory.Delete(rd.Root, recursive: true); }
+    }
+
+    [Fact]
     public void GenerateHub_LinksRunIndexesFromReportBase()
     {
         var baseDir = Path.Combine(Path.GetTempPath(), $"htmlhub-{Guid.NewGuid():N}");

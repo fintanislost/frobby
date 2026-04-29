@@ -42,7 +42,7 @@ public static class HtmlReportGenerator
         foreach (var s in summary.Scenarios)
         {
             var scenDir = runDir.ScenarioDir(s.Name);
-            File.WriteAllText(Path.Combine(scenDir, "report.html"), RenderScenarioReport(s));
+            File.WriteAllText(Path.Combine(scenDir, "report.html"), RenderScenarioReport(s, scenDir));
             var scenJson = JsonSerializer.Serialize(s, jsonOpts);
             File.WriteAllText(Path.Combine(scenDir, "steps.json"), scenJson);
         }
@@ -130,7 +130,7 @@ public static class HtmlReportGenerator
         sb.Append("<dd>").Append(WebUtility.HtmlEncode(value)).AppendLine("</dd>");
     }
 
-    private static string RenderScenarioReport(ScenarioOutcome s)
+    private static string RenderScenarioReport(ScenarioOutcome s, string scenarioDir)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<!DOCTYPE html>");
@@ -167,7 +167,7 @@ public static class HtmlReportGenerator
                 sb.Append(" — ").Append(step.DurationMs).Append("ms");
                 if (step.Detail is { } d)
                     sb.Append(" — ").Append(WebUtility.HtmlEncode(d));
-                AppendStepScreenshots(sb, s.Screenshots, i);
+                AppendStepScreenshots(sb, s.Screenshots, i, scenarioDir);
                 sb.AppendLine("</li>");
             }
             sb.AppendLine("</ol>");
@@ -210,9 +210,9 @@ public static class HtmlReportGenerator
                 sb.AppendLine("<figure class=\"diff-set\">");
                 sb.Append("<h3>").Append(WebUtility.HtmlEncode(assertId)).AppendLine("</h3>");
                 sb.AppendLine("<div class=\"triptych\">");
-                AppendDiffFigure(sb, $"diffs/{assertId}/baseline.png", "baseline");
-                AppendDiffFigure(sb, $"diffs/{assertId}/capture.png", "capture");
-                AppendDiffFigure(sb, $"diffs/{assertId}/diff.png", "diff");
+                AppendDiffFigure(sb, $"diffs/{assertId}/baseline.png", "baseline", scenarioDir);
+                AppendDiffFigure(sb, $"diffs/{assertId}/capture.png", "capture", scenarioDir);
+                AppendDiffFigure(sb, $"diffs/{assertId}/diff.png", "diff", scenarioDir);
                 sb.AppendLine("</div>");
                 sb.AppendLine("</figure>");
             }
@@ -227,7 +227,7 @@ public static class HtmlReportGenerator
             foreach (var ss in s.Screenshots)
             {
                 var fileName = Path.GetFileName(ss);
-                AppendImageFigure(sb, $"screenshots/{fileName}", fileName);
+                AppendImageFigure(sb, $"screenshots/{fileName}", fileName, scenarioDir);
             }
             sb.AppendLine("</div>");
         }
@@ -323,7 +323,7 @@ public static class HtmlReportGenerator
         return sb.ToString();
     }
 
-    private static void AppendStepScreenshots(StringBuilder sb, IReadOnlyList<string> screenshots, int stepIndex)
+    private static void AppendStepScreenshots(StringBuilder sb, IReadOnlyList<string> screenshots, int stepIndex, string scenarioDir)
     {
         var prefix = $"step-{stepIndex:D2}-";
         var matches = screenshots
@@ -336,7 +336,7 @@ public static class HtmlReportGenerator
         foreach (var ss in matches)
         {
             var fileName = Path.GetFileName(ss);
-            AppendImageFigure(sb, $"screenshots/{fileName}", fileName);
+            AppendImageFigure(sb, $"screenshots/{fileName}", fileName, scenarioDir);
         }
         sb.AppendLine("</div>");
     }
@@ -355,21 +355,38 @@ public static class HtmlReportGenerator
     /// <c>scenarios/&lt;name&gt;/report.html</c>, so the URL is sibling-relative
     /// (e.g. <c>diffs/assertion-03-bitmap/baseline.png</c>).
     /// </summary>
-    private static void AppendDiffFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption)
+    private static void AppendDiffFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption, string scenarioDir)
     {
-        AppendImageFigure(sb, urlRelativeToScenarioPage, caption);
+        AppendImageFigure(sb, urlRelativeToScenarioPage, caption, scenarioDir);
     }
 
-    private static void AppendImageFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption)
+    private static void AppendImageFigure(StringBuilder sb, string urlRelativeToScenarioPage, string caption, string scenarioDir)
     {
-        var safeUrl = WebUtility.HtmlEncode(urlRelativeToScenarioPage);
+        var safeHref = WebUtility.HtmlEncode(urlRelativeToScenarioPage);
+        var safeImageUrl = WebUtility.HtmlEncode(CacheBustedImageUrl(scenarioDir, urlRelativeToScenarioPage));
         var safeCaption = WebUtility.HtmlEncode(caption);
-        sb.Append("<figure><a class=\"image-link\" href=\"").Append(safeUrl)
-          .Append("\" data-full-image-src=\"").Append(safeUrl)
+        sb.Append("<figure><a class=\"image-link\" href=\"").Append(safeHref)
+          .Append("\" data-full-image-src=\"").Append(safeImageUrl)
           .Append("\" data-full-image-title=\"").Append(safeCaption)
-          .Append("\"><img src=\"").Append(safeUrl)
+          .Append("\"><img src=\"").Append(safeImageUrl)
           .Append("\" alt=\"").Append(safeCaption).Append("\"></a>");
         sb.Append("<figcaption>").Append(safeCaption).AppendLine("</figcaption></figure>");
+    }
+
+    private static string CacheBustedImageUrl(string scenarioDir, string urlRelativeToScenarioPage)
+    {
+        var queryStart = urlRelativeToScenarioPage.IndexOf('?');
+        var pathOnly = queryStart >= 0 ? urlRelativeToScenarioPage[..queryStart] : urlRelativeToScenarioPage;
+        var localPath = Path.Combine(
+            scenarioDir,
+            pathOnly.Replace('/', Path.DirectorySeparatorChar));
+
+        if (!File.Exists(localPath))
+            return urlRelativeToScenarioPage;
+
+        var version = File.GetLastWriteTimeUtc(localPath).Ticks;
+        var separator = queryStart >= 0 ? "&" : "?";
+        return $"{urlRelativeToScenarioPage}{separator}v={version}";
     }
 
     private static void AppendImageModal(StringBuilder sb)
