@@ -3,6 +3,8 @@ using SdvTestFramework.Harness.Determinism;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Harness.Scenarios;
 using SdvTestFramework.Protocol;
+using SdvTestFramework.Protocol.Json;
+using SdvTestFramework.Protocol.Models;
 using Xunit;
 
 namespace SdvTestFramework.Harness.Tests;
@@ -45,5 +47,16 @@ public class BitmapCaptureHandlerTests
 
         Assert.Equal(JsonRpcErrorCode.InternalError, graphicsEx.Code);
         Assert.Contains("GraphicsDevice unavailable", graphicsEx.Message);
+    }
+
+    [Fact]
+    public void BitmapCaptureRequest_DefaultsTimeoutAndImmediateMode()
+    {
+        var req = JsonSerializer.Deserialize<BitmapCaptureRequest>(
+            "{}",
+            ProtocolJson.Options)!;
+
+        Assert.False(req.AllowUnfrozen);
+        Assert.Equal(2000, req.TimeoutMs);
     }
 }
