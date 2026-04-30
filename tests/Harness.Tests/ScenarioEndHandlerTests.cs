@@ -15,6 +15,7 @@ public class ScenarioEndHandlerTests
         ScenarioBeginHandler.Monitor = null;
         ScenarioState.Current.Reset();
         DeterminismController.ResetForTests();
+        ControlledCursor.Clear();
     }
 
     [Fact]
@@ -71,5 +72,20 @@ public class ScenarioEndHandlerTests
 
         Assert.Equal(7, resp.GetProperty("assertions_run").GetInt32());
         Assert.Equal(6, resp.GetProperty("assertions_passed").GetInt32());
+    }
+
+    [Fact]
+    public void Handle_ClearsControlledCursor()
+    {
+        var s = ScenarioState.Current;
+        s.Reset();
+        s.IsActive = true;
+        s.Name = "t6";
+        s.StartUtc = System.DateTime.UtcNow;
+        ControlledCursor.Set(144, 134);
+
+        ScenarioEndHandler.Handle(null);
+
+        Assert.False(ControlledCursor.HasOverride);
     }
 }

@@ -37,6 +37,16 @@ public static class Input
         await s.InvokeAsync("input.click", p, ct);
     }
 
+    /// <summary>Move the deterministic cursor and send hover to the active menu at screen coordinates.</summary>
+    public static async Task Hover(int x, int y, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new InputHoverRequest { X = x, Y = y },
+            ProtocolJson.Options);
+        await s.InvokeAsync("input.hover", p, ct);
+    }
+
     /// <summary>Click the center of a captured text draw event in the active menu.</summary>
     public static async Task ClickText(
         string text,
@@ -56,5 +66,24 @@ public static class Input
             },
             ProtocolJson.Options);
         await s.InvokeAsync("input.click_text", p, ct);
+    }
+
+    /// <summary>Hover the center of a captured text draw event in the active menu.</summary>
+    public static async Task HoverText(
+        string text,
+        bool caseSensitive = true,
+        int occurrence = 1,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new InputHoverTextRequest
+            {
+                Text = text,
+                CaseSensitive = caseSensitive,
+                Occurrence = occurrence,
+            },
+            ProtocolJson.Options);
+        await s.InvokeAsync("input.hover_text", p, ct);
     }
 }

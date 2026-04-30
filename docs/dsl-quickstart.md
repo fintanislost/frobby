@@ -78,7 +78,7 @@ Environment knobs:
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
 - `World.SetWeather(type)`
-- `Input.Key(key)`
+- `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
@@ -125,7 +125,7 @@ Every test run produces a directory at `./test-results/<run-id>/` containing:
 Auto-screenshots fire at `freeze.begin` and on assertion failure. Add explicit named
 captures via `await Screenshot.Capture("after_my_action")` from the DSL or
 `{ "action": "screenshot.capture", "args": { "name": "after_my_action" } }` in JSON.
-When the screenshot should reflect a click or other input that changes the current
+When the screenshot should reflect a click, hover tooltip, or other input that changes the current
 menu, prefer the JSON runner action
 `{ "action": "screenshot.capture_next_frame", "args": { "name": "after_click", "timeout_ms": 3000 } }`;
 it waits for the next rendered frame before copying the PNG into the report.

@@ -202,6 +202,23 @@ public sealed class ScenarioRunner
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
                     }
+                    else if (step.Action == "ui.hover_text")
+                    {
+                        var uiText = await WaitForUiTextAsync(step, ct);
+                        var hoverParams = ProtocolJson.ToElement(new InputHoverTextRequest
+                        {
+                            Text = uiText.Text,
+                            TextEquals = uiText.TextEquals,
+                            CaseSensitive = uiText.CaseSensitive,
+                            Occurrence = uiText.Occurrence,
+                            InRect = uiText.InRect,
+                            BoundsWithinRect = uiText.BoundsWithinRect,
+                            BoundsIntersectsRect = uiText.BoundsIntersectsRect,
+                        });
+                        var resp = await _session.InvokeAsync("input.hover_text", hoverParams, ct);
+                        if (resp.Error is { } ex)
+                            throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+                    }
                     else if (step.Action == "time.next_day")
                     {
                         await InvokeTimeNextDayAsync(step, ct);
@@ -504,8 +521,11 @@ public sealed class ScenarioRunner
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"",
+            "input.hover" => $"Hover at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "input.hover_text" => $"Hover text \"{GetUiTextLabel(step.Args)}\"",
             "ui.wait_text" => $"Wait for text \"{GetUiTextLabel(step.Args)}\"",
             "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
+            "ui.hover_text" => $"Wait and hover text \"{GetUiTextLabel(step.Args)}\"",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",

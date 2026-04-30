@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SdvTestFramework.Harness.Determinism;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Harness.Scenarios;
 using SdvTestFramework.Protocol;
@@ -14,6 +15,7 @@ public class ScenarioBeginHandlerTests
         // Keep SeedPinner dormant; tests don't need RNG pinning.
         ScenarioBeginHandler.Monitor = null;
         ScenarioState.Current.Reset();
+        ControlledCursor.Clear();
     }
 
     [Fact]
@@ -68,6 +70,18 @@ public class ScenarioBeginHandlerTests
         var json = JsonDocument.Parse("""{"name":"s","seed":1234}""").RootElement;
         ScenarioBeginHandler.Handle(json);
         Assert.Equal(1234, ScenarioState.Current.Seed);
+        ScenarioState.Current.Reset();
+    }
+
+    [Fact]
+    public void Handle_ClearsControlledCursor()
+    {
+        ControlledCursor.Set(144, 134);
+        var json = JsonDocument.Parse("""{"name":"s","seed":1234}""").RootElement;
+
+        ScenarioBeginHandler.Handle(json);
+
+        Assert.False(ControlledCursor.HasOverride);
         ScenarioState.Current.Reset();
     }
 }

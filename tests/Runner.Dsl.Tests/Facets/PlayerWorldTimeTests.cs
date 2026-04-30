@@ -175,6 +175,19 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task InputHover_InvokesInputHover()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Input.Hover(144, 134); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("input.hover", inv.Calls[0].Method);
+        Assert.Contains("\"x\":144", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":134", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task InputClickText_InvokesInputClickText()
     {
         var inv = new CapturingInvoker();
@@ -185,6 +198,18 @@ public class PlayerWorldTimeTests
         Assert.Equal("input.click_text", inv.Calls[0].Method);
         Assert.Contains("\"text\":\"CONTINUE\"", inv.Calls[0].ParamsJson);
         Assert.Contains("\"button\":\"left\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
+    public async Task InputHoverText_InvokesInputHoverText()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Input.HoverText("CONTINUE"); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("input.hover_text", inv.Calls[0].Method);
+        Assert.Contains("\"text\":\"CONTINUE\"", inv.Calls[0].ParamsJson);
     }
 
     [Fact]

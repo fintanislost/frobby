@@ -23,13 +23,13 @@ internal static class CursorPatches
     public static void Apply(Harmony harmony, IMonitor monitor)
     {
         // SDV 1.6 has both bool-taking and no-arg variants depending on version.
-        PatchOne(harmony, monitor, "getMouseX", typeof(bool));
-        PatchOne(harmony, monitor, "getMouseY", typeof(bool));
-        PatchOne(harmony, monitor, "getMouseX");
-        PatchOne(harmony, monitor, "getMouseY");
+        PatchOne(harmony, monitor, "getMouseX", nameof(ReturnX), typeof(bool));
+        PatchOne(harmony, monitor, "getMouseY", nameof(ReturnY), typeof(bool));
+        PatchOne(harmony, monitor, "getMouseX", nameof(ReturnX));
+        PatchOne(harmony, monitor, "getMouseY", nameof(ReturnY));
     }
 
-    private static void PatchOne(Harmony harmony, IMonitor monitor, string name, params Type[] sig)
+    private static void PatchOne(Harmony harmony, IMonitor monitor, string name, string postfixName, params Type[] sig)
     {
         var target = sig.Length > 0
             ? AccessTools.Method(typeof(Game1), name, sig)
@@ -42,12 +42,29 @@ internal static class CursorPatches
             return;
         }
         var postfix = new HarmonyMethod(typeof(CursorPatches).GetMethod(
-            nameof(ReturnZero), BindingFlags.Static | BindingFlags.NonPublic));
+            postfixName, BindingFlags.Static | BindingFlags.NonPublic));
         harmony.Patch(target, postfix: postfix);
     }
 
-    private static void ReturnZero(ref int __result)
+    internal static int ResolveX(int current)
     {
-        if (DeterminismController.Frozen) __result = 0;
+        return ControlledCursor.TryGet(out var x, out _)
+            ? x
+            : DeterminismController.Frozen
+                ? 0
+                : current;
     }
+
+    internal static int ResolveY(int current)
+    {
+        return ControlledCursor.TryGet(out _, out var y)
+            ? y
+            : DeterminismController.Frozen
+                ? 0
+                : current;
+    }
+
+    private static void ReturnX(ref int __result) => __result = ResolveX(__result);
+
+    private static void ReturnY(ref int __result) => __result = ResolveY(__result);
 }

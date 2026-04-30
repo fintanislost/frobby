@@ -184,7 +184,9 @@ public class ScenarioRunnerTests
     [InlineData("state.assert", false)]
     [InlineData("ui.wait_text", false)]
     [InlineData("ui.click_text", true)]
+    [InlineData("ui.hover_text", true)]
     [InlineData("input.click_text", true)]
+    [InlineData("input.hover_text", true)]
     [InlineData("freeze.begin", true)]
     public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)
     {
@@ -235,7 +237,7 @@ public class ScenarioRunnerTests
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
                         "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
                         "draw.text_find" when findCalls < 2 => JsonDocument.Parse("{\"events\":[],\"count\":0}").RootElement,
-                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{}],\"count\":1}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{},{}],\"count\":2}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -454,7 +456,7 @@ public class ScenarioRunnerTests
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
                         "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
-                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{}],\"count\":1}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{},{}],\"count\":2}").RootElement,
                         "input.click_text" => JsonDocument.Parse("{\"ok\":true,\"tick\":2}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
@@ -492,6 +494,71 @@ public class ScenarioRunnerTests
         Assert.False(findParams.TryGetProperty("text_contains", out _));
         Assert.Equal("CONTINUE", clickParams.GetProperty("text_equals").GetString());
         Assert.False(clickParams.TryGetProperty("text", out _));
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task UiHoverText_WaitsThenInvokesInputHoverText()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var hoverParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.hover_text" && req.Params is { } hover)
+                        hoverParams = hover.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "draw.arm" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "draw.text_find" => JsonDocument.Parse("{\"events\":[{},{}],\"count\":2}").RootElement,
+                        "input.hover_text" => JsonDocument.Parse("{\"ok\":true,\"tick\":2}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "ui_hover_text",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "ui.hover_text",
+                    Args = JsonDocument.Parse("{\"text_equals\":\"2.15B g\",\"occurrence\":2,\"timeout_ms\":1000,\"poll_ms\":1,\"capture_ticks\":3,\"bounds_within_rect\":[560,238,308,74]}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(new[] { "scenario.begin", "draw.arm", "draw.text_find", "draw.disarm", "input.hover_text", "scenario.end" }, calls);
+        Assert.Equal("2.15B g", hoverParams.GetProperty("text_equals").GetString());
+        Assert.Equal(2, hoverParams.GetProperty("occurrence").GetInt32());
+        Assert.Equal(560, hoverParams.GetProperty("bounds_within_rect")[0].GetInt32());
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }

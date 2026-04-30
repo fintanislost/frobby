@@ -35,6 +35,7 @@ public static class ScenarioBeginHandler
         if (Monitor != null)
             SeedPinner.Pin(req.Seed, Monitor);
 
+        ControlledCursor.Clear();
         s.Reset();
         s.IsActive = true;
         s.Name = req.Name;

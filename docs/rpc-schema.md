@@ -623,6 +623,37 @@ Response (no active menu — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.hover
+
+Moves the deterministic test cursor to a screen-space coordinate and sends hover to the currently active top-level menu (`Game1.activeClickableMenu`). `params.x` and `params.y` are required non-negative screen-space coordinates.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "input.hover", "params": { "x": 690, "y": 270 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 17, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing coordinate — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.x required" } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32003, "message": "input.hover requires an active menu" } }
+```
+
+`tick` is `Game1.ticks` at the moment the hover was delivered.
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`).
+**Side effects:** sets the scenario-scoped controlled cursor to `(x, y)` and calls `Game1.activeClickableMenu.performHoverAction(x, y)`. During `freeze.begin`, this controlled cursor overrides the default frozen `(0,0)` cursor so intentional hover screenshots remain deterministic. `scenario.begin` and `scenario.end` clear the controlled cursor.
+**Implemented in:** `src/Harness/Handlers/InputHoverHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputHoverHandlerTests.cs` (validation and menu dispatch), `tests/Harness.Tests/ControlledCursorTests.cs` (frozen cursor policy), and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 ### input.click_text
 
 Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
@@ -669,12 +700,44 @@ Response (no captured match — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickTextHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickTextHandlerTests.cs` (validation, matching, occurrence, region filters, and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.hover_text
+
+Hovers the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
+
+`input.hover_text` also accepts the text-draw region filters `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect` to disambiguate duplicate labels.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "input.hover_text", "params": { "text_equals": "2.15B g", "bounds_within_rect": [560, 238, 308, 74] } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 18, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing text — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 18, "error": { "code": -32602, "message": "params.text or params.text_equals required" } }
+```
+
+Response (no captured match — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 18, "error": { "code": -32003, "message": "input.hover_text could not find captured text: 2.15B g" } }
+```
+
+**Preconditions:** a menu must be open (`Game1.activeClickableMenu != null`). Text events must already be captured by `draw.arm` plus enough wait time for the menu to draw before calling `input.hover_text`.
+**Side effects:** sets the scenario-scoped controlled cursor to the captured text center and calls `performHoverAction(centerX, centerY)` on the active menu.
+**Implemented in:** `src/Harness/Handlers/InputHoverTextHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputHoverTextHandlerTests.cs` (validation, matching, occurrence, and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
 Runner scenario convenience:
 
 - `{ "action": "ui.wait_text", "args": { "text": "SUBMIT ORDER" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
+- `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 
-Both convenience steps accept `text`, `text_equals`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+All three convenience steps accept `text`, `text_equals`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
 ### shop.open
 
