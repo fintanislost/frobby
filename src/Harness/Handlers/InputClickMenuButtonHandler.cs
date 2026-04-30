@@ -35,6 +35,8 @@ public static class InputClickMenuButtonHandler
         var button = string.IsNullOrWhiteSpace(req.Button) ? "left" : req.Button.Trim().ToLowerInvariant();
         if (button != "left" && button != "right")
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.button must be left or right");
+        if (req.Repeat < 1)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.repeat must be >= 1");
 
         var menu = getActiveMenu()
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
@@ -54,10 +56,13 @@ public static class InputClickMenuButtonHandler
         var x = bounds.X + bounds.Width / 2;
         var y = bounds.Y + bounds.Height / 2;
 
-        if (button == "left")
-            menu.receiveLeftClick(x, y);
-        else
-            menu.receiveRightClick(x, y);
+        for (var i = 0; i < req.Repeat; i++)
+        {
+            if (button == "left")
+                menu.receiveLeftClick(x, y);
+            else
+                menu.receiveRightClick(x, y);
+        }
 
         return ProtocolJson.ToElement(new MutatorOk { Tick = getTick() });
     }

@@ -700,6 +700,42 @@ Response (no captured match — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickTextHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickTextHandlerTests.cs` (validation, matching, occurrence, region filters, and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
 
+### input.click_menu_button
+
+Clicks the center of a reflected button region on the current custom menu panel. Supply either `params.id` for a stable internal button id or `params.label` / `params.text_equals` for an exact visible button label. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.repeat` is optional and defaults to `1`.
+
+This RPC is intended for custom mod menus whose button labels are short, repeated, or otherwise awkward to target through draw-text bounds. It still clicks through the real active menu, but resolves the button center from the mod's exposed `Id`, `Label`, and `Bounds` button-region properties instead of hard-coded scenario coordinates.
+
+Request:
+```json
+-> { "jsonrpc": "2.0", "id": 18, "method": "input.click_menu_button", "params": { "id": "shares-plus", "repeat": 10 } }
+```
+
+Response (success):
+```json
+<- { "jsonrpc": "2.0", "id": 18, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing target - InvalidParams):
+```json
+<- { "jsonrpc": "2.0", "id": 18, "error": { "code": -32602, "message": "params.id or params.label required" } }
+```
+
+Response (bad repeat - InvalidParams):
+```json
+<- { "jsonrpc": "2.0", "id": 18, "error": { "code": -32602, "message": "params.repeat must be >= 1" } }
+```
+
+Response (no button match - GameStateInvalid):
+```json
+<- { "jsonrpc": "2.0", "id": 18, "error": { "code": -32003, "message": "input.click_menu_button could not find menu button: shares-plus" } }
+```
+
+**Preconditions:** a custom active menu must be open and expose its current panel through a `_currentPanel` field. Matching button-region fields or properties on that panel must expose `Id`, `Label`, and `Bounds` properties.
+**Side effects:** calls `receiveLeftClick(centerX, centerY)` or `receiveRightClick(centerX, centerY)` on the active menu once per `repeat`.
+**Implemented in:** `src/Harness/Handlers/InputClickMenuButtonHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickMenuButtonHandlerTests.cs` (validation, id/label matching, repeat, right-click dispatch, and menu dispatch).
+
 ### input.hover_text
 
 Hovers the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.

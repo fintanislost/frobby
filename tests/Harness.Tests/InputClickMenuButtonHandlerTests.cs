@@ -59,6 +59,18 @@ public class InputClickMenuButtonHandlerTests
     }
 
     [Fact]
+    public void Handle_Repeat_ClicksMatchingButtonRegionMultipleTimes()
+    {
+        var menu = new FakeTerminalMenu(new FakeChartPanel());
+        var p = JsonDocument.Parse("{\"id\":\"tf-5d\",\"repeat\":3}").RootElement;
+
+        InputClickMenuButtonHandler.Handle(p, () => menu, () => 0);
+
+        Assert.Equal(3, menu.LeftClickCount);
+        Assert.Equal((1080, 62), menu.LastLeftClick);
+    }
+
+    [Fact]
     public void Handle_RightClick_UsesRightClick()
     {
         var menu = new FakeTerminalMenu(new FakeChartPanel());
@@ -68,6 +80,19 @@ public class InputClickMenuButtonHandlerTests
 
         Assert.Equal((1000, 62), menu.LastRightClick);
         Assert.Null(menu.LastLeftClick);
+    }
+
+    [Fact]
+    public void Handle_RepeatLessThanOne_ThrowsInvalidParams()
+    {
+        var menu = new FakeTerminalMenu(new FakeChartPanel());
+        var p = JsonDocument.Parse("{\"id\":\"tf-5d\",\"repeat\":0}").RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            InputClickMenuButtonHandler.Handle(p, () => menu, () => 0));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("repeat", ex.Message);
     }
 
     [Fact]
@@ -94,10 +119,14 @@ public class InputClickMenuButtonHandlerTests
 
         public (int X, int Y)? LastLeftClick { get; private set; }
         public (int X, int Y)? LastRightClick { get; private set; }
+        public int LeftClickCount { get; private set; }
         public Keys? LastKey { get; private set; }
 
         public override void receiveLeftClick(int x, int y, bool playSound = true)
-            => LastLeftClick = (x, y);
+        {
+            LastLeftClick = (x, y);
+            LeftClickCount++;
+        }
 
         public override void receiveRightClick(int x, int y, bool playSound = true)
             => LastRightClick = (x, y);

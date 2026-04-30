@@ -520,7 +520,7 @@ public sealed class ScenarioRunner
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
-            "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"",
+            "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"{GetRepeatSuffix(step.Args)}",
             "input.hover" => $"Hover at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.hover_text" => $"Hover text \"{GetUiTextLabel(step.Args)}\"",
             "ui.wait_text" => $"Wait for text \"{GetUiTextLabel(step.Args)}\"",
@@ -629,6 +629,12 @@ public sealed class ScenarioRunner
 
     private static string GetMenuButtonLabel(JsonElement? args)
         => GetStringArg(args, "label") ?? GetStringArg(args, "text_equals") ?? GetStringArg(args, "id") ?? string.Empty;
+
+    private static string GetRepeatSuffix(JsonElement? args)
+    {
+        var repeat = GetIntArg(args, "repeat") ?? 1;
+        return repeat > 1 ? $" x{repeat}" : string.Empty;
+    }
 
     private static int? GetIntArg(JsonElement? args, string name)
         => args is { ValueKind: JsonValueKind.Object } obj

@@ -17,4 +17,7 @@ public sealed class InputClickMenuButtonRequest
 
     /// <summary>Mouse button to send. Supported values are <c>left</c> and <c>right</c>.</summary>
     public string Button { get; set; } = "left";
+
+    /// <summary>Number of times to click the resolved button region.</summary>
+    public int Repeat { get; set; } = 1;
 }
