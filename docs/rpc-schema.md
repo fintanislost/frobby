@@ -1074,6 +1074,7 @@ Filter DSL fields (all optional, all ANDed):
 
 - `text_contains` (string) — substring match.
 - `text_equals` (string) — whole-string match.
+- `text_matches` (string) — regular expression match.
 - `case_sensitive` (bool) — defaults to `true`.
 - `in_rect` (`[x, y, w, h]`) — captured text position must be inside the rect.
 - `bounds_within_rect` (`[x, y, w, h]`) — captured text bounds must be fully contained in the rect.

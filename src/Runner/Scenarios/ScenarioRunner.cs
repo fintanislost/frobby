@@ -660,6 +660,7 @@ public sealed class ScenarioRunner
     private static string GetTextFilterLabel(ScenarioAssertion assertion)
         => GetFilterString(assertion, "text_contains")
             ?? GetFilterString(assertion, "text_equals")
+            ?? GetFilterString(assertion, "text_matches")
             ?? "<text>";
 
     private static string SanitizeScreenshotName(string value)

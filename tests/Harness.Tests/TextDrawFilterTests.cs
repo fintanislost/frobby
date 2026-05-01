@@ -61,6 +61,32 @@ public class TextDrawFilterTests
     }
 
     [Fact]
+    public void TextMatches_MatchesRegularExpression()
+    {
+        var filter = new TextDrawFilter { TextMatches = "^[0-9][0-9,]*$" };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event("4,100"), filter));
+        Assert.False(TextDrawFilterMatcher.Matches(Event("VOL 4,100"), filter));
+    }
+
+    [Fact]
+    public void TextMatches_CanIgnoreCase()
+    {
+        var filter = new TextDrawFilter { TextMatches = "^cash", CaseSensitive = false };
+
+        Assert.True(TextDrawFilterMatcher.Matches(Event("CASH & WIRES"), filter));
+    }
+
+    [Fact]
+    public void Validate_TextMatchesRejectsInvalidRegex()
+    {
+        var ex = Assert.Throws<SdvTestFramework.Protocol.JsonRpcException>(() =>
+            TextDrawFilterMatcher.Validate(new TextDrawFilter { TextMatches = "[" }));
+
+        Assert.Contains("filter.text_matches must be a valid regular expression", ex.Message);
+    }
+
+    [Fact]
     public void PositionMustBeInsideInRect()
     {
         var filter = new TextDrawFilter { InRect = new[] { 60, 40, 20, 20 } };

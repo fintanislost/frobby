@@ -14,6 +14,7 @@ public class TextDrawFilterSerializationTests
         {
             TextContains = "CASH",
             TextEquals = "STARBERG TERMINAL v0.1.0",
+            TextMatches = "^[0-9][0-9,]*$",
             CaseSensitive = false,
             InRect = new[] { 0, 0, 320, 180 },
             BoundsWithinRect = new[] { 10, 10, 300, 160 },
@@ -27,6 +28,7 @@ public class TextDrawFilterSerializationTests
 
         Assert.Contains("\"text_contains\":\"CASH\"", json);
         Assert.Contains("\"text_equals\":\"STARBERG TERMINAL v0.1.0\"", json);
+        Assert.Contains("\"text_matches\":\"^[0-9][0-9,]*$\"", json);
         Assert.Contains("\"case_sensitive\":false", json);
         Assert.Contains("\"in_rect\":[0,0,320,180]", json);
         Assert.Contains("\"bounds_within_rect\":[10,10,300,160]", json);

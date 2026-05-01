@@ -8,6 +8,7 @@ public sealed class TextDrawFilter
 {
     public string? TextContains { get; set; }
     public string? TextEquals { get; set; }
+    public string? TextMatches { get; set; }
     public bool CaseSensitive { get; set; } = true;
     public int[]? InRect { get; set; }
     public int[]? BoundsWithinRect { get; set; }

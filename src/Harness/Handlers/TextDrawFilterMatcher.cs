@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using Microsoft.Xna.Framework;
 using SdvTestFramework.Harness.Recording;
 using SdvTestFramework.Protocol;
@@ -33,6 +34,19 @@ internal static class TextDrawFilterMatcher
             }
         }
 
+        if (!string.IsNullOrEmpty(filter.TextMatches))
+        {
+            try
+            {
+                _ = new Regex(filter.TextMatches, RegexOptions.CultureInvariant);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                    $"filter.text_matches must be a valid regular expression: {ex.Message}");
+            }
+        }
+
         if (filter.LayerDepthRange is { } ldr)
         {
             if (ldr.Length != 2)
@@ -57,6 +71,16 @@ internal static class TextDrawFilterMatcher
         if (f.TextEquals is { } equals &&
             !string.Equals(e.Text ?? string.Empty, equals, comparison))
             return false;
+
+        if (!string.IsNullOrEmpty(f.TextMatches))
+        {
+            var options = RegexOptions.CultureInvariant;
+            if (!f.CaseSensitive)
+                options |= RegexOptions.IgnoreCase;
+
+            if (!Regex.IsMatch(e.Text ?? string.Empty, f.TextMatches, options, TimeSpan.FromMilliseconds(100)))
+                return false;
+        }
 
         if (f.Color is { Length: 4 } c &&
             (e.Color.R != c[0] || e.Color.G != c[1] || e.Color.B != c[2] || e.Color.A != c[3]))
