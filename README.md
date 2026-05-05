@@ -53,6 +53,10 @@ The generated scripts read `sdv-test.config.json`, default to headless execution
 stage every configured `extra_mod`, and write a stable
 `/tmp/<slug>-frobby-results-<version>/` report hub.
 
+Each configured `extra_mod` must resolve to a SMAPI mod directory that contains
+`manifest.json`. If a project writes DLLs to one folder but packages the actual
+mod elsewhere during its build, point the scaffold at the packaged mod folder.
+
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.
