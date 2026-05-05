@@ -119,6 +119,61 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.DoesNotContain("{}", configJson);
     }
 
+    [Fact]
+    public void Generate_baseline_target_parent_escape_throws_and_does_not_write_outside_root()
+    {
+        var repoRoot = Path.Combine(_repoRoot, "repo");
+        Directory.CreateDirectory(repoRoot);
+        var outsidePath = Path.Combine(_repoRoot, "escape.test.json");
+
+        AssertInvalidBaselineTarget(() =>
+            RepoScaffoldGenerator.Generate(repoRoot, DefaultOptions() with { BaselineTarget = "../escape.test.json" }));
+
+        Assert.False(File.Exists(outsidePath));
+    }
+
+    [Fact]
+    public void Generate_absolute_baseline_target_throws_and_does_not_write_outside_root()
+    {
+        var repoRoot = Path.Combine(_repoRoot, "repo");
+        Directory.CreateDirectory(repoRoot);
+        var outsidePath = Path.Combine(_repoRoot, "absolute.test.json");
+
+        AssertInvalidBaselineTarget(() =>
+            RepoScaffoldGenerator.Generate(repoRoot, DefaultOptions() with { BaselineTarget = outsidePath }));
+
+        Assert.False(File.Exists(outsidePath));
+    }
+
+    [Fact]
+    public void Generate_blank_baseline_target_throws()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions() with { BaselineTarget = " " }));
+
+        Assert.Contains("baseline", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Generate_marks_scripts_executable_on_unix()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
+
+        Assert.True(
+            File.GetUnixFileMode(Path.Combine(_repoRoot, "scripts/sdv-test")).HasFlag(UnixFileMode.UserExecute));
+        Assert.True(
+            File.GetUnixFileMode(Path.Combine(_repoRoot, "scripts/sdv-repeat")).HasFlag(UnixFileMode.UserExecute));
+        Assert.True(
+            File.GetUnixFileMode(Path.Combine(_repoRoot, "tests/scripts/sdv-test-dry-run.sh")).HasFlag(UnixFileMode.UserExecute));
+        Assert.True(
+            File.GetUnixFileMode(Path.Combine(_repoRoot, "tests/scripts/sdv-repeat-dry-run.sh")).HasFlag(UnixFileMode.UserExecute));
+    }
+
     private void AssertNeutralGeneratedText()
     {
         foreach (var path in Directory.EnumerateFiles(_repoRoot, "*", SearchOption.AllDirectories))
@@ -140,6 +195,14 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
             ["bin/Release/net6.0"],
             BaselineTarget: null,
             Force: false);
+
+    private static void AssertInvalidBaselineTarget(Action action)
+    {
+        var ex = Record.Exception(action);
+        Assert.True(
+            ex is InvalidOperationException or IOException,
+            $"Expected InvalidOperationException or IOException, got {ex?.GetType().FullName ?? "no exception"}.");
+    }
 
     private static string CreateTempDirectory()
     {

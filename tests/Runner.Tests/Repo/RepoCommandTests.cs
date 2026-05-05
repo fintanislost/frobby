@@ -387,6 +387,74 @@ public sealed class RepoCommandTests : IDisposable
         Assert.Contains(_repoRoot, output.ToString());
     }
 
+    [Fact]
+    public async Task RepoInit_accepts_positional_repo_path()
+    {
+        var repoPath = Path.Combine(_repoRoot, "positional");
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "init", repoPath, "--project-name", "Positional Mod" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+        }
+
+        Assert.True(File.Exists(Path.Combine(repoPath, "sdv-test.config.json")));
+        Assert.Contains(repoPath, output.ToString());
+    }
+
+    [Fact]
+    public async Task RepoInit_positional_repo_path_and_repo_root_returns_2()
+    {
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "init", _repoRoot, "--repo-root", Path.Combine(_repoRoot, "other") }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+        }
+
+        Assert.Contains("repo path", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RepoInit_duplicate_positional_repo_paths_return_2()
+    {
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "init", _repoRoot, Path.Combine(_repoRoot, "other") }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+        }
+
+        Assert.Contains("repo path", error.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         Directory.Delete(_repoRoot, recursive: true);

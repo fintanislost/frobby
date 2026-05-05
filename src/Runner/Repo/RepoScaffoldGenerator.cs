@@ -28,12 +28,11 @@ public static class RepoScaffoldGenerator
         }
 
         var fullRoot = Path.GetFullPath(repoRoot);
-        var scenarioTarget = string.IsNullOrWhiteSpace(options.BaselineTarget)
-            ? DefaultScenarioTarget
-            : options.BaselineTarget!;
+        var scenarioTarget = ValidateBaselineTarget(fullRoot, options.BaselineTarget);
+        var scaffoldOptions = options with { BaselineTarget = scenarioTarget };
         var files = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            [RepoTestConfig.FileName] = ConfigJson(options),
+            [RepoTestConfig.FileName] = ConfigJson(scaffoldOptions),
             ["scripts/sdv-test"] = RunWrapper(),
             ["scripts/sdv-repeat"] = RepeatWrapper(),
             [scenarioTarget] = SampleScenario(),
@@ -86,6 +85,8 @@ public static class RepoScaffoldGenerator
     private static InitOptions ParseInitOptions(ReadOnlyMemory<string> args)
     {
         var repoRoot = Directory.GetCurrentDirectory();
+        var repoRootFromOption = false;
+        string? positionalRepoRoot = null;
         var projectName = "Example Mod";
         var slug = "example-mod";
         var version = "0.1.0";
@@ -102,6 +103,7 @@ public static class RepoScaffoldGenerator
             {
                 case "--repo-root":
                     repoRoot = ReadRequiredValue(args, ref i, value);
+                    repoRootFromOption = true;
                     continue;
                 case "--project-name":
                     projectName = ReadRequiredValue(args, ref i, value);
@@ -128,8 +130,29 @@ public static class RepoScaffoldGenerator
                     force = true;
                     continue;
                 default:
-                    throw new InvalidOperationException($"unknown repo init option: {value}");
+                    if (value.StartsWith("-", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException($"unknown repo init option: {value}");
+                    }
+
+                    if (positionalRepoRoot is not null)
+                    {
+                        throw new InvalidOperationException("repo init accepts at most one positional repo path.");
+                    }
+
+                    positionalRepoRoot = RequireText(value, "repo path");
+                    continue;
             }
+        }
+
+        if (repoRootFromOption && positionalRepoRoot is not null)
+        {
+            throw new InvalidOperationException("repo init repo path is ambiguous; pass either positional repo path or --repo-root, not both.");
+        }
+
+        if (positionalRepoRoot is not null)
+        {
+            repoRoot = positionalRepoRoot;
         }
 
         if (buildArgs.Count == 0)
@@ -149,9 +172,43 @@ public static class RepoScaffoldGenerator
             RequireText(buildCommand, "--build-command"),
             buildArgs,
             extraMods,
-            string.IsNullOrWhiteSpace(baselineTarget) ? null : baselineTarget,
+            baselineTarget,
             force);
         return new InitOptions(repoRoot, scaffold);
+    }
+
+    private static string ValidateBaselineTarget(string fullRoot, string? baselineTarget)
+    {
+        if (baselineTarget is null)
+        {
+            return DefaultScenarioTarget;
+        }
+
+        if (string.IsNullOrWhiteSpace(baselineTarget))
+        {
+            throw new InvalidOperationException("--baseline-target requires a non-empty relative path.");
+        }
+
+        if (Path.IsPathRooted(baselineTarget))
+        {
+            throw new InvalidOperationException("--baseline-target must be relative to the repo root.");
+        }
+
+        var candidate = Path.GetFullPath(Path.Combine(fullRoot, baselineTarget));
+        var rootWithSeparator = fullRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? fullRoot
+            : fullRoot + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!candidate.StartsWith(rootWithSeparator, comparison))
+        {
+            throw new InvalidOperationException("--baseline-target must stay inside the repo root.");
+        }
+
+        return Path.GetRelativePath(fullRoot, candidate)
+            .Replace(Path.DirectorySeparatorChar, '/')
+            .Replace(Path.AltDirectorySeparatorChar, '/');
     }
 
     private static string ConfigJson(RepoScaffoldOptions options)
@@ -287,7 +344,7 @@ public static class RepoScaffoldGenerator
 
     private static void MarkExecutableIfPossible(string path)
     {
-        if (!OperatingSystem.IsLinux())
+        if (OperatingSystem.IsWindows())
         {
             return;
         }
@@ -308,6 +365,9 @@ public static class RepoScaffoldGenerator
         {
         }
         catch (UnauthorizedAccessException)
+        {
+        }
+        catch (PlatformNotSupportedException)
         {
         }
     }
