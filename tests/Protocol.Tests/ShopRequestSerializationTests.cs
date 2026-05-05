@@ -39,10 +39,10 @@ public class ShopRequestSerializationTests
     [Fact]
     public void ShopPurchaseRequest_DefaultsCountToOne()
     {
-        var json = "{\"item_id\":\"(F)stonks_starberg_terminal_v1\"}";
+        var json = "{\"item_id\":\"(F)example_terminal\"}";
         var req = JsonSerializer.Deserialize<ShopPurchaseRequest>(json, ProtocolJson.Options)!;
 
-        Assert.Equal("(F)stonks_starberg_terminal_v1", req.ItemId);
+        Assert.Equal("(F)example_terminal", req.ItemId);
         Assert.Equal(1, req.Count);
     }
 
@@ -53,8 +53,8 @@ public class ShopRequestSerializationTests
         {
             Tick = 44,
             ShopId = "Carpenter",
-            ItemId = "(F)stonks_starberg_terminal_v1",
-            DisplayName = "Starberg Terminal - Model 4201",
+            ItemId = "(F)example_terminal",
+            DisplayName = "Example Terminal",
             Count = 1,
             UnitPrice = 25000,
             PreviousMoney = 30000,
@@ -65,7 +65,7 @@ public class ShopRequestSerializationTests
 
         Assert.Contains("\"ok\":true", json);
         Assert.Contains("\"shop_id\":\"Carpenter\"", json);
-        Assert.Contains("\"item_id\":\"(F)stonks_starberg_terminal_v1\"", json);
+        Assert.Contains("\"item_id\":\"(F)example_terminal\"", json);
         Assert.Contains("\"unit_price\":25000", json);
         Assert.Contains("\"previous_money\":30000", json);
         Assert.Contains("\"money\":5000", json);

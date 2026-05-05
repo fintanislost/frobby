@@ -121,8 +121,8 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 - **Render-synchronized screenshots**. Added async RPC dispatch, shared bitmap capture
   writing, `bitmap.capture_next_frame`, and the runner action
   `screenshot.capture_next_frame` for click-driven UI screenshots that need the next
-  `Display.Rendered` frame before reading the backbuffer. Validated against Starberg's
-  1M chart timeframe report capture.
+  `Display.Rendered` frame before reading the backbuffer. Validated against an
+  external mod's 1M chart timeframe report capture.
 
 ### 2026-04-26
 

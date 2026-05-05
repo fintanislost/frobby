@@ -102,7 +102,7 @@ Returns the local farmer's current state.
 
 ```json
 → { "jsonrpc": "2.0", "id": 2, "method": "state.player" }
-← { "jsonrpc": "2.0", "id": 2, "result": { "name": "Tester", "money": 1000, "stamina": 270, "max_stamina": 270, "health": 100, "location": "Farm", "tile": { "x": 64, "y": 15 }, "items": [{ "slot": 5, "id": "(F)stonks_starberg_terminal_v1", "name": "Starberg Terminal - Model 4201", "stack": 1 }] } }
+← { "jsonrpc": "2.0", "id": 2, "result": { "name": "Tester", "money": 1000, "stamina": 270, "max_stamina": 270, "health": 100, "location": "Farm", "tile": { "x": 64, "y": 15 }, "items": [{ "slot": 5, "id": "(F)example_terminal", "name": "Example Terminal", "stack": 1 }] } }
 ```
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`). No request-time check yet; result fields will reflect title/loading-screen defaults if invoked too early.
@@ -467,12 +467,12 @@ Creates furniture via SDV's `ItemRegistry` and adds it to a loaded location's fu
 
 Request:
 ```json
-→ { "jsonrpc": "2.0", "id": 12, "method": "world.place_furniture", "params": { "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
+→ { "jsonrpc": "2.0", "id": 12, "method": "world.place_furniture", "params": { "id": "(F)example_terminal", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
 ```
 
 Response (success):
 ```json
-← { "jsonrpc": "2.0", "id": 12, "result": { "ok": true, "tick": 84200, "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "tile": { "x": 8, "y": 9 } } }
+← { "jsonrpc": "2.0", "id": 12, "result": { "ok": true, "tick": 84200, "id": "(F)example_terminal", "location": "FarmHouse", "tile": { "x": 8, "y": 9 } } }
 ```
 
 Response (missing/empty `id` — InvalidParams):
@@ -846,12 +846,12 @@ creates the salable instance, debits the total price, and adds the item to inven
 
 Request:
 ```json
-→ { "jsonrpc": "2.0", "id": 19, "method": "shop.purchase", "params": { "item_id": "(F)stonks_starberg_terminal_v1", "count": 1 } }
+→ { "jsonrpc": "2.0", "id": 19, "method": "shop.purchase", "params": { "item_id": "(F)example_terminal", "count": 1 } }
 ```
 
 Response:
 ```json
-← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)stonks_starberg_terminal_v1", "display_name": "Starberg Terminal - Model 4201", "count": 1, "unit_price": 25000, "previous_money": 30000, "money": 5000 } }
+← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)example_terminal", "display_name": "Example Terminal", "count": 1, "unit_price": 25000, "previous_money": 30000, "money": 5000 } }
 ```
 
 **Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
@@ -867,12 +867,12 @@ when a test needs to prove a purchased or otherwise obtained furniture item is u
 
 Request:
 ```json
-→ { "jsonrpc": "2.0", "id": 20, "method": "world.place_inventory_furniture", "params": { "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
+→ { "jsonrpc": "2.0", "id": 20, "method": "world.place_inventory_furniture", "params": { "id": "(F)example_terminal", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
 ```
 
 Response:
 ```json
-← { "jsonrpc": "2.0", "id": 20, "result": { "ok": true, "tick": 84206, "id": "(F)stonks_starberg_terminal_v1", "location": "FarmHouse", "tile": { "x": 8, "y": 9 }, "source_slot": 5 } }
+← { "jsonrpc": "2.0", "id": 20, "result": { "ok": true, "tick": 84206, "id": "(F)example_terminal", "location": "FarmHouse", "tile": { "x": 8, "y": 9 }, "source_slot": 5 } }
 ```
 
 **Preconditions:** a world must be loaded; the player inventory must contain the requested qualified item ID; the matching item must be furniture.

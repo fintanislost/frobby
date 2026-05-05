@@ -21,8 +21,8 @@ public class StatePlayerHandlerTests
             item =>
             {
                 Assert.Equal(5, item.Slot);
-                Assert.Equal("(F)stonks_starberg_terminal_v1", item.Id);
-                Assert.Equal("Starberg Terminal - Model 4201", item.Name);
+                Assert.Equal("(F)example_terminal", item.Id);
+                Assert.Equal("Example Terminal", item.Name);
                 Assert.Equal(1, item.Stack);
             });
     }
@@ -38,7 +38,7 @@ public class StatePlayerHandlerTests
         public TilePoint Tile => new() { X = 8, Y = 10 };
         public IReadOnlyList<IPlayerInventoryItem> Items { get; } = new[]
         {
-            new PlayerInventoryItem(5, "(F)stonks_starberg_terminal_v1", "Starberg Terminal - Model 4201", 1),
+            new PlayerInventoryItem(5, "(F)example_terminal", "Example Terminal", 1),
         };
     }
 }

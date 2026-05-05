@@ -34,10 +34,12 @@ Six curated helpers + one raw passthrough:
 - **`list_fixtures()`** — enumerate `tests/fixtures/`.
 - **`warp_and_assert_draw(location, x, y, texture_asset, min_count?)`** — atomic warp + freeze + draw assertion. Returns `{passed, matched}`.
 - **`capture_state()`** — snapshot `{player, location, time, menu}`.
-- **`scaffold_scenario(name, fixture?, template?)`** — write a starter `.test.json`. Templates: `shop`, `menu`, `warp`, `npc_interaction`, `shop_purchase`, `tool_use`, `inventory_check`, `starberg_terminal`.
+- **`scaffold_scenario(name, fixture?, template?)`** — write a starter `.test.json`. Templates: `shop`, `menu`, `warp`, `npc_interaction`, `shop_purchase`, `tool_use`, `inventory_check`, `furniture_menu`.
 - **`rpc_call(method, params?)`** — raw JSON-RPC passthrough. Escape hatch for everything else.
 
-The `starberg_terminal` scaffold template arms draw capture, opens the terminal, and includes `draw.text_contains` assertions for visible terminal/cash text.
+The `furniture_menu` scaffold template places custom furniture, interacts with it,
+arms draw capture, and includes starter assertions for the expected menu type and
+visible text.
 
 `run_scenario` is intentionally lighter than the CLI runner: it is useful for quick
 agent probes, but full scenario evaluation, rich assertions, bitmap forensics, and
@@ -47,7 +49,7 @@ complete static HTML reports should be run through `sdv-test run` or
 ## 4. Environment knobs
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).
-- `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/home/fintan/stardewRepos/stonks/src/Starberg.Mod/bin/Release/net6.0`.
+- `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/path/to/Example.Mod/bin/Release/net6.0`.
 - `SDV_TEST_HEADLESS=1` — launch SDV through `xvfb-run` on Linux so MCP-driven tests do not use the active desktop display or mouse cursor.
 - The MCP server lazy-launches SDV on first tool call that needs it. Tools that don't need SDV (`list_*`, `scaffold_scenario`) never trigger launch.
 - Stdio EOF tears down SDV cleanly.

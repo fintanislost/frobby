@@ -16,14 +16,14 @@ public class RunMetadataBuilderTests
     {
         var root = Path.Combine(Path.GetTempPath(), $"run-meta-{Guid.NewGuid():N}");
         var runnerRepo = Path.Combine(root, "sdv-test-framework");
-        var starbergRepo = Path.Combine(root, "stonks");
-        var extraMod = Path.Combine(starbergRepo, "src", "Starberg.Mod", "bin", "Release", "net6.0");
+        var exampleModRepo = Path.Combine(root, "example-mod");
+        var extraMod = Path.Combine(exampleModRepo, "src", "Example.Mod", "bin", "Release", "net6.0");
 
         try
         {
             Directory.CreateDirectory(extraMod);
             var runnerCommit = CreateGitRepo(runnerRepo);
-            var starbergCommit = CreateGitRepo(starbergRepo);
+            var exampleModCommit = CreateGitRepo(exampleModRepo);
 
             var opts = new RunCommandOptions(
                 Paths: new[] { "tests/sdv" },
@@ -61,9 +61,9 @@ public class RunMetadataBuilderTests
                 && repo.Commit == runnerCommit
                 && repo.Dirty == false);
             Assert.Contains(metadata.Repositories, repo =>
-                repo.Label == "extra-mod:stonks"
-                && repo.Path == starbergRepo
-                && repo.Commit == starbergCommit
+                repo.Label == "extra-mod:example-mod"
+                && repo.Path == exampleModRepo
+                && repo.Commit == exampleModCommit
                 && repo.Dirty == false);
         }
         finally

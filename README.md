@@ -34,15 +34,15 @@ using the active desktop display or mouse cursor. Set `SDV_TEST_HEADLESS=1` when
 you want all launcher paths to behave headlessly without repeating the CLI flag.
 
 For mod-local workflows, prefer a small repo script that pins the mod build path,
-report directory, and Frobby command. Starberg currently uses this shape:
+report directory, and Frobby command:
 
 ```bash
-./scripts/sdv-test --no-build
+./scripts/sdv-test --headless
 ```
 
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
-`--report-dir <path>` for stable locations; Starberg uses
-`/tmp/starberg-frobby-results-0.1.0/` so repeated runs overwrite a known report hub.
+`--report-dir <path>` for stable locations, such as
+`/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.
 
 ## Report Workflow
 

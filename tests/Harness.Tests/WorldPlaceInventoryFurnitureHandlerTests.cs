@@ -92,21 +92,21 @@ public class WorldPlaceInventoryFurnitureHandlerTests
     public void Handle_PlacesFurnitureFromInventoryAndReturnsSourceSlot()
     {
         var world = new FakeInventoryFurnitureWorld();
-        world.Items.Add(new FakeInventoryFurnitureItem(5, "(F)stonks_starberg_terminal_v1", "Starberg Terminal - Model 4201", true));
-        var p = JsonDocument.Parse("{\"id\":\"(F)stonks_starberg_terminal_v1\",\"location\":\"FarmHouse\",\"x\":8,\"y\":9,\"remove_existing\":true}").RootElement;
+        world.Items.Add(new FakeInventoryFurnitureItem(5, "(F)example_terminal", "Example Terminal", true));
+        var p = JsonDocument.Parse("{\"id\":\"(F)example_terminal\",\"location\":\"FarmHouse\",\"x\":8,\"y\":9,\"remove_existing\":true}").RootElement;
 
         var result = WorldPlaceInventoryFurnitureHandler.Handle(p, world);
         var placed = JsonSerializer.Deserialize<PlaceInventoryFurnitureResult>(result, ProtocolJson.Options)!;
 
         Assert.True(placed.Ok);
         Assert.Equal(1234, placed.Tick);
-        Assert.Equal("(F)stonks_starberg_terminal_v1", placed.Id);
+        Assert.Equal("(F)example_terminal", placed.Id);
         Assert.Equal("FarmHouse", placed.Location);
         Assert.Equal(8, placed.Tile.X);
         Assert.Equal(9, placed.Tile.Y);
         Assert.Equal(5, placed.SourceSlot);
         Assert.Equal(5, world.RemovedSlot);
-        Assert.Equal("(F)stonks_starberg_terminal_v1", world.PlacedItemId);
+        Assert.Equal("(F)example_terminal", world.PlacedItemId);
         Assert.Equal("FarmHouse", world.PlacedLocation);
         Assert.True(world.LastRemoveExisting);
         Assert.Empty(world.Items);

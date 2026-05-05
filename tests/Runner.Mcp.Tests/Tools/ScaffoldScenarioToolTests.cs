@@ -11,6 +11,13 @@ namespace SdvTestFramework.Runner.Mcp.Tests.Tools;
 
 public class ScaffoldScenarioToolTests
 {
+    private static readonly string[] ModSpecificTerms =
+    {
+        "Star" + "berg",
+        "star" + "berg",
+        "sto" + "nks",
+    };
+
     [Fact]
     public async Task Scaffold_WritesStarterJsonAcceptedByScenarioLoader()
     {
@@ -112,41 +119,76 @@ public class ScaffoldScenarioToolTests
     }
 
     [Fact]
-    public async Task Scaffold_StarbergTerminalTemplate_UsesFurnitureInteractionAndMenuAssertion()
+    public async Task Scaffold_FurnitureMenuTemplate_UsesGenericFurnitureInteractionAndMenuAssertion()
     {
         var tmpOut = Path.Combine(Path.GetTempPath(), $"mcp-scaf-{Guid.NewGuid():N}.test.json");
         try
         {
             var tool = new ScaffoldScenarioTool();
-            var args = JsonDocument.Parse($"{{\"name\":\"starberg_terminal\",\"template\":\"starberg_terminal\",\"fixture\":\"m0spike_436515781\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
+            var args = JsonDocument.Parse($"{{\"name\":\"custom_furniture_menu\",\"template\":\"furniture_menu\",\"fixture\":\"m0spike_436515781\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
             var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
             Assert.Contains("world.place_furniture", json);
-            Assert.Contains("(F)stonks_starberg_terminal_v1", json);
+            Assert.Contains("REPLACE_WITH_FURNITURE_ID", json);
             Assert.Contains("world.interact_tile", json);
-            Assert.Contains("state.menu.type == 'TerminalMenu'", json);
+            Assert.Contains("state.menu.type == 'REPLACE_WITH_MENU_TYPE'", json);
+            AssertNoModSpecificTerms(json);
         }
         finally { if (File.Exists(tmpOut)) File.Delete(tmpOut); }
     }
 
     [Fact]
-    public async Task Scaffold_StarbergTerminalTemplate_IncludesTextDrawAssertion()
+    public async Task Scaffold_FurnitureMenuTemplate_IncludesGenericTextDrawAssertion()
     {
         var tmpOut = Path.Combine(Path.GetTempPath(), $"mcp-scaf-{Guid.NewGuid():N}.test.json");
         try
         {
             var tool = new ScaffoldScenarioTool();
-            var args = JsonDocument.Parse($"{{\"name\":\"starberg_terminal\",\"template\":\"starberg_terminal\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
+            var args = JsonDocument.Parse($"{{\"name\":\"custom_furniture_menu\",\"template\":\"furniture_menu\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
             var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
             Assert.Contains("draw.text_contains", json);
-            Assert.Contains("STARBERG TERMINAL", json);
-            Assert.Contains("CASH", json);
+            Assert.Contains("REPLACE_WITH_VISIBLE_TITLE", json);
+            Assert.Contains("REPLACE_WITH_EXPECTED_BODY_TEXT", json);
+            AssertNoModSpecificTerms(json);
         }
         finally { if (File.Exists(tmpOut)) File.Delete(tmpOut); }
+    }
+
+    [Fact]
+    public async Task Scaffold_PublicSurface_UsesModNeutralTemplateNames()
+    {
+        var tmpDir = Path.Combine(Path.GetTempPath(), $"mcp-scaf-{Guid.NewGuid():N}");
+        try
+        {
+            var tool = new ScaffoldScenarioTool();
+            AssertNoModSpecificTerms(tool.Description);
+            AssertNoModSpecificTerms(tool.InputSchema.GetRawText());
+
+            foreach (var template in new[] { "shop", "menu", "warp", "npc_interaction", "shop_purchase", "tool_use", "inventory_check", "furniture_menu" })
+            {
+                var tmpOut = Path.Combine(tmpDir, $"{template}.test.json");
+                var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"{template}\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
+                var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+
+                Assert.False(result.IsError);
+                AssertNoModSpecificTerms(File.ReadAllText(tmpOut));
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tmpDir))
+                Directory.Delete(tmpDir, recursive: true);
+        }
+    }
+
+    private static void AssertNoModSpecificTerms(string value)
+    {
+        foreach (var term in ModSpecificTerms)
+            Assert.DoesNotContain(term, value);
     }
 }

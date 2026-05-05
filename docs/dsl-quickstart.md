@@ -151,7 +151,7 @@ matching text bounds fall outside the required `region` rectangle.
     "color_any": [[255, 214, 128, 255], [236, 229, 206, 255]]
   },
   "region": { "x": 64, "y": 78, "w": 816, "h": 566 },
-  "message": "Main pane text should remain inside the Starberg body"
+  "message": "Main pane text should remain inside the menu body"
 }
 ```
 

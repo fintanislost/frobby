@@ -142,8 +142,8 @@ public class HtmlReportGeneratorTests
                             Commit: "0ad28e7",
                             Dirty: false),
                         new RunRepositoryMetadata(
-                            Label: "extra-mod:stonks",
-                            Path: "/home/fintan/stardewRepos/stonks",
+                            Label: "extra-mod:example-mod",
+                            Path: "/tmp/example-mod",
                             Commit: "4e62c75",
                             Dirty: true),
                     }),
@@ -154,7 +154,7 @@ public class HtmlReportGeneratorTests
             var json = File.ReadAllText(Path.Combine(rd.Root, "summary.json"));
             Assert.Contains("\"launch_mode\": \"headless\"", json);
             Assert.Contains("\"launcher\": \"xvfb-run\"", json);
-            Assert.Contains("\"label\": \"extra-mod:stonks\"", json);
+            Assert.Contains("\"label\": \"extra-mod:example-mod\"", json);
             Assert.Contains("\"commit\": \"4e62c75\"", json);
 
             var html = File.ReadAllText(Path.Combine(rd.Root, "index.html"));
@@ -162,7 +162,7 @@ public class HtmlReportGeneratorTests
             Assert.Contains("xvfb-run", html);
             Assert.Contains("runner:sdv-test-framework", html);
             Assert.Contains("0ad28e7", html);
-            Assert.Contains("extra-mod:stonks", html);
+            Assert.Contains("extra-mod:example-mod", html);
             Assert.Contains("4e62c75", html);
             Assert.Contains("dirty", html);
         }
@@ -278,21 +278,21 @@ public class HtmlReportGeneratorTests
         var baseDir = Path.Combine(Path.GetTempPath(), $"htmlhub-{Guid.NewGuid():N}");
         try
         {
-            var first = RunDirectory.Create(baseDir, explicitRunId: "20-starberg-ui-quote-shell");
-            var second = RunDirectory.Create(baseDir, explicitRunId: "23-starberg-ui-order-ticket");
+            var first = RunDirectory.Create(baseDir, explicitRunId: "20-example-ui-quote-shell");
+            var second = RunDirectory.Create(baseDir, explicitRunId: "23-example-ui-order-ticket");
             File.WriteAllText(Path.Combine(first.Root, "index.html"), "<!doctype html>");
             File.WriteAllText(Path.Combine(second.Root, "index.html"), "<!doctype html>");
-            File.WriteAllText(Path.Combine(first.Root, "summary.json"), "{\"run_id\":\"20-starberg-ui-quote-shell\",\"started\":\"2026-04-24T15:30:45Z\",\"duration_ms\":12,\"scenarios\":[]}");
-            File.WriteAllText(Path.Combine(second.Root, "summary.json"), "{\"run_id\":\"23-starberg-ui-order-ticket\",\"started\":\"2026-04-24T15:31:45Z\",\"duration_ms\":34,\"scenarios\":[]}");
+            File.WriteAllText(Path.Combine(first.Root, "summary.json"), "{\"run_id\":\"20-example-ui-quote-shell\",\"started\":\"2026-04-24T15:30:45Z\",\"duration_ms\":12,\"scenarios\":[]}");
+            File.WriteAllText(Path.Combine(second.Root, "summary.json"), "{\"run_id\":\"23-example-ui-order-ticket\",\"started\":\"2026-04-24T15:31:45Z\",\"duration_ms\":34,\"scenarios\":[]}");
 
             HtmlReportGenerator.GenerateHub(baseDir);
 
             var html = File.ReadAllText(Path.Combine(baseDir, "index.html"));
-            Assert.Contains("20-starberg-ui-quote-shell/index.html", html);
-            Assert.Contains("23-starberg-ui-order-ticket/index.html", html);
+            Assert.Contains("20-example-ui-quote-shell/index.html", html);
+            Assert.Contains("23-example-ui-order-ticket/index.html", html);
             Assert.Contains("Frobby Reports", html);
             Assert.Contains("<dialog id=\"report-modal\"", html);
-            Assert.Contains("data-report-src=\"20-starberg-ui-quote-shell/index.html\"", html);
+            Assert.Contains("data-report-src=\"20-example-ui-quote-shell/index.html\"", html);
             Assert.Contains("<iframe id=\"report-frame\"", html);
         }
         finally

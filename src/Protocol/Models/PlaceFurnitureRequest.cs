@@ -3,7 +3,7 @@ namespace SdvTestFramework.Protocol.Models;
 /// <summary>Request shape for <c>world.place_furniture</c>.</summary>
 public sealed class PlaceFurnitureRequest
 {
-    /// <summary>Qualified SDV furniture item id, e.g. <c>"(F)stonks_starberg_terminal_v1"</c>.</summary>
+    /// <summary>Qualified SDV furniture item id, e.g. <c>"(F)example_terminal"</c>.</summary>
     public string Id { get; set; } = string.Empty;
 
     /// <summary>Optional location name. Null means current location.</summary>

@@ -12,14 +12,14 @@ public sealed class ScaffoldScenarioTool : ITool
 {
     public string Name => "scaffold_scenario";
     public string Description =>
-        "Generate a starter .test.json skeleton. Optional 'template' (shop|menu|warp|npc_interaction|shop_purchase|tool_use|inventory_check|starberg_terminal) pre-fills steps and assertions.";
+        "Generate a starter .test.json skeleton. Optional 'template' (shop|menu|warp|npc_interaction|shop_purchase|tool_use|inventory_check|furniture_menu) pre-fills steps and assertions.";
 
     public JsonElement InputSchema { get; } = JsonDocument.Parse("""
         {"type":"object",
          "properties":{
            "name":{"type":"string","description":"Scenario name"},
            "fixture":{"type":"string","description":"Optional fixture name"},
-           "template":{"type":"string","enum":["shop","menu","warp","npc_interaction","shop_purchase","tool_use","inventory_check","starberg_terminal"],"description":"Optional step + assertion template"},
+           "template":{"type":"string","enum":["shop","menu","warp","npc_interaction","shop_purchase","tool_use","inventory_check","furniture_menu"],"description":"Optional step + assertion template"},
            "output":{"type":"string","description":"Explicit output path (default: tests/samples/<name>.test.json)"}
          },
          "required":["name"]}
@@ -132,11 +132,11 @@ public sealed class ScaffoldScenarioTool : ITool
                 new JsonObject { ["type"] = "state", ["expr"] = "state.player.name != ''",   ["message"] = "player name should be populated" },
             }),
 
-        "starberg_terminal" => new TemplateContent(
+        "furniture_menu" => new TemplateContent(
             new JsonArray
             {
                 Step("player.warp",           new JsonObject { ["location"] = "FarmHouse", ["x"] = 8, ["y"] = 10 }),
-                Step("world.place_furniture", new JsonObject { ["id"] = "(F)stonks_starberg_terminal_v1", ["location"] = "FarmHouse", ["x"] = 8, ["y"] = 9, ["remove_existing"] = true }),
+                Step("world.place_furniture", new JsonObject { ["id"] = "REPLACE_WITH_FURNITURE_ID", ["location"] = "FarmHouse", ["x"] = 8, ["y"] = 9, ["remove_existing"] = true }),
                 Step("wait.ms",               new JsonObject { ["ms"] = 500 }),
                 Step("world.interact_tile",   new JsonObject { ["x"] = 8, ["y"] = 9 }),
                 Step("wait.ms",               new JsonObject { ["ms"] = 500 }),
@@ -146,9 +146,9 @@ public sealed class ScaffoldScenarioTool : ITool
             },
             new JsonArray
             {
-                new JsonObject { ["type"] = "state", ["expr"] = "state.menu.type == 'TerminalMenu'", ["message"] = "Starberg terminal furniture should open TerminalMenu" },
-                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "STARBERG TERMINAL", ["case_sensitive"] = true }, ["message"] = "Starberg terminal title should be visible" },
-                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "CASH", ["case_sensitive"] = false }, ["message"] = "Cash panel text should be visible" },
+                new JsonObject { ["type"] = "state", ["expr"] = "state.menu.type == 'REPLACE_WITH_MENU_TYPE'", ["message"] = "custom furniture should open the expected menu" },
+                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "REPLACE_WITH_VISIBLE_TITLE", ["case_sensitive"] = true }, ["message"] = "expected menu title should be visible" },
+                new JsonObject { ["type"] = "draw.text_contains", ["filter"] = new JsonObject { ["text_contains"] = "REPLACE_WITH_EXPECTED_BODY_TEXT", ["case_sensitive"] = false }, ["message"] = "expected body text should be visible" },
             }),
 
         _ => new TemplateContent(new JsonArray(), new JsonArray()),
