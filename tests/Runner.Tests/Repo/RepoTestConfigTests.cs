@@ -79,6 +79,40 @@ public sealed class RepoTestConfigTests : IDisposable
         Assert.Contains("sdv-test.config.json", ex.Message);
     }
 
+    [Theory]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet","args":["build"," "]},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}]}""", "build.args[1]")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet","args":["build",null]},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}]}""", "build.args[1]")]
+    public void Load_validates_build_args_entries(string json, string field)
+    {
+        WriteConfig(json);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RepoTestConfig.Load(_repoRoot));
+
+        Assert.Contains(field, ex.Message);
+        Assert.Contains("sdv-test.config.json", ex.Message);
+    }
+
+    [Fact]
+    public void Load_validates_extra_mods_entries()
+    {
+        WriteConfig(
+            """
+            {
+              "project": { "name": "Frobby", "slug": "frobby", "version": "1.0.0" },
+              "build": { "command": "dotnet" },
+              "defaultTarget": "smoke",
+              "modSets": [
+                { "name": "smoke", "extraMods": ["mods/a", "  "] }
+              ]
+            }
+            """);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RepoTestConfig.Load(_repoRoot));
+
+        Assert.Contains("modSets[0].extraMods[1]", ex.Message);
+        Assert.Contains("sdv-test.config.json", ex.Message);
+    }
+
     public void Dispose()
     {
         Directory.Delete(_repoRoot, recursive: true);

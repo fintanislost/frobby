@@ -41,48 +41,63 @@ public sealed class RepoTestConfig
         var config = JsonSerializer.Deserialize<RepoTestConfig>(json, ProtocolJson.Options)
             ?? throw new InvalidOperationException($"{FileName} did not contain a valid repo test config.");
 
-        config.Validate();
+        config.Validate(path);
         return config;
     }
 
-    private void Validate()
+    private void Validate(string path)
     {
-        var project = Project ?? throw Missing("project");
-        RequireText(project.Name, "project.name");
-        RequireText(project.Slug, "project.slug");
-        RequireText(project.Version, "project.version");
-        var build = Build ?? throw Missing("build");
-        RequireText(build.Command, "build.command");
-        RequireText(DefaultTarget, "defaultTarget");
-        Require(ModSets is { Count: > 0 }, "modSets");
+        var project = Project ?? throw Missing(path, "project");
+        RequireText(project.Name, path, "project.name");
+        RequireText(project.Slug, path, "project.slug");
+        RequireText(project.Version, path, "project.version");
+        var build = Build ?? throw Missing(path, "build");
+        RequireText(build.Command, path, "build.command");
+        RequireText(DefaultTarget, path, "defaultTarget");
+        ValidateEntries(build.Args, path, "build.args");
+        Require(ModSets is { Count: > 0 }, path, "modSets");
 
         for (var i = 0; i < ModSets.Count; i++)
         {
             if (ModSets[i] is not { } modSet)
             {
-                throw Missing($"modSets[{i}]");
+                throw Missing(path, $"modSets[{i}]");
             }
 
-            RequireText(modSet.Name, $"modSets[{i}].name");
-            Require(modSet.ExtraMods is { Count: > 0 }, $"modSets[{i}].extraMods");
+            RequireText(modSet.Name, path, $"modSets[{i}].name");
+            Require(modSet.ExtraMods is { Count: > 0 }, path, $"modSets[{i}].extraMods");
+            ValidateEntries(modSet.ExtraMods, path, $"modSets[{i}].extraMods");
         }
     }
 
-    private static void RequireText(string? value, string field)
+    private static void ValidateEntries(IReadOnlyList<string>? values, string path, string field)
     {
-        Require(!string.IsNullOrWhiteSpace(value), field);
+        if (values is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < values.Count; i++)
+        {
+            RequireText(values[i], path, $"{field}[{i}]");
+        }
     }
 
-    private static void Require(bool condition, string field)
+    private static void RequireText(string? value, string path, string field)
+    {
+        Require(!string.IsNullOrWhiteSpace(value), path, field);
+    }
+
+    private static void Require(bool condition, string path, string field)
     {
         if (!condition)
         {
-            throw Missing(field);
+            throw Missing(path, field);
         }
     }
 
-    private static InvalidOperationException Missing(string field)
-        => new($"{FileName} requires '{field}'.");
+    private static InvalidOperationException Missing(string path, string field)
+        => new($"{path}: {FileName} requires '{field}'.");
 }
 
 public sealed class RepoProjectConfig

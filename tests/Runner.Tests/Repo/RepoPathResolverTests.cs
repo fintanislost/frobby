@@ -45,6 +45,19 @@ public sealed class RepoPathResolverTests : IDisposable
         Assert.Equal(Path.GetFullPath(path), resolved);
     }
 
+    [Fact]
+    public void Resolve_expands_backslash_home_from_supplied_userprofile_environment()
+    {
+        var home = Path.Combine(_repoRoot, "profile dir");
+        var path = Path.Combine(home, "cache");
+        Directory.CreateDirectory(path);
+        var environment = new Dictionary<string, string?> { ["USERPROFILE"] = home };
+
+        var resolved = RepoPathResolver.Resolve(_repoRoot, @"~\cache", environment);
+
+        Assert.Equal(Path.GetFullPath(path), resolved);
+    }
+
     [Theory]
     [InlineData("$MOD_ROOT/Extra Mod")]
     [InlineData("${MOD_ROOT}/Extra Mod")]

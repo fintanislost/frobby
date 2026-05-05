@@ -43,12 +43,12 @@ public static class RepoPathResolver
     {
         if (rawPath == "~")
         {
-            return GetRequiredEnvironmentValue("HOME", rawPath, environment);
+            return GetRequiredHomePath(rawPath, environment);
         }
 
-        if (rawPath.StartsWith("~/", StringComparison.Ordinal))
+        if (rawPath.StartsWith("~/", StringComparison.Ordinal) || rawPath.StartsWith(@"~\", StringComparison.Ordinal))
         {
-            return Path.Combine(GetRequiredEnvironmentValue("HOME", rawPath, environment), rawPath[2..]);
+            return Path.Combine(GetRequiredHomePath(rawPath, environment), rawPath[2..]);
         }
 
         return rawPath;
@@ -114,6 +114,31 @@ public static class RepoPathResolver
         }
 
         return result.ToString();
+    }
+
+    private static string GetRequiredHomePath(string rawPath, IReadOnlyDictionary<string, string?>? environment)
+    {
+        if (environment is not null)
+        {
+            if (environment.TryGetValue("HOME", out var suppliedHome) && !string.IsNullOrWhiteSpace(suppliedHome))
+            {
+                return suppliedHome;
+            }
+
+            if (environment.TryGetValue("USERPROFILE", out var suppliedProfile) && !string.IsNullOrWhiteSpace(suppliedProfile))
+            {
+                return suppliedProfile;
+            }
+        }
+
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            throw new InvalidOperationException(
+                $"Path '{rawPath}' requires a home directory, but HOME, USERPROFILE, and the OS user profile path were unavailable.");
+        }
+
+        return userProfile;
     }
 
     private static string GetRequiredEnvironmentValue(
