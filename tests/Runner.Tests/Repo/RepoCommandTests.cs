@@ -365,23 +365,26 @@ public sealed class RepoCommandTests : IDisposable
     }
 
     [Fact]
-    public async Task RepoInit_returns_exit_2_before_task_3()
+    public async Task RepoInit_creates_scaffold()
     {
-        var error = new StringWriter();
-        var previousError = Console.Error;
-        Console.SetError(error);
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
         try
         {
-            var exit = await RepoCommand.RunAsync(new[] { "init" }.AsMemory(), CancellationToken.None);
+            var exit = await RepoCommand.RunAsync(
+                new[] { "init", "--repo-root", _repoRoot }.AsMemory(),
+                CancellationToken.None);
 
-            Assert.Equal(2, exit);
+            Assert.Equal(0, exit);
         }
         finally
         {
-            Console.SetError(previousError);
+            Console.SetOut(previousOut);
         }
 
-        Assert.Contains("[repo]", error.ToString());
+        Assert.True(File.Exists(Path.Combine(_repoRoot, "sdv-test.config.json")));
+        Assert.Contains(_repoRoot, output.ToString());
     }
 
     public void Dispose()

@@ -33,7 +33,7 @@ public static class RepoCommand
             {
                 "run" => await RunRepoRunAsync(rest, ct),
                 "repeat" => await RunRepoRepeatAsync(rest, ct),
-                "init" => RunRepoInit(),
+                "init" => RepoScaffoldGenerator.RunInit(rest),
                 _ => Unknown(subcommand),
             };
         }
@@ -100,12 +100,6 @@ public static class RepoCommand
         }
 
         return worstExit;
-    }
-
-    private static int RunRepoInit()
-    {
-        Console.Error.WriteLine("[repo] init is registered by the scaffold generator task; Task 3 will replace this placeholder.");
-        return 2;
     }
 
     private static int Unknown(string subcommand)
