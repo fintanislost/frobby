@@ -30,8 +30,10 @@ public static class InputHoverTextHandler
         Func<TextDrawEvent[]> getTextEvents)
     {
         var req = RpcParams.Required<InputHoverTextRequest>(paramsElement);
-        if (string.IsNullOrWhiteSpace(req.Text) && string.IsNullOrWhiteSpace(req.TextEquals))
-            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.text or params.text_equals required");
+        if (string.IsNullOrWhiteSpace(req.Text)
+            && string.IsNullOrWhiteSpace(req.TextEquals)
+            && string.IsNullOrWhiteSpace(req.TextMatches))
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.text, params.text_equals, or params.text_matches required");
         if (req.Occurrence < 1)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.occurrence must be >= 1");
 
@@ -39,6 +41,7 @@ public static class InputHoverTextHandler
         {
             TextContains = req.Text,
             TextEquals = req.TextEquals,
+            TextMatches = req.TextMatches,
             CaseSensitive = req.CaseSensitive,
             InRect = req.InRect,
             BoundsWithinRect = req.BoundsWithinRect,
@@ -83,5 +86,5 @@ public static class InputHoverTextHandler
     }
 
     private static string TextLabel(InputHoverTextRequest req)
-        => string.IsNullOrWhiteSpace(req.TextEquals) ? req.Text ?? string.Empty : req.TextEquals;
+        => req.TextEquals ?? req.Text ?? req.TextMatches ?? string.Empty;
 }

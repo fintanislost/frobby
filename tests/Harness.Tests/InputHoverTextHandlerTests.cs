@@ -91,6 +91,21 @@ public class InputHoverTextHandlerTests
     }
 
     [Fact]
+    public void Handle_TextMatches_HoversRegexMatch()
+    {
+        var menu = new CapturingMenu();
+        var p = JsonDocument.Parse("{\"text_matches\":\"^CASH [0-9,]+g$\"}").RootElement;
+
+        InputHoverTextHandler.Handle(
+            p,
+            () => menu,
+            () => 0,
+            () => Events(Label("CASH", x: 10, y: 20), Label("CASH 1,000,000g", x: 100, y: 200)));
+
+        Assert.Equal((140, 214), menu.LastHover);
+    }
+
+    [Fact]
     public void Handle_UsesOccurrenceAfterFiltering()
     {
         var menu = new CapturingMenu();

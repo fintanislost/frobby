@@ -9,6 +9,9 @@ public sealed class InputHoverTextRequest
     /// <summary>Exact text to find in captured draw-string events.</summary>
     public string? TextEquals { get; set; }
 
+    /// <summary>Regular expression to match in captured draw-string events.</summary>
+    public string? TextMatches { get; set; }
+
     /// <summary>Whether text matching is case-sensitive.</summary>
     public bool CaseSensitive { get; set; } = true;
 

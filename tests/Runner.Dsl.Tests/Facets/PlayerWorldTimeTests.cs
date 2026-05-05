@@ -52,6 +52,19 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task AddMail_InvokesPlayerAddMailWithId()
+    {
+        SdvTestSession.ResetForTests();  // Clear any prior state
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Player.AddMail("jojaVault"); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.add_mail", inv.Calls[0].Method);
+        Assert.Contains("\"id\":\"jojaVault\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task Advance_InvokesTimeAdvanceWithMinutes()
     {
         SdvTestSession.ResetForTests();  // Clear any prior state

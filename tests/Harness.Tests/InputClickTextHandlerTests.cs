@@ -81,6 +81,21 @@ public class InputClickTextHandlerTests
     }
 
     [Fact]
+    public void Handle_TextMatches_ClicksRegexMatch()
+    {
+        var menu = new CapturingMenu();
+        var p = JsonDocument.Parse("{\"text_matches\":\"^LAST TICK [0-9]{2}:[0-9]{2}.*BARS [0-9]+$\"}").RootElement;
+
+        InputClickTextHandler.Handle(
+            p,
+            () => menu,
+            () => 0,
+            () => Events(Label("SESSION REGULAR", x: 10, y: 20), Label("LAST TICK 09:50 · BARS 3", x: 100, y: 200)));
+
+        Assert.Equal((140, 214), menu.LastLeftClick);
+    }
+
+    [Fact]
     public void Handle_UsesOccurrenceAfterFiltering()
     {
         var menu = new CapturingMenu();

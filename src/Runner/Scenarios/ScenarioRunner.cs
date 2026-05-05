@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -42,6 +43,7 @@ public sealed class ScenarioRunner
     private ScenarioReport? _currentReport;
     private ScenarioSpec? _currentSpec;
     private int _assertionFailureCount;
+    private readonly List<SaveFolderRestore> _pendingSaveRestores = new();
 
     /// <summary>Construct a runner bound to an already-connected session.</summary>
     public ScenarioRunner(JsonRpcSession session) : this(session, updateBaselines: false) { }
@@ -108,6 +110,7 @@ public sealed class ScenarioRunner
     {
         _scenarioPath = scenarioPath;
         _assertionFailureCount = 0;
+        _pendingSaveRestores.Clear();
         var report = new ScenarioReport { Name = spec.Name };
         _currentReport = report;
         _currentSpec = spec;
@@ -191,6 +194,7 @@ public sealed class ScenarioRunner
                         {
                             Text = uiText.Text,
                             TextEquals = uiText.TextEquals,
+                            TextMatches = uiText.TextMatches,
                             Button = uiText.Button,
                             CaseSensitive = uiText.CaseSensitive,
                             Occurrence = uiText.Occurrence,
@@ -209,6 +213,7 @@ public sealed class ScenarioRunner
                         {
                             Text = uiText.Text,
                             TextEquals = uiText.TextEquals,
+                            TextMatches = uiText.TextMatches,
                             CaseSensitive = uiText.CaseSensitive,
                             Occurrence = uiText.Occurrence,
                             InRect = uiText.InRect,
@@ -222,6 +227,10 @@ public sealed class ScenarioRunner
                     else if (step.Action == "time.next_day")
                     {
                         await InvokeTimeNextDayAsync(step, ct);
+                    }
+                    else if (step.Action == "fixture.save_reload")
+                    {
+                        await InvokeFixtureSaveReloadAsync(step, spec.Fixture, ct);
                     }
                     else if (step.Action == "freeze.begin")
                     {
@@ -295,6 +304,16 @@ public sealed class ScenarioRunner
             }
             catch { /* best-effort cleanup */ }
 
+            try
+            {
+                RestorePendingSaveFolders();
+            }
+            catch (Exception ex)
+            {
+                report.Failures.Add($"save folder restore failed: {ex.Message}");
+                report.Passed = false;
+            }
+
             report.DurationMs = (int)sw.ElapsedMilliseconds;
             _currentReport = null;
             _currentSpec = null;
@@ -343,6 +362,161 @@ public sealed class ScenarioRunner
 
         return !isWarping.GetBoolean();
     }
+
+    private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
+    {
+        int settleTimeoutMs = GetIntArg(step.Args, "settle_timeout_ms") ?? 30000;
+        int pollMs = GetIntArg(step.Args, "poll_ms") ?? 100;
+        if (settleTimeoutMs < 1)
+            throw new InvalidOperationException("fixture.save_reload requires args.settle_timeout_ms >= 1");
+        if (pollMs < 1)
+            throw new InvalidOperationException("fixture.save_reload requires args.poll_ms >= 1");
+
+        var requestedName = GetStringArg(step.Args, "name") ?? scenarioFixture;
+        if (string.IsNullOrWhiteSpace(requestedName))
+            throw new InvalidOperationException("fixture.save_reload requires args.name or a scenario fixture");
+
+        var saveReq = ProtocolJson.ToElement(new FixtureSaveRequest { Name = requestedName });
+        var saveResp = await _session.InvokeAsync("fixture.save", saveReq, ct);
+        if (saveResp.Error is { } saveError)
+            throw new InvalidOperationException($"step '{step.Action}' failed during fixture.save: {saveError.Message}");
+
+        if (GetBoolArg(step.Args, "restore_original") != false)
+            TryRegisterSaveFolderRestore(saveResp.Result);
+
+        var loadName = GetStringArg(step.Args, "load_name")
+            ?? ReadSavedFolderName(saveResp.Result)
+            ?? requestedName;
+
+        var titleResp = await _session.InvokeAsync("game.return_to_title", params_: null, ct);
+        if (titleResp.Error is { } titleError)
+            throw new InvalidOperationException($"step '{step.Action}' failed during game.return_to_title: {titleError.Message}");
+
+        await WaitForTitleReady(settleTimeoutMs, pollMs, ct);
+
+        var loadReq = ProtocolJson.ToElement(new FixtureLoadRequest { Name = loadName });
+        var loadResp = await _session.InvokeAsync("fixture.load", loadReq, ct);
+        if (loadResp.Error is { } loadError)
+            throw new InvalidOperationException($"step '{step.Action}' failed during fixture.load: {loadError.Message}");
+
+        await WaitForWorldReady(ct);
+    }
+
+    private async Task WaitForTitleReady(int settleTimeoutMs, int pollMs, CancellationToken ct)
+    {
+        var elapsed = Stopwatch.StartNew();
+        while (elapsed.ElapsedMilliseconds < settleTimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.time", params_: null, ct);
+            if (resp.Error is null
+                && resp.Result is { } result
+                && result.TryGetProperty("in_save", out var inSave)
+                && inSave.ValueKind is JsonValueKind.True or JsonValueKind.False
+                && !inSave.GetBoolean())
+            {
+                return;
+            }
+
+            await Task.Delay(pollMs, ct);
+        }
+
+        throw new TimeoutException("game never returned to title after fixture.save_reload");
+    }
+
+    private static string? ReadSavedFolderName(JsonElement? result)
+    {
+        if (result is not { ValueKind: JsonValueKind.Object } obj
+            || !obj.TryGetProperty("save_path", out var savePathElement)
+            || savePathElement.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        var savePath = ReadSavedPath(result);
+        if (string.IsNullOrWhiteSpace(savePath))
+            return null;
+
+        return Path.GetFileName(savePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    }
+
+    private void TryRegisterSaveFolderRestore(JsonElement? result)
+    {
+        var savePath = ReadSavedPath(result);
+        if (string.IsNullOrWhiteSpace(savePath))
+            return;
+
+        var normalizedSavePath = savePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var saveName = Path.GetFileName(normalizedSavePath);
+        if (string.IsNullOrWhiteSpace(saveName))
+            return;
+
+        var mainSave = Path.Combine(normalizedSavePath, saveName);
+        var saveGameInfo = Path.Combine(normalizedSavePath, "SaveGameInfo");
+        var oldMainSave = mainSave + "_old";
+        var oldSaveGameInfo = saveGameInfo + "_old";
+        if (!File.Exists(oldMainSave) || !File.Exists(oldSaveGameInfo))
+            return;
+
+        var backupDir = Path.Combine(
+            Path.GetTempPath(),
+            "sdv-test-save-reload-restores",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(backupDir);
+        var backupMainSave = Path.Combine(backupDir, saveName);
+        var backupSaveGameInfo = Path.Combine(backupDir, "SaveGameInfo");
+        File.Copy(oldMainSave, backupMainSave, overwrite: true);
+        File.Copy(oldSaveGameInfo, backupSaveGameInfo, overwrite: true);
+
+        _pendingSaveRestores.Add(new SaveFolderRestore(
+            backupDir,
+            backupMainSave,
+            mainSave,
+            backupSaveGameInfo,
+            saveGameInfo));
+    }
+
+    private void RestorePendingSaveFolders()
+    {
+        var failures = new List<Exception>();
+        for (var i = _pendingSaveRestores.Count - 1; i >= 0; i--)
+        {
+            var restore = _pendingSaveRestores[i];
+            try
+            {
+                File.Copy(restore.BackupMainSave, restore.MainSave, overwrite: true);
+                File.Copy(restore.BackupSaveGameInfo, restore.SaveGameInfo, overwrite: true);
+                Directory.Delete(restore.BackupDir, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                failures.Add(ex);
+            }
+        }
+
+        _pendingSaveRestores.Clear();
+        if (failures.Count > 0)
+            throw new IOException($"{failures.Count} restore operation(s) failed", failures[0]);
+    }
+
+    private static string? ReadSavedPath(JsonElement? result)
+    {
+        if (result is not { ValueKind: JsonValueKind.Object } obj
+            || !obj.TryGetProperty("save_path", out var savePathElement)
+            || savePathElement.ValueKind != JsonValueKind.String)
+        {
+            return null;
+        }
+
+        return savePathElement.GetString();
+    }
+
+    private sealed record SaveFolderRestore(
+        string BackupDir,
+        string BackupMainSave,
+        string MainSave,
+        string BackupSaveGameInfo,
+        string SaveGameInfo);
 
     private async Task InvokeTimeNextDayAsync(ScenarioStep step, CancellationToken ct)
     {
@@ -470,8 +644,10 @@ public sealed class ScenarioRunner
             ? JsonSerializer.Deserialize<UiTextStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new UiTextStepArgs()
             : new UiTextStepArgs();
 
-        if (string.IsNullOrWhiteSpace(args.Text) && string.IsNullOrWhiteSpace(args.TextEquals))
-            throw new InvalidOperationException($"{step.Action} requires args.text or args.text_equals");
+        if (string.IsNullOrWhiteSpace(args.Text)
+            && string.IsNullOrWhiteSpace(args.TextEquals)
+            && string.IsNullOrWhiteSpace(args.TextMatches))
+            throw new InvalidOperationException($"{step.Action} requires args.text, args.text_equals, or args.text_matches");
         if (args.TimeoutMs < 1)
             throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
         if (args.PollMs < 1)
@@ -491,6 +667,7 @@ public sealed class ScenarioRunner
         {
             TextContains = args.Text,
             TextEquals = args.TextEquals,
+            TextMatches = args.TextMatches,
             CaseSensitive = args.CaseSensitive,
             InRect = args.InRect,
             BoundsWithinRect = args.BoundsWithinRect,
@@ -530,6 +707,7 @@ public sealed class ScenarioRunner
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
             "state.assert" => $"Assert {GetStringArg(step.Args, "expr") ?? "state"}",
+            "fixture.save_reload" => $"Save and reload fixture \"{GetStringArg(step.Args, "name") ?? "current"}\"",
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
@@ -625,7 +803,10 @@ public sealed class ScenarioRunner
                 : null;
 
     private static string GetUiTextLabel(JsonElement? args)
-        => GetStringArg(args, "text_equals") ?? GetStringArg(args, "text") ?? string.Empty;
+        => GetStringArg(args, "text_equals")
+            ?? GetStringArg(args, "text")
+            ?? GetStringArg(args, "text_matches")
+            ?? string.Empty;
 
     private static string GetMenuButtonLabel(JsonElement? args)
         => GetStringArg(args, "label") ?? GetStringArg(args, "text_equals") ?? GetStringArg(args, "id") ?? string.Empty;
@@ -690,6 +871,7 @@ public sealed class ScenarioRunner
     {
         public string? Text { get; set; }
         public string? TextEquals { get; set; }
+        public string? TextMatches { get; set; }
         public string Button { get; set; } = "left";
         public bool CaseSensitive { get; set; } = true;
         public int Occurrence { get; set; } = 1;
@@ -702,7 +884,7 @@ public sealed class ScenarioRunner
         public int[]? BoundsIntersectsRect { get; set; }
 
         public string TextLabel
-            => string.IsNullOrWhiteSpace(TextEquals) ? Text ?? string.Empty : TextEquals;
+            => TextEquals ?? Text ?? TextMatches ?? string.Empty;
     }
 
     /// <summary>
@@ -767,6 +949,7 @@ public sealed class ScenarioRunner
                 {
                     filter = a.Filter,
                     min_count = a.MinCount,
+                    max_count = a.MaxCount,
                     message = a.Message,
                 };
                 var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
@@ -1148,7 +1331,11 @@ public sealed class ScenarioRunner
         if (TryGetInt(result, "matched_count", out var matched) &&
             TryGetInt(result, "min_count", out var min))
         {
-            return $"matched {matched} < {min}";
+            if (matched < min)
+                return $"matched {matched} < {min}";
+
+            if (TryGetInt(result, "max_count", out var max) && matched > max)
+                return $"matched {matched} > {max}";
         }
         return null;
     }

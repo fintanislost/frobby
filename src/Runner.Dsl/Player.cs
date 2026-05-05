@@ -25,6 +25,14 @@ public static class Player
         await s.InvokeAsync("player.set_money", p, ct);
     }
 
+    /// <summary>Add received mail flag <paramref name="id"/> to the master farmer.</summary>
+    public static async Task AddMail(string id, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new AddMailRequest { Id = id }, ProtocolJson.Options);
+        await s.InvokeAsync("player.add_mail", p, ct);
+    }
+
     /// <summary>Give the player <paramref name="count"/> of item <paramref name="id"/> (e.g. <c>"(O)74"</c> for prismatic shard).</summary>
     public static async Task GiveItem(string id, int count = 1, CancellationToken ct = default)
     {

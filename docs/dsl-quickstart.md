@@ -75,7 +75,7 @@ Environment knobs:
 
 ## Facet reference
 
-- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `GiveItem(id, count)`
+- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
 - `World.SetWeather(type)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
@@ -157,7 +157,11 @@ matching text bounds fall outside the required `region` rectangle.
 
 Use this for fixed UI panes, tables, button bars, and terminal/status areas where text
 overflow is a regression. `min_count` defaults to `1`; set it higher when the assertion
-should also prove that several expected text events were captured.
+should also prove that several expected visible text instances were captured. `draw.text_contains`
+also accepts `max_count` for exact-occurrence checks, such as proving a persisted
+headline was restored once rather than duplicated after reload. Text occurrence assertions
+collapse repeated samples of the same nearby text, so multi-frame capture and
+shadowed/multi-pass text rendering don't inflate the count.
 The optional `color_any` filter is useful when the game HUD or another mod draws text
 near the same screen area and the assertion should target a known UI palette.
 

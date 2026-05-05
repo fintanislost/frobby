@@ -22,6 +22,9 @@ public sealed class ScenarioAssertion
     /// <summary>For draw-contains assertions: minimum match count (schema allows 0; runtime may tighten).</summary>
     public int MinCount { get; set; } = 1;
 
+    /// <summary>For draw text contains assertions: optional maximum match count.</summary>
+    public int? MaxCount { get; set; }
+
     /// <summary>Optional human-readable failure message override.</summary>
     public string? Message { get; set; }
 

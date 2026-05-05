@@ -264,7 +264,7 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "ui.wait_text",
-                    Args = JsonDocument.Parse("{\"text\":\"SUBMIT ORDER\",\"case_sensitive\":false,\"timeout_ms\":1000,\"poll_ms\":1,\"capture_ticks\":3,\"bounds_intersects_rect\":[700,500,120,40]}").RootElement,
+                    Args = JsonDocument.Parse("{\"text_matches\":\"^SUBMIT [A-Z]+$\",\"case_sensitive\":false,\"timeout_ms\":1000,\"poll_ms\":1,\"capture_ticks\":3,\"bounds_intersects_rect\":[700,500,120,40]}").RootElement,
                 },
             },
         }, cts.Token);
@@ -274,7 +274,7 @@ public class ScenarioRunnerTests
         Assert.Contains("draw.arm", calls);
         Assert.DoesNotContain("input.click_text", calls);
         Assert.Equal(3, armParams.GetProperty("ticks").GetInt32());
-        Assert.Equal("SUBMIT ORDER", findParams.GetProperty("text_contains").GetString());
+        Assert.Equal("^SUBMIT [A-Z]+$", findParams.GetProperty("text_matches").GetString());
         Assert.False(findParams.GetProperty("case_sensitive").GetBoolean());
         Assert.Equal(700, findParams.GetProperty("bounds_intersects_rect")[0].GetInt32());
 
@@ -853,6 +853,7 @@ public class ScenarioRunnerTests
                     Type = "draw.text_contains",
                     Filter = JsonDocument.Parse("{\"text_equals\":\"0.00 SBD\",\"bounds_intersects_rect\":[560,190,310,40]}").RootElement,
                     MinCount = 1,
+                    MaxCount = 1,
                     Message = "Unsettled cell should show zero",
                 },
             },
@@ -868,6 +869,7 @@ public class ScenarioRunnerTests
         Assert.Equal("Cash panel should be visible", textContainsParams[0].GetProperty("message").GetString());
         Assert.Equal("CASH & WIRES", textContainsParams[0].GetProperty("filter").GetProperty("text_contains").GetString());
         Assert.Equal("0.00 SBD", textContainsParams[1].GetProperty("filter").GetProperty("text_equals").GetString());
+        Assert.Equal(1, textContainsParams[1].GetProperty("max_count").GetInt32());
         Assert.Equal("Error text should be absent", textNotContainsParams.GetProperty("message").GetString());
         Assert.Equal("draw.text_contains \"CASH & WIRES\"", report.Assertions[0].Type);
         Assert.Equal("Cash panel should be visible", report.Assertions[0].Detail);
@@ -982,6 +984,30 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task DrawTextContainsFailure_IncludesMatchedAndMaxCountDetail()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var report = await RunSingleAssertionAsync(
+            new ScenarioAssertion
+            {
+                Type = "draw.text_contains",
+                Filter = JsonDocument.Parse("{\"text_contains\":\"TERMINAL CLOSE archived\"}").RootElement,
+                MinCount = 1,
+                MaxCount = 1,
+            },
+            req => req.Method == "draw.assert_text_contains"
+                ? JsonRpcResponse.Ok(req.Id, JsonDocument.Parse("{\"passed\":false,\"matched_count\":2,\"min_count\":1,\"max_count\":1}").RootElement)
+                : null,
+            cts);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("draw.text_contains", failure);
+        Assert.Contains("matched 2 > 1", failure);
+    }
+
+    [Fact]
     public async Task DrawTextNotContainsFailure_IncludesMatchedCountDetail()
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -1087,6 +1113,94 @@ public class ScenarioRunnerTests
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task FixtureSaveReload_SavesReturnsToTitleLoadsAndWaitsForWorldReady()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var timePolls = 0;
+        var playerPolls = 0;
+        var saveRoot = Path.Combine(Path.GetTempPath(), $"sdv-test-save-reload-{Guid.NewGuid():N}");
+        var saveDir = Path.Combine(saveRoot, "test_save");
+        Directory.CreateDirectory(saveDir);
+        File.WriteAllText(Path.Combine(saveDir, "test_save"), "new-main");
+        File.WriteAllText(Path.Combine(saveDir, "SaveGameInfo"), "new-info");
+        File.WriteAllText(Path.Combine(saveDir, "test_save_old"), "old-main");
+        File.WriteAllText(Path.Combine(saveDir, "SaveGameInfo_old"), "old-info");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "fixture.save" => JsonDocument.Parse(
+                            "{\"ok\":true,\"tick\":10,\"save_path\":"
+                            + JsonSerializer.Serialize(saveDir)
+                            + "}").RootElement,
+                        "game.return_to_title" => JsonDocument.Parse("{\"ok\":true,\"tick\":11}").RootElement,
+                        "state.time" => JsonDocument.Parse(timePolls++ == 0
+                            ? "{\"in_save\":true,\"season\":\"spring\",\"day_of_month\":2,\"year\":1,\"time_of_day\":900,\"day_of_week\":\"tuesday\"}"
+                            : "{\"in_save\":false,\"season\":\"spring\",\"day_of_month\":0,\"year\":0,\"time_of_day\":0,\"day_of_week\":\"monday\"}").RootElement,
+                        "fixture.load" => JsonDocument.Parse("{\"ok\":true,\"tick\":12}").RootElement,
+                        "state.player" => JsonDocument.Parse(playerPolls++ == 0
+                            ? "{\"name\":\"Tester\",\"money\":500,\"stamina\":270,\"max_stamina\":270,\"health\":100,\"location\":\"\",\"tile\":{\"x\":0,\"y\":0},\"items\":[]}"
+                            : "{\"name\":\"Tester\",\"money\":500,\"stamina\":270,\"max_stamina\":270,\"health\":100,\"location\":\"FarmHouse\",\"tile\":{\"x\":8,\"y\":10},\"items\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "save_reload",
+            Fixture = "test_save",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "fixture.save_reload",
+                    Args = JsonDocument.Parse("{\"settle_timeout_ms\":500,\"poll_ms\":1}").RootElement,
+                },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Contains(calls, c => c == "fixture.save");
+        Assert.Contains(calls, c => c == "game.return_to_title");
+        Assert.Contains(calls, c => c == "fixture.load");
+        Assert.True(calls.IndexOf("fixture.save") < calls.IndexOf("game.return_to_title"));
+        Assert.True(calls.IndexOf("game.return_to_title") < calls.LastIndexOf("fixture.load"));
+        Assert.True(timePolls >= 2);
+        Assert.True(playerPolls >= 2);
+        Assert.Equal("old-main", File.ReadAllText(Path.Combine(saveDir, "test_save")));
+        Assert.Equal("old-info", File.ReadAllText(Path.Combine(saveDir, "SaveGameInfo")));
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+        Directory.Delete(saveRoot, recursive: true);
     }
 
     [Fact]

@@ -340,6 +340,34 @@ Response (`amount < 0` — InvalidParams):
 **Implemented in:** `src/Harness/Handlers/PlayerSetMoneyHandler.cs`
 **Tested in:** `tests/Protocol.Tests/SetMoneyRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerSetMoneyHandlerTests.cs` (error-path unit tests).
 
+### player.add_mail
+
+Adds a received-mail flag to the master farmer. This is a neutral save-state
+mutator for scenarios that need to exercise vanilla gameplay gates exposed by
+mods without adding mod-specific hooks.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 13, "method": "player.add_mail", "params": { "id": "jojaVault" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 13, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing `params` or blank `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.id must be non-empty" } }
+```
+
+`tick` is `Game1.ticks` at the moment the mail flag was added.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** trims `params.id` and adds it to `Game1.MasterPlayer.mailReceived`.
+**Implemented in:** `src/Harness/Handlers/PlayerAddMailHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerAddMailHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL shape).
+
 ### time.advance
 
 Advances SDV's in-game clock by a multiple of 10 minutes. `params.minutes` is required and must be a multiple of 10 between 10 and 120 inclusive. SDV's clock advances in 10-minute chunks; longer advances chain multiple calls at the scenario layer to keep each RPC bounded.
@@ -656,7 +684,7 @@ Response (no active menu — GameStateInvalid):
 
 ### input.click_text
 
-Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
+Clicks the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply `params.text` for `draw.text_find`'s `text_contains` behavior, `params.text_equals` for an exact text match, or `params.text_matches` for a regular expression match. `params.button` is optional and defaults to `left`; supported values are `left` and `right`. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
 
 `input.click_text` also accepts the text-draw region filters `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect` to disambiguate duplicate labels.
 
@@ -675,6 +703,11 @@ Request with exact text matching:
 → { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text_equals": "CONTINUE" } }
 ```
 
+Request with regex text matching:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "input.click_text", "params": { "text_matches": "^LAST TICK [0-9]{2}:[0-9]{2}.*BARS [0-9]+$" } }
+```
+
 Response (success):
 ```json
 ← { "jsonrpc": "2.0", "id": 17, "result": { "ok": true, "tick": 84204 } }
@@ -682,7 +715,7 @@ Response (success):
 
 Response (missing text — InvalidParams):
 ```json
-← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.text or params.text_equals required" } }
+← { "jsonrpc": "2.0", "id": 17, "error": { "code": -32602, "message": "params.text, params.text_equals, or params.text_matches required" } }
 ```
 
 Response (no active menu — GameStateInvalid):
@@ -738,13 +771,18 @@ Response (no button match - GameStateInvalid):
 
 ### input.hover_text
 
-Hovers the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply either `params.text` for `draw.text_find`'s `text_contains` behavior or `params.text_equals` for an exact text match. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
+Hovers the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply `params.text` for `draw.text_find`'s `text_contains` behavior, `params.text_equals` for an exact text match, or `params.text_matches` for a regular expression match. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
 
 `input.hover_text` also accepts the text-draw region filters `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect` to disambiguate duplicate labels.
 
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 18, "method": "input.hover_text", "params": { "text_equals": "2.15B g", "bounds_within_rect": [560, 238, 308, 74] } }
+```
+
+Request with regex text matching:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "input.hover_text", "params": { "text_matches": "^CASH [0-9,]+g$" } }
 ```
 
 Response (success):
@@ -754,7 +792,7 @@ Response (success):
 
 Response (missing text — InvalidParams):
 ```json
-← { "jsonrpc": "2.0", "id": 18, "error": { "code": -32602, "message": "params.text or params.text_equals required" } }
+← { "jsonrpc": "2.0", "id": 18, "error": { "code": -32602, "message": "params.text, params.text_equals, or params.text_matches required" } }
 ```
 
 Response (no captured match — GameStateInvalid):
@@ -769,11 +807,11 @@ Response (no captured match — GameStateInvalid):
 
 Runner scenario convenience:
 
-- `{ "action": "ui.wait_text", "args": { "text": "SUBMIT ORDER" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
+- `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 
-All three convenience steps accept `text`, `text_equals`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+All three convenience steps accept `text`, `text_equals`, `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
 ### shop.open
 
@@ -1088,23 +1126,24 @@ Filter DSL fields (all optional, all ANDed):
 
 ### draw.assert_text_contains
 
-Assertion primitive for captured text. Counts matches of a `TextDrawFilter` against the text buffer and returns `passed: (matched_count >= min_count)`. `min_count` defaults to `1`; `message` is echoed.
+Assertion primitive for captured text. Counts matching logical visible text instances against the text buffer and returns `passed: (matched_count >= min_count && matched_count <= max_count)` when `max_count` is supplied, otherwise `passed: (matched_count >= min_count)`. Repeated samples of the same text in the same nearby bounds are collapsed so multi-frame captures and shadowed/multi-pass text rendering don't inflate `matched_count`. `min_count` defaults to `1`; `max_count` is optional; `message` is echoed.
 
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 20, "method": "draw.assert_text_contains", "params": {
       "filter": { "text_contains": "CASH & WIRES", "case_sensitive": true },
       "min_count": 1,
+      "max_count": 1,
       "message": "Cash panel should be visible"
    } }
 ```
 
 Response:
 ```json
-← { "jsonrpc": "2.0", "id": 20, "result": { "passed": true, "matched_count": 2, "min_count": 1, "message": "Cash panel should be visible" } }
+← { "jsonrpc": "2.0", "id": 20, "result": { "passed": true, "matched_count": 1, "min_count": 1, "max_count": 1, "message": "Cash panel should be visible" } }
 ```
 
-**Errors:** `InvalidParams (-32602)` if params are missing, `min_count < 1`, or the filter shape is invalid.
+**Errors:** `InvalidParams (-32602)` if params are missing, `min_count < 1`, `max_count < min_count`, or the filter shape is invalid.
 
 **Implemented in:** `src/Harness/Handlers/DrawAssertTextContainsHandler.cs`
 **Tested in:** `tests/Harness.Tests/DrawAssertTextContainsHandlerTests.cs`.
@@ -1306,6 +1345,44 @@ Trigger SDV's save flow, writing the current game state to a folder in `Constant
 ```
 
 **Errors:** `GameStateInvalid (-32003)` for any precondition violation. `InvalidParams (-32602)` if `name` is missing or empty. `InternalError (-32603)` if the save coroutine exceeds its 30-second budget.
+
+### game.return_to_title
+
+Leave the currently loaded save and return to Stardew's title flow. This is a
+generic lifecycle RPC used by runners that need to reload the same save inside a
+scenario. It does not save by itself; compose it with `fixture.save`.
+
+**Params:** none.
+
+**Preconditions (strict):**
+- `Game1.gameMode == Game1.playingGameMode && Game1.hasLoadedGame` — world is loaded and playable.
+- `!Game1.eventUp` — no cutscene active.
+- `Game1.currentMinigame == null` — no minigame active.
+- `!Game1.isWarping` — not mid-warp.
+
+**Response:**
+
+```json
+{"ok": true, "tick": 8421}
+```
+
+**Errors:** `GameStateInvalid (-32003)` for any precondition violation.
+
+Runner scenario authors should normally use the runner-level action below
+instead of calling this RPC directly:
+
+```json
+{ "action": "fixture.save_reload", "args": { "settle_timeout_ms": 30000, "poll_ms": 100 } }
+```
+
+`fixture.save_reload` calls `fixture.save`, `game.return_to_title`, polls
+`state.time.in_save == false`, calls `fixture.load`, then polls world readiness
+before continuing to the next step. `args.name` defaults to the scenario
+`fixture`; `args.load_name` can override the folder used for the final load.
+By default the runner restores the pre-save Stardew save files at scenario
+cleanup using Stardew's `_old` files, so save/reload tests do not pollute the
+shared fixture for later runs. Set `"restore_original": false` only when the
+scenario intentionally wants to leave the saved state on disk.
 
 ## Recording (via `sdv-test record`)
 

@@ -4,6 +4,8 @@
     <RootNamespace>SdvTestFramework.Runner.Dsl</RootNamespace>
     <AssemblyName>Runner.Dsl</AssemblyName>
     <IsPackable>true</IsPackable>
+    <!-- This package exposes xUnit fixtures/attributes, but is not itself a test assembly. -->
+    <IsTestProject>false</IsTestProject>
     <PackageId>SdvTestFramework.Runner.Dsl</PackageId>
     <Description>Typed C# DSL for writing Stardew Valley mod tests. Pairs with SdvTestFramework.Cli for SDV launch and MCP server.</Description>
     <PackageTags>stardew-valley;testing;xunit;dsl</PackageTags>
