@@ -169,6 +169,110 @@ public sealed class RepoCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task RepoRun_malformed_config_returns_exit_2_and_writes_repo_prefix()
+    {
+        File.WriteAllText(Path.Combine(_repoRoot, "sdv-test.config.json"), """{"project":""");
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+        }
+
+        Assert.Contains("[repo]", error.ToString());
+    }
+
+    [Fact]
+    public async Task RepoRun_missing_build_executable_returns_nonzero_repo_error_instead_of_throwing()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            buildCommand: "sdv-test-clearly-missing-build-command");
+
+        var calls = new List<string[]>();
+        var original = RepoCommand.RunExecutor;
+        RepoCommand.RunExecutor = (args, _) =>
+        {
+            calls.Add(args.ToArray());
+            return Task.FromResult(0);
+        };
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.NotEqual(0, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            RepoCommand.RunExecutor = original;
+        }
+
+        Assert.Empty(calls);
+        Assert.Contains("[repo]", error.ToString());
+        Assert.Contains("sdv-test-clearly-missing-build-command", error.ToString());
+    }
+
+    [Fact]
+    public async Task RepoRun_dry_run_defaults_sdv_game_mods_from_sdv_install_path_mods_dir()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var installPath = Directory.CreateDirectory(Path.Combine(_repoRoot, "fake-sdv")).FullName;
+        var contentPatcher = Directory.CreateDirectory(Path.Combine(installPath, "Mods", "ContentPatcher")).FullName;
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "default",
+                    "extraMods": ["${SDV_GAME_MODS}/ContentPatcher"]
+                  }
+                ]
+                """);
+
+        var previousInstallPath = Environment.GetEnvironmentVariable("SDV_INSTALL_PATH");
+        var previousGameMods = Environment.GetEnvironmentVariable("SDV_GAME_MODS");
+        Environment.SetEnvironmentVariable("SDV_INSTALL_PATH", installPath);
+        Environment.SetEnvironmentVariable("SDV_GAME_MODS", null);
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+            Environment.SetEnvironmentVariable("SDV_INSTALL_PATH", previousInstallPath);
+            Environment.SetEnvironmentVariable("SDV_GAME_MODS", previousGameMods);
+        }
+
+        Assert.Contains(contentPatcher, output.ToString());
+    }
+
+    [Fact]
     public async Task RepoRepeat_short_count_invokes_run_executor_requested_times_and_uses_default_run_report_dirs()
     {
         Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
@@ -311,7 +415,7 @@ public sealed class RepoCommandTests : IDisposable
         return count;
     }
 
-    private void WriteConfig(string defaultTarget, string? modSetsJson = null)
+    private void WriteConfig(string defaultTarget, string? modSetsJson = null, string buildCommand = "dotnet")
     {
         modSetsJson ??=
             """
@@ -332,7 +436,7 @@ public sealed class RepoCommandTests : IDisposable
                 "version": "1.2.3"
               },
               "build": {
-                "command": "dotnet",
+                "command": "{{buildCommand}}",
                 "args": ["build", "Frobby.sln"]
               },
               "defaultTarget": "{{defaultTarget}}",

@@ -1,8 +1,11 @@
 using System;
+using System.Collections;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Runner.Repo;
@@ -34,7 +37,7 @@ public static class RepoCommand
                 _ => Unknown(subcommand),
             };
         }
-        catch (Exception ex) when (ex is InvalidOperationException or IOException)
+        catch (Exception ex) when (ex is InvalidOperationException or IOException or JsonException or Win32Exception)
         {
             Console.Error.WriteLine($"[repo] {ex.Message}");
             return 2;
@@ -45,7 +48,8 @@ public static class RepoCommand
     {
         var options = ParseRunOptions(args);
         var config = RepoTestConfig.Load(options.RepoRoot);
-        var plan = RepoRunPlanner.BuildRunPlan(options.RepoRoot, config, options.ToRequest());
+        var environment = BuildRepoEnvironment();
+        var plan = RepoRunPlanner.BuildRunPlan(options.RepoRoot, config, options.ToRequest(), environment);
 
         if (options.DryRun)
         {
@@ -66,6 +70,7 @@ public static class RepoCommand
     {
         var repeat = ParseRepeatOptions(args);
         var config = RepoTestConfig.Load(repeat.Run.RepoRoot);
+        var environment = BuildRepoEnvironment();
         var worstExit = 0;
 
         for (var i = 1; i <= repeat.Count; i++)
@@ -76,7 +81,7 @@ public static class RepoCommand
                 NoBuild = repeat.Run.NoBuild || i > 1,
                 ReportDir = RepeatReportDir(config, repeat.Run.ReportDir, i),
             };
-            var plan = RepoRunPlanner.BuildRunPlan(runOptions.RepoRoot, config, runOptions.ToRequest());
+            var plan = RepoRunPlanner.BuildRunPlan(runOptions.RepoRoot, config, runOptions.ToRequest(), environment);
 
             if (runOptions.DryRun)
             {
@@ -273,6 +278,48 @@ public static class RepoCommand
         }
 
         return Path.Combine(reportBase, $"run-{runNumber:00}");
+    }
+
+    private static IReadOnlyDictionary<string, string?> BuildRepoEnvironment()
+    {
+        var environment = new Dictionary<string, string?>(StringComparer.Ordinal);
+        foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            if (entry.Key is string key)
+            {
+                environment[key] = entry.Value?.ToString();
+            }
+        }
+
+        if (!environment.TryGetValue("SDV_GAME_MODS", out var gameMods)
+            || string.IsNullOrWhiteSpace(gameMods))
+        {
+            var discoveredMods = DiscoverSdvGameMods(environment);
+            if (discoveredMods is not null)
+            {
+                environment["SDV_GAME_MODS"] = discoveredMods;
+            }
+        }
+
+        return environment;
+    }
+
+    private static string? DiscoverSdvGameMods(IReadOnlyDictionary<string, string?> environment)
+    {
+        var installPath = environment.TryGetValue("SDV_INSTALL_PATH", out var configuredInstallPath)
+            ? configuredInstallPath
+            : null;
+        if (string.IsNullOrWhiteSpace(installPath))
+        {
+            installPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Stardew Valley");
+        }
+
+        var modsPath = Path.Combine(installPath, "Mods");
+        return Directory.Exists(modsPath)
+            ? Path.GetFullPath(modsPath)
+            : null;
     }
 
     private static string FormatCommand(IReadOnlyList<string> command)
