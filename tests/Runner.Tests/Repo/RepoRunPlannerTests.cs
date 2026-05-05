@@ -82,6 +82,55 @@ public sealed class RepoRunPlannerTests : IDisposable
         Assert.Equal(baseline, plan.FrobbyArgs[^1]);
     }
 
+    [Fact]
+    public void BuildRunPlan_mod_set_selects_requested_non_first_mod_set_exactly()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var defaultMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Default")).FullName;
+        var selectedOne = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "SelectedOne")).FullName;
+        var selectedTwo = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "SelectedTwo")).FullName;
+        var config = Config(
+            defaultTarget: "tests/scenarios",
+            modSets:
+            [
+                ModSet("default", "mods/Default"),
+                ModSet("alternate", "mods/SelectedOne", "mods/SelectedTwo"),
+            ]);
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, false, false, false, "alternate", null, Array.Empty<string>()));
+
+        Assert.Equal(new[] { selectedOne, selectedTwo }, plan.ExtraMods);
+        Assert.DoesNotContain(defaultMod, plan.ExtraMods);
+        Assert.Contains(selectedOne, plan.FrobbyArgs);
+        Assert.Contains(selectedTwo, plan.FrobbyArgs);
+        Assert.DoesNotContain(defaultMod, plan.FrobbyArgs);
+    }
+
+    [Fact]
+    public void BuildRunPlan_extra_mods_use_supplied_environment_for_path_expansion()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var suppliedRoot = Directory.CreateDirectory(Path.Combine(_repoRoot, "outside-env-mods")).FullName;
+        var envMod = Directory.CreateDirectory(Path.Combine(suppliedRoot, "EnvMod")).FullName;
+        var config = Config(defaultTarget: "tests/scenarios", extraMods: ["$MOD_ROOT/EnvMod"]);
+        var environment = new System.Collections.Generic.Dictionary<string, string?>
+        {
+            ["MOD_ROOT"] = suppliedRoot,
+        };
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, false, false, false, null, null, Array.Empty<string>()),
+            environment);
+
+        Assert.Equal(new[] { envMod }, plan.ExtraMods);
+        Assert.Contains(envMod, plan.FrobbyArgs);
+    }
+
     public void Dispose()
     {
         Directory.Delete(_repoRoot, recursive: true);
@@ -93,21 +142,22 @@ public sealed class RepoRunPlannerTests : IDisposable
     private static RepoTestConfig Config(
         string defaultTarget,
         string? baselineTarget = null,
-        string[]? extraMods = null)
+        string[]? extraMods = null,
+        RepoModSetConfig[]? modSets = null)
         => new()
         {
             Project = new RepoProjectConfig { Name = "Frobby", Slug = "frobby", Version = "1.2.3" },
             Build = new RepoBuildConfig { Command = "dotnet", Args = ["build", "Frobby.sln"] },
             DefaultTarget = defaultTarget,
             BaselineTarget = baselineTarget,
-            ModSets =
-            [
-                new RepoModSetConfig
-                {
-                    Name = "default",
-                    ExtraMods = extraMods ?? Array.Empty<string>(),
-                },
-            ],
+            ModSets = modSets ?? [ModSet("default", extraMods ?? Array.Empty<string>())],
+        };
+
+    private static RepoModSetConfig ModSet(string name, params string[] extraMods)
+        => new()
+        {
+            Name = name,
+            ExtraMods = extraMods,
         };
 
     private static string CreateTempDirectory()

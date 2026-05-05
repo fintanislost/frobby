@@ -74,7 +74,7 @@ public static class RepoCommand
             var runOptions = repeat.Run with
             {
                 NoBuild = repeat.Run.NoBuild || i > 1,
-                ReportDir = repeat.Run.ReportDir ?? DefaultRepeatReportDir(config, i),
+                ReportDir = RepeatReportDir(config, repeat.Run.ReportDir, i),
             };
             var plan = RepoRunPlanner.BuildRunPlan(runOptions.RepoRoot, config, runOptions.ToRequest());
 
@@ -257,16 +257,22 @@ public static class RepoCommand
         return args.Span[++index];
     }
 
-    private static string DefaultRepeatReportDir(RepoTestConfig config, int runNumber)
+    private static string RepeatReportDir(RepoTestConfig config, string? requestedReportDir, int runNumber)
     {
-        var slug = config.Project.Slug;
-        var version = config.Project.Version;
-        if (string.IsNullOrWhiteSpace(slug) || string.IsNullOrWhiteSpace(version))
+        var reportBase = requestedReportDir;
+        if (string.IsNullOrWhiteSpace(reportBase))
         {
-            throw new InvalidOperationException("sdv-test config requires project.slug and project.version.");
+            var slug = config.Project.Slug;
+            var version = config.Project.Version;
+            if (string.IsNullOrWhiteSpace(slug) || string.IsNullOrWhiteSpace(version))
+            {
+                throw new InvalidOperationException("sdv-test config requires project.slug and project.version.");
+            }
+
+            reportBase = Path.Combine(Path.GetTempPath(), $"{slug}-frobby-repeat-{version}");
         }
 
-        return Path.Combine(Path.GetTempPath(), $"{slug}-frobby-results-{version}", $"repeat-{runNumber:000}");
+        return Path.Combine(reportBase, $"run-{runNumber:00}");
     }
 
     private static string FormatCommand(IReadOnlyList<string> command)
