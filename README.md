@@ -40,6 +40,19 @@ report directory, and Frobby command:
 ./scripts/sdv-test --headless
 ```
 
+For new mod repos, use the repo scaffold flow:
+
+```bash
+sdv-test repo init --project-name "Example Mod" --slug example-mod \
+  --build-command dotnet --build-arg build --build-arg Example.sln \
+  --extra-mod bin/Release/net6.0
+./scripts/sdv-test --dry-run
+```
+
+The generated scripts read `sdv-test.config.json`, default to headless execution,
+stage every configured `extra_mod`, and write a stable
+`/tmp/<slug>-frobby-results-<version>/` report hub.
+
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.

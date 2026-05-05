@@ -1434,14 +1434,32 @@ Set in-game clock and/or date directly. All fields optional; at least one requir
 
 ### state.mods
 
-Return the list of loaded mod UniqueIDs in SMAPI load order. Used by the fixture builder to populate `.meta.json`'s `mods_installed` field.
+Return loaded SMAPI mod metadata in load order. `unique_ids` is a compact list for
+state assertions and fixture metadata; `mods` contains richer per-mod information.
 
 **Params:** none.
 
 **Response:**
 
 ```json
-{"mods": ["Pathoschild.ContentPatcher", "SdvTestFramework.Harness"]}
+{
+  "unique_ids": ["Pathoschild.ContentPatcher", "SdvTestFramework.Harness"],
+  "mods": [
+    {
+      "unique_id": "Pathoschild.ContentPatcher",
+      "name": "Content Patcher",
+      "version": "2.7.0",
+      "is_content_pack": false
+    },
+    {
+      "unique_id": "Example.Mod.CP",
+      "name": "Example Content Pack",
+      "version": "1.0.0",
+      "is_content_pack": true,
+      "content_pack_for": "Pathoschild.ContentPatcher"
+    }
+  ]
+}
 ```
 
 _(Additional methods documented here as they are implemented. Template below.)_

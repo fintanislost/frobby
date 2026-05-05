@@ -50,6 +50,10 @@ complete static HTML reports should be run through `sdv-test run` or
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).
 - `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/path/to/Example.Mod/bin/Release/net6.0`.
+- For repo-local workflows, prefer `sdv-test repo init` and the generated
+  `scripts/sdv-test` wrapper over hand-written mod-specific shell scripts. The
+  generated wrapper keeps headless defaults, extra mod staging, report paths, and
+  repeat runs consistent across projects.
 - `SDV_TEST_HEADLESS=1` — launch SDV through `xvfb-run` on Linux so MCP-driven tests do not use the active desktop display or mouse cursor.
 - The MCP server lazy-launches SDV on first tool call that needs it. Tools that don't need SDV (`list_*`, `scaffold_scenario`) never trigger launch.
 - Stdio EOF tears down SDV cleanly.
