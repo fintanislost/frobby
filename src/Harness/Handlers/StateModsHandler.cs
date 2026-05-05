@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using SdvTestFramework.Protocol.Json;
 using SdvTestFramework.Protocol.Models;
@@ -21,13 +22,30 @@ public static class StateModsHandler
 
     public static JsonElement Handle(JsonElement? paramsElement)
     {
-        var ids = new List<string>();
+        var mods = new List<LoadedModSummary>();
         if (Registry is { } reg)
         {
             foreach (var mod in reg.GetAll())
-                if (!string.IsNullOrEmpty(mod.Manifest?.UniqueID))
-                    ids.Add(mod.Manifest.UniqueID);
+            {
+                var manifest = mod.Manifest;
+                if (string.IsNullOrEmpty(manifest?.UniqueID))
+                    continue;
+
+                mods.Add(new LoadedModSummary
+                {
+                    UniqueId = manifest.UniqueID,
+                    Name = manifest.Name ?? string.Empty,
+                    Version = manifest.Version?.ToString() ?? string.Empty,
+                    IsContentPack = mod.IsContentPack,
+                    ContentPackFor = manifest.ContentPackFor?.UniqueID,
+                });
+            }
         }
-        return ProtocolJson.ToElement(new ModsState { Mods = ids.ToArray() });
+
+        return ProtocolJson.ToElement(new ModsState
+        {
+            UniqueIds = mods.Select(mod => mod.UniqueId).ToArray(),
+            Mods = mods.ToArray(),
+        });
     }
 }

@@ -26,10 +26,34 @@ public class FixtureDtosSerializationTests
     }
 
     [Fact]
-    public void ModsState_Serializes_WithArrayOfIds()
+    public void ModsState_Serializes_WithUniqueIdsAndLoadedModMetadata()
     {
-        var s = new ModsState { Mods = new[] { "A.B.C", "D.E.F" } };
+        var s = new ModsState
+        {
+            UniqueIds = new[] { "A.B.C", "D.E.F" },
+            Mods =
+            [
+                new LoadedModSummary
+                {
+                    UniqueId = "A.B.C",
+                    Name = "Alpha",
+                    Version = "1.2.3",
+                    IsContentPack = false,
+                },
+                new LoadedModSummary
+                {
+                    UniqueId = "D.E.F",
+                    Name = "Delta",
+                    Version = "2.0.0",
+                    IsContentPack = true,
+                    ContentPackFor = "Pathoschild.ContentPatcher",
+                },
+            ],
+        };
         var json = JsonSerializer.Serialize(s, ProtocolJson.Options);
-        Assert.Contains("\"mods\":[\"A.B.C\",\"D.E.F\"]", json);
+        Assert.Contains("\"unique_ids\":[\"A.B.C\",\"D.E.F\"]", json);
+        Assert.Contains("\"unique_id\":\"A.B.C\"", json);
+        Assert.Contains("\"is_content_pack\":true", json);
+        Assert.Contains("\"content_pack_for\":\"Pathoschild.ContentPatcher\"", json);
     }
 }

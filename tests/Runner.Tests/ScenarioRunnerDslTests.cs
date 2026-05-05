@@ -25,6 +25,10 @@ public class ScenarioRunnerDslTests
 
     private static async Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client)> StartFakeHarnessWithPlayerJson(
         string socket, string playerJson)
+        => await StartFakeHarnessWithStateJson(socket, playerJson, null);
+
+    private static async Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client)> StartFakeHarnessWithStateJson(
+        string socket, string playerJson, string? modsJson)
     {
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         var serverTask = Task.Run(async () =>
@@ -37,6 +41,7 @@ public class ScenarioRunnerDslTests
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
                         "state.player" => JsonDocument.Parse(playerJson).RootElement,
+                        "state.mods" => JsonDocument.Parse(modsJson ?? "{\"unique_ids\":[],\"mods\":[]}").RootElement,
                         "state.menu" => JsonDocument.Parse(
                             "{\"type\":\"\",\"present\":false,\"extra\":{}}").RootElement,
                         "scenario.end" => JsonDocument.Parse(
@@ -204,6 +209,64 @@ public class ScenarioRunnerDslTests
 
         Assert.Equal(1, report.AssertionsRun);
         Assert.Equal(0, report.AssertionsPassed);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task StateAssertion_StringArrayContains_Matches()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithStateJson(
+            socket,
+            "{\"name\":\"x\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}",
+            "{\"unique_ids\":[\"FlashShifter.SVECode\",\"Pathoschild.ContentPatcher\"],\"mods\":[]}");
+        using var _ = cts; using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "string_array_contains",
+            Assertions = new()
+            {
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.unique_ids contains 'FlashShifter.SVECode'" },
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.unique_ids contains 'Missing.Mod'" },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.Equal(2, report.AssertionsRun);
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Single(report.Failures);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task StateAssertion_ObjectArrayContains_MatchesField()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithStateJson(
+            socket,
+            "{\"name\":\"x\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}",
+            "{\"unique_ids\":[],\"mods\":[{\"unique_id\":\"FlashShifter.SVECode\",\"name\":\"SVE\",\"version\":\"1.0.0\"},{\"unique_id\":\"Pathoschild.ContentPatcher\",\"name\":\"CP\",\"version\":\"2.0.0\"}]}");
+        using var _ = cts; using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "object_array_contains",
+            Assertions = new()
+            {
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.mods contains unique_id 'FlashShifter.SVECode'" },
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.mods contains unique_id 'Missing.Mod'" },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.Equal(2, report.AssertionsRun);
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Single(report.Failures);
         cts.Cancel();
         try { await server; } catch (OperationCanceledException) { }
     }

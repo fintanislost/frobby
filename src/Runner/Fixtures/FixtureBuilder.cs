@@ -66,12 +66,9 @@ public static class FixtureBuilder
                 // A future PlayerState extension would populate this.
             }
             var modsResp = await session.InvokeAsync("state.mods", params_: null, ct);
-            if (modsResp.Result is { } mr && mr.TryGetProperty("mods", out var modsEl))
+            if (modsResp.Result is { } mr)
             {
-                var count = modsEl.GetArrayLength();
-                var mods = new string[count];
-                for (int i = 0; i < count; i++) mods[i] = modsEl[i].GetString() ?? "";
-                result.Mods = mods;
+                result.Mods = ExtractModUniqueIds(mr);
             }
 
             // 4. SDV + SMAPI versions — hardcoded to the currently-pinned versions.
@@ -97,6 +94,39 @@ public static class FixtureBuilder
             result.Error = ex.Message;
             return result;
         }
+    }
+
+    private static string[] ExtractModUniqueIds(JsonElement stateMods)
+    {
+        if (stateMods.TryGetProperty("unique_ids", out var uniqueIds)
+            && uniqueIds.ValueKind == JsonValueKind.Array)
+        {
+            return ReadStringArray(uniqueIds);
+        }
+
+        // Backward compatibility for older harnesses which returned {"mods":["A.B"]}.
+        if (stateMods.TryGetProperty("mods", out var mods)
+            && mods.ValueKind == JsonValueKind.Array
+            && mods.GetArrayLength() > 0
+            && mods[0].ValueKind == JsonValueKind.String)
+        {
+            return ReadStringArray(mods);
+        }
+
+        return Array.Empty<string>();
+    }
+
+    private static string[] ReadStringArray(JsonElement array)
+    {
+        var values = new string[array.GetArrayLength()];
+        for (var i = 0; i < values.Length; i++)
+        {
+            values[i] = array[i].ValueKind == JsonValueKind.String
+                ? array[i].GetString() ?? string.Empty
+                : string.Empty;
+        }
+
+        return values;
     }
 
     private static async Task WaitForWorldReadyAsync(JsonRpcSession session, CancellationToken ct)

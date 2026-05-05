@@ -13,12 +13,20 @@ public class FixtureBuilderTests
 
     [Fact]
     public async Task BuildAsync_InvokesFixtureLoadThenSteps_ThenFixtureSave()
+        => await BuildFixtureAndAssertMetadata(
+            "{\"unique_ids\":[\"A.B\",\"C.D\"],\"mods\":[{\"unique_id\":\"A.B\",\"name\":\"A\",\"version\":\"1.0.0\",\"is_content_pack\":false,\"content_pack_for\":null},{\"unique_id\":\"C.D\",\"name\":\"C\",\"version\":\"2.0.0\",\"is_content_pack\":false,\"content_pack_for\":null}]}");
+
+    [Fact]
+    public async Task BuildAsync_AcceptsLegacyStateModsStringArray()
+        => await BuildFixtureAndAssertMetadata("{\"mods\":[\"A.B\",\"C.D\"]}");
+
+    private static async Task BuildFixtureAndAssertMetadata(string modsJson)
     {
         // Minimal fake harness that records every incoming RPC, responds 200-OK to each.
         var socket = SocketPath();
         var log = new System.Collections.Generic.List<string>();
         var cts = new System.Threading.CancellationTokenSource();
-        var serverTask = RunFakeServer(socket, log, cts.Token);
+        var serverTask = RunFakeServer(socket, log, modsJson, cts.Token);
         await WaitForSocket(socket);
 
         using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
@@ -40,6 +48,7 @@ public class FixtureBuilderTests
         Assert.True(result.Success);
         Assert.Equal("1.6.15", result.SdvVersion);
         Assert.Equal("4.5.2", result.SmapiVersion);
+        Assert.Equal(new[] { "A.B", "C.D" }, result.Mods);
         Assert.Contains("fixture.load", log);
         Assert.Contains("player.set_money", log);
         Assert.Contains("fixture.save", log);
@@ -52,7 +61,7 @@ public class FixtureBuilderTests
     }
 
     // Runs a tiny JSON-RPC server that canned-answers every method in the builder's flow.
-    private static Task RunFakeServer(string socket, System.Collections.Generic.List<string> log, System.Threading.CancellationToken ct)
+    private static Task RunFakeServer(string socket, System.Collections.Generic.List<string> log, string modsJson, System.Threading.CancellationToken ct)
     {
         return UnixSocketRpc.RunServerAsync(socket, async (session, sessCt) =>
         {
@@ -66,7 +75,7 @@ public class FixtureBuilderTests
                         "{\"name\":\"Tester\",\"gender\":\"female\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}").RootElement,
                     "state.time" => JsonDocument.Parse(
                         "{\"in_save\":true,\"season\":\"spring\",\"day_of_month\":1,\"year\":1,\"time_of_day\":600,\"day_of_week\":\"monday\"}").RootElement,
-                    "state.mods" => JsonDocument.Parse("{\"mods\":[\"A.B\",\"C.D\"]}").RootElement,
+                    "state.mods" => JsonDocument.Parse(modsJson).RootElement,
                     "fixture.save" => JsonDocument.Parse("{\"ok\":true,\"tick\":10,\"save_path\":\"/tmp/fake\"}").RootElement,
                     _ => JsonDocument.Parse("{\"ok\":true,\"tick\":2}").RootElement,
                 };
