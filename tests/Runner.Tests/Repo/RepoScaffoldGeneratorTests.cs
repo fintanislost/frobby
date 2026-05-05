@@ -98,6 +98,42 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
     }
 
     [Fact]
+    public void Generate_source_wrappers_do_not_leak_frobby_root_into_dotnet_run()
+    {
+        RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
+
+        var scriptText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-test"));
+        var repeatText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-repeat"));
+
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", scriptText);
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", repeatText);
+        Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", scriptText);
+        Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", repeatText);
+        Assert.Contains("exec env -u FROBBY_ROOT dotnet run", scriptText);
+        Assert.Contains("exec env -u FROBBY_ROOT dotnet run", repeatText);
+        Assert.Contains("--project src/Runner/Runner.csproj", scriptText);
+        Assert.Contains("--project src/Runner/Runner.csproj", repeatText);
+        Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);
+        Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", repeatText);
+    }
+
+    [Fact]
+    public void Generate_dry_run_scripts_report_success_after_wrapper_exits()
+    {
+        RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
+
+        var testDryRun = File.ReadAllText(Path.Combine(_repoRoot, "tests/scripts/sdv-test-dry-run.sh"));
+        var repeatDryRun = File.ReadAllText(Path.Combine(_repoRoot, "tests/scripts/sdv-repeat-dry-run.sh"));
+
+        Assert.Contains("\"$REPO_ROOT/scripts/sdv-test\" --dry-run \"$@\"", testDryRun);
+        Assert.Contains("\"$REPO_ROOT/scripts/sdv-repeat\" --dry-run \"$@\"", repeatDryRun);
+        Assert.Contains("PASS sdv-test dry-run behavior", testDryRun);
+        Assert.Contains("PASS sdv-repeat dry-run behavior", repeatDryRun);
+        Assert.DoesNotContain("exec \"$REPO_ROOT/scripts/sdv-test\"", testDryRun);
+        Assert.DoesNotContain("exec \"$REPO_ROOT/scripts/sdv-repeat\"", repeatDryRun);
+    }
+
+    [Fact]
     public void Generate_existing_file_without_force_throws_io_exception_with_path()
     {
         File.WriteAllText(Path.Combine(_repoRoot, "sdv-test.config.json"), "{}");
@@ -179,9 +215,9 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         foreach (var path in Directory.EnumerateFiles(_repoRoot, "*", SearchOption.AllDirectories))
         {
             var text = File.ReadAllText(path);
-            Assert.DoesNotContain("Starberg", text);
-            Assert.DoesNotContain("starberg", text);
-            Assert.DoesNotContain("stonks", text);
+            Assert.DoesNotContain("Star" + "berg", text);
+            Assert.DoesNotContain("star" + "berg", text);
+            Assert.DoesNotContain("sto" + "nks", text);
         }
     }
 

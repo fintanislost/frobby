@@ -249,10 +249,11 @@ public static class RepoScaffoldGenerator
 
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-            FROBBY_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
+            FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
-            if [ -f "$FROBBY_ROOT/src/Runner/Runner.csproj" ]; then
-              exec dotnet run --project "$FROBBY_ROOT/src/Runner/Runner.csproj" -- repo run --repo-root "$REPO_ROOT" "$@"
+            if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
+              cd "$FROBBY_SOURCE_ROOT"
+              exec env -u FROBBY_ROOT dotnet run --project src/Runner/Runner.csproj -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo run --repo-root "$REPO_ROOT" "$@"
@@ -266,10 +267,11 @@ public static class RepoScaffoldGenerator
 
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-            FROBBY_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
+            FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
-            if [ -f "$FROBBY_ROOT/src/Runner/Runner.csproj" ]; then
-              exec dotnet run --project "$FROBBY_ROOT/src/Runner/Runner.csproj" -- repo repeat --repo-root "$REPO_ROOT" "$@"
+            if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
+              cd "$FROBBY_SOURCE_ROOT"
+              exec env -u FROBBY_ROOT dotnet run --project src/Runner/Runner.csproj -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"
@@ -284,7 +286,8 @@ public static class RepoScaffoldGenerator
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-            exec "$REPO_ROOT/scripts/{{wrapper}}" --dry-run "$@"
+            "$REPO_ROOT/scripts/{{wrapper}}" --dry-run "$@"
+            echo "PASS {{wrapper}} dry-run behavior"
             """;
 
     private static string SampleScenario()
