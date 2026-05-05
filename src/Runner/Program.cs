@@ -41,6 +41,7 @@ internal static class Program
             "list" => await ListCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "run" => await RunCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "run-suite" => await RunSuiteCommand.RunAsync(args.AsMemory()[1..], cts.Token),
+            "repo" => await RepoCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "fixture" => await FixtureCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "record" => await RecordCommand.RunAsync(args.AsMemory()[1..], cts.Token),
             "mcp" => await McpCommand.RunAsync(args.AsMemory()[1..], cts.Token),
@@ -92,6 +93,12 @@ internal static class Program
         w.WriteLine("                    Run each discovered scenario via a separate 'run' invocation.");
         w.WriteLine("                    This is the preferred flow for mod UI suites that need a fresh");
         w.WriteLine("                    SMAPI process per scenario while sharing one report hub.");
+        w.WriteLine("  repo run [--repo-root <path>] [--visible|--headless] [--no-build] [--dry-run]");
+        w.WriteLine("           [--baseline] [--mod-set <name>] [--report-dir <path>] [targets...]");
+        w.WriteLine("                    Run a repo-local Frobby scaffold from sdv-test.config.json.");
+        w.WriteLine("  repo repeat [--count|-n <count>] [repo run options]");
+        w.WriteLine("                    Repeat repo-local runs; first run may build, later runs skip build.");
+        w.WriteLine("  repo init         Placeholder registered for the scaffold generator task.");
         w.WriteLine("  fixture create <name> --from <script>");
         w.WriteLine("                    Build a reproducible save-state fixture in tests/fixtures/.");
         w.WriteLine("  fixture list      Enumerate existing fixtures.");
