@@ -1,21 +1,82 @@
-# [TBD] — Stardew Valley Mod Testing Framework
+# Frobby — Stardew Valley Mod Testing Framework
 
-Automated testing framework for Stardew Valley mods using draw-call interception rather than pixel-diff visual regression.
+Frobby is an automated testing framework for Stardew Valley mods. It launches SDV
+with a SMAPI harness, drives real game and menu input, captures semantic draw/text
+events, and writes static HTML reports with per-step screenshots.
 
-**Status:** Design + Claude Code scaffolding phase. No production code yet. First work is the M0 determinism spike.
+**Status:** active 0.1.x development. The runner, harness, JSON scenario format,
+C# DSL, MCP server, HTML reports, click/hover helpers, text-fit assertions, and
+headless Linux execution are implemented and used against real mod suites.
 
-## Quick start for Claude Code
+## Quick Start For Mod Developers
 
-1. Clone the repo
-2. Run `./install.sh`
-3. Launch `claude` in the repo directory
-4. Install Superpowers plugin inside Claude Code:
-   ```
-   /plugin marketplace add obra/superpowers-marketplace
-   /plugin install superpowers@superpowers-marketplace
-   ```
-5. Restart Claude Code
-6. Read `CLAUDE.md`, then start with: *"Begin the M0 determinism spike."*
+Install from NuGet when published:
+
+```bash
+dotnet tool install -g SdvTestFramework.Cli
+```
+
+When working from the source tree:
+
+```bash
+dotnet run --project src/Runner -- --help
+```
+
+Run one scenario or a directory of `*.test.json` scenarios:
+
+```bash
+sdv-test run --headless tests/sdv
+sdv-test run-suite --headless tests/sdv
+```
+
+Use `--headless` on Linux by default so SDV renders under `xvfb-run` instead of
+using the active desktop display or mouse cursor. Set `SDV_TEST_HEADLESS=1` when
+you want all launcher paths to behave headlessly without repeating the CLI flag.
+
+For mod-local workflows, prefer a small repo script that pins the mod build path,
+report directory, and Frobby command. Starberg currently uses this shape:
+
+```bash
+./scripts/sdv-test --no-build
+```
+
+The CLI writes reports to `./test-results/<run-id>/` by default. Pass
+`--report-dir <path>` for stable locations; Starberg uses
+`/tmp/starberg-frobby-results-0.1.0/` so repeated runs overwrite a known report hub.
+
+## Report Workflow
+
+Each HTML report contains:
+
+- `index.html` — run dashboard with links to scenario reports.
+- `summary.json` — machine-readable run data for agents and CI.
+- `scenarios/<name>/index.html` — step timeline, assertions, screenshots, and
+  failure forensics for one scenario.
+
+Use `screenshot.capture` for immediate captures. Use
+`screenshot.capture_next_frame` after click, hover, typed input, or any action where
+the next rendered frame is the meaningful visual state. Final assertion screenshots
+should normally be captured under `freeze.begin` for deterministic output.
+
+## Authoring Guidance
+
+Frobby tests should exercise the UI like a player whenever possible:
+
+- Prefer `ui.click_text`, `input.click_text`, `ui.hover_text`, `input.hover_text`,
+  `input.click`, and `input.hover` for menu flows.
+- Keep keyboard input for scenarios that explicitly validate keyboard behavior.
+- Use semantic text assertions for Stardew UI: `draw.text_contains`,
+  `draw.text_not_contains`, `text_equals`, `text_matches`, bounds filters,
+  `min_count`, `max_count`, and `color_any`.
+- Use `draw.text_all_within` as the standard guardrail for fixed panes, tables,
+  terminal bodies, button bars, and any UI where text overflow is a regression.
+- Use player/world setup helpers such as `player.set_money`, `player.give_item`,
+  `player.add_mail`, `time.set`, `time.advance`, `time.next_day`, and fixture
+  loading to create deterministic test state before exercising the mod.
+
+See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
+assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the
+JSON-RPC method reference and scenario action shapes.
 
 ## What's in here
 
@@ -28,11 +89,12 @@ Automated testing framework for Stardew Valley mods using draw-call interception
 │   └── commands/                # Custom slash commands (/spike, /harmony-patch, etc.)
 ├── .mcp.json                    # Project-level MCP server config
 ├── docs/
-│   ├── spec.md                  # Full design spec (see sdv-test-framework-spec.md)
-│   ├── milestones/              # M0 → M3 with deliverables and exit criteria
+│   ├── spec.md                  # Framework design and scenario model
+│   ├── milestones/              # Completed/current implementation notes
 │   ├── rpc-schema.md            # JSON-RPC protocol reference
 │   ├── patches.md               # Active Harmony patches registry
-│   ├── open-questions.md        # Unresolved investigations
+│   ├── dsl-quickstart.md        # C# DSL + HTML report workflow
+│   ├── mcp-quickstart.md        # MCP server setup and tool surface
 │   └── spikes/                  # Time-boxed investigation reports
 └── install.sh                   # One-time setup helper
 ```
@@ -41,22 +103,34 @@ Automated testing framework for Stardew Valley mods using draw-call interception
 
 Stardew Valley renders through `SpriteBatch.Draw` calls with structured arguments (texture, source rect, dest rect, color, layer depth). By Harmony-patching these calls, we can capture rendering as a queryable event stream and assert semantically ("Abigail's happy portrait was drawn at tile X with tint Y") instead of diffing framebuffers. This dodges GPU nondeterminism, animation timing issues, and resolution coupling. Combined with direct state manipulation via SMAPI APIs and RNG/time pinning, scenarios become deterministic and reproducible. Pixel diffing survives as a 5% fallback for shader and procedural content.
 
-## Current runner notes
+## Core Capabilities
 
-The CLI runner supports semantic text assertions for real mod UI testing, including `draw.text_contains`, `draw.text_not_contains`, bounds filters such as `bounds_within_rect`, palette filters such as `color_any`, and pane-level `draw.text_all_within` guardrails. Use `draw.text_all_within` when a fixed UI container should never let body copy, table values, button labels, or status text escape its rectangle. Click-first and hover-first UI flows can use `ui.click_text`, `input.click`, `ui.hover_text`, and `input.hover`; hover steps set a deterministic scenario cursor so tooltip screenshots remain stable under freeze. Report screenshots can use `screenshot.capture` for immediate captures or `screenshot.capture_next_frame` after UI-changing input that needs the next rendered frame. See `docs/dsl-quickstart.md` for the assertion shape and report behavior.
+- Deterministic scenario sessions with fixture loading and freeze controls.
+- Semantic draw-call and text capture through SMAPI/Harmony instrumentation.
+- Click-first and hover-first menu automation, including text-targeted helpers.
+- Player/world state mutators for money, inventory, mail, time, weather, shops,
+  furniture, interactions, and title-screen reload flows.
+- Static HTML reports with report hub, scenario pages, step screenshots, failure
+  screenshots, bitmap diff artifacts, and JSON summaries.
+- Bitmap fallback assertions with SSIM, pixel-exact, dHash, tolerance tiers, and
+  baseline management.
+- MCP server tools for agent-driven scenario listing, scaffolding, state capture,
+  raw RPC calls, and lightweight scenario execution.
+
+## Documentation Map
+
+- `docs/developer-setup.md` — local setup, environment variables, and headless notes.
+- `docs/dsl-quickstart.md` — C# DSL, HTML reports, text-fit assertions, screenshots,
+  bitmap diffing, baselines, and cache cleanup.
+- `docs/rpc-schema.md` — authoritative JSON-RPC method reference.
+- `docs/mcp-quickstart.md` — MCP server configuration and tool limitations.
+- `nuget/README-Cli.md` — installed `sdv-test` CLI quick reference.
+- `nuget/README-Dsl.md` and `nuget/README-Protocol.md` — package-facing docs.
 
 ## Milestones
 
-- **M0** — Determinism spike (prove the foundation before building)
-- **M1** — Core framework (RPC, runner, state API, draw API, scenario format)
-- **M2** — Production polish (bitmap fallback, record mode, CI, docs)
-- **M3** — Ecosystem (MCP server, C# DSL, community example suites)
-
-Details: `docs/milestones/`.
-
-## Contributing
-
-Contributions welcome after M1 ships. For now, feedback on the spec is the most useful input.
+Historical milestone notes live under `docs/milestones/`. Treat those as project
+history, not the current quickstart.
 
 ## License
 

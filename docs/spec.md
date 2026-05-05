@@ -1,7 +1,11 @@
-# [TBD] — Stardew Valley Mod Testing Framework
+# Frobby — Stardew Valley Mod Testing Framework
 
-**Status:** Design spec, pre-implementation
-**Intended consumer:** Claude Code (scaffolding) + human review
+**Status:** Original design spec. The implementation has moved beyond this document;
+use `README.md`, `docs/dsl-quickstart.md`, and `docs/rpc-schema.md` for current
+day-to-day usage.
+
+**Intended consumer:** implementation history, architecture review, and future design work
+
 **Author context:** Solo dev, SvelteKit/Directus/C# background, Arch Linux primary, Proxmox homelab for CI targets
 
 ---
@@ -380,7 +384,10 @@ Proxmox homelab consideration: a dedicated runner VM with GPU passthrough elimin
 
 ## 10. Naming
 
-[TBD]. Candidates to consider later: descriptive (StardewTestKit, SDV.Testing, ValleyTest), playful (Junimo, Grange, Pelican, Harvest), or abstract (Seedling, Sprout). Ecosystem precedent leans playful — SMAPI, PyTK, Content Patcher — but descriptive aids discoverability on NuGet.
+The working project name is Frobby. Earlier candidates included descriptive names
+(StardewTestKit, SDV.Testing, ValleyTest), playful names (Junimo, Grange, Pelican,
+Harvest), and abstract names (Seedling, Sprout). Keep NuGet package names descriptive
+even if the repository/project name stays playful.
 
 ---
 

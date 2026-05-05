@@ -39,10 +39,16 @@ Six curated helpers + one raw passthrough:
 
 The `starberg_terminal` scaffold template arms draw capture, opens the terminal, and includes `draw.text_contains` assertions for visible terminal/cash text.
 
+`run_scenario` is intentionally lighter than the CLI runner: it is useful for quick
+agent probes, but full scenario evaluation, rich assertions, bitmap forensics, and
+complete static HTML reports should be run through `sdv-test run` or
+`sdv-test run-suite`.
+
 ## 4. Environment knobs
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).
 - `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/home/fintan/stardewRepos/stonks/src/Starberg.Mod/bin/Release/net6.0`.
+- `SDV_TEST_HEADLESS=1` — launch SDV through `xvfb-run` on Linux so MCP-driven tests do not use the active desktop display or mouse cursor.
 - The MCP server lazy-launches SDV on first tool call that needs it. Tools that don't need SDV (`list_*`, `scaffold_scenario`) never trigger launch.
 - Stdio EOF tears down SDV cleanly.
 
