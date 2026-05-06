@@ -10,6 +10,18 @@ namespace SdvTestFramework.Harness.Tests;
 
 public class ContentAssetProjectorTests
 {
+    private sealed class RuntimeLocationEntry
+    {
+        public string DisplayName { get; init; } = string.Empty;
+        public RuntimeCreateOnLoadData? CreateOnLoad { get; init; }
+    }
+
+    private sealed class RuntimeCreateOnLoadData
+    {
+        public bool AlwaysActive { get; init; }
+        public string MapPath { get; init; } = string.Empty;
+    }
+
     private sealed class FakeLoader : IContentAssetLoader
     {
         private readonly Dictionary<(Type Type, string Name), object> _assets = new();
@@ -106,6 +118,38 @@ public class ContentAssetProjectorTests
         Assert.True(entry["exists"]!.GetValue<bool>());
         Assert.Equal("Town East", entry["value"]!["display_name"]!.GetValue<string>());
         Assert.False(entry["value"]!["can_plant_here"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesNestedDataObjects()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/Locations", new Dictionary<string, object>
+        {
+            ["Custom_EnchantedGrove"] = new RuntimeLocationEntry
+            {
+                DisplayName = "Enchanted Grove",
+                CreateOnLoad = new RuntimeCreateOnLoadData
+                {
+                    AlwaysActive = false,
+                    MapPath = "Maps\\Custom_EnchantedGrove",
+                },
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Locations",
+            AssetType = "data",
+            EntryKeys = new[] { "Custom_EnchantedGrove" },
+        });
+
+        Assert.True(result.Exists);
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var value = entries["Custom_EnchantedGrove"]!["value"]!;
+        Assert.Equal("Enchanted Grove", value["display_name"]!.GetValue<string>());
+        Assert.False(value["create_on_load"]!["always_active"]!.GetValue<bool>());
+        Assert.Equal("Maps\\Custom_EnchantedGrove", value["create_on_load"]!["map_path"]!.GetValue<string>());
     }
 
     [Fact]

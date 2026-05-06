@@ -1570,6 +1570,10 @@ not parse content-pack files as source of truth.
 - `entry_keys` — selected data dictionary entries to summarize by exact key.
 - `hash_texture` — for textures, include a bounded content hash when possible.
 
+Selected data entries include public scalar fields/properties and bounded nested
+runtime data objects, with names converted to snake_case. Collections are
+summarized by runtime type and count instead of expanded.
+
 **Response (map):**
 ```json
 {
@@ -1603,7 +1607,12 @@ not parse content-pack files as source of truth.
         "value": {
           "runtime_type": "StardewValley.GameData.Locations.LocationData",
           "display_name": "Town East",
-          "can_plant_here": false
+          "can_plant_here": false,
+          "create_on_load": {
+            "runtime_type": "StardewValley.GameData.Locations.CreateLocationData",
+            "always_active": false,
+            "map_path": "Maps\\Custom_TownEast"
+          }
         }
       }
     }

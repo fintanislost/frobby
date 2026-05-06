@@ -138,6 +138,13 @@ not just the content pack source files:
   "asset_type": "data",
   "entry_keys": ["Custom_TownEast"],
   "expr": "asset.entries.Custom_TownEast.value.display_name == 'Town East'"
+},
+{
+  "type": "content.asset",
+  "asset": "Data/Locations",
+  "asset_type": "data",
+  "entry_keys": ["Custom_EnchantedGrove"],
+  "expr": "asset.entries.Custom_EnchantedGrove.value.create_on_load.map_path != ''"
 }
 ```
 
@@ -145,7 +152,9 @@ Expression roots are `asset.<field>`. Top-level result fields such as
 `asset.exists`, `asset.kind`, and `asset.runtime_type` are available; otherwise
 paths resolve against the bounded `summary` object, so `asset.layers` means
 `summary.layers`. Supported operators are `==`, `!=`, and array membership like
-`asset.layers contains name 'Back'`.
+`asset.layers contains name 'Back'`. Selected `Data/*` entries include public
+scalar fields/properties and bounded nested runtime data objects, with property
+names converted to snake_case.
 
 ## Error handling
 

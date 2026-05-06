@@ -13,6 +13,8 @@ namespace SdvTestFramework.Harness.Assets;
 
 public static class ContentAssetProjector
 {
+    private const int MaxObjectDepth = 3;
+
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal)
     {
         "map", "texture", "data", "string", "unknown",
@@ -172,7 +174,7 @@ public static class ContentAssetProjector
         return summary;
     }
 
-    private static JsonNode? SummarizeValue(object? value)
+    private static JsonNode? SummarizeValue(object? value, int depth = 0)
     {
         if (value is null) return null;
         if (value is string s) return s;
@@ -214,7 +216,13 @@ public static class ContentAssetProjector
             catch { continue; }
 
             if (IsScalar(propValue))
+            {
                 obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
+            }
+            else if (ShouldSummarizeNestedObject(propValue, depth))
+            {
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, depth + 1);
+            }
         }
 
         foreach (var field in value.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
@@ -224,10 +232,32 @@ public static class ContentAssetProjector
             catch { continue; }
 
             if (IsScalar(fieldValue))
+            {
                 obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
+            }
+            else if (ShouldSummarizeNestedObject(fieldValue, depth))
+            {
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, depth + 1);
+            }
         }
 
         return obj;
+    }
+
+    private static bool ShouldSummarizeNestedObject(object? value, int depth)
+    {
+        if (value is null || depth >= MaxObjectDepth)
+            return false;
+        if (value is string or IEnumerable)
+            return false;
+
+        var type = value.GetType();
+        if (type.IsPrimitive || type.IsEnum || type == typeof(Type))
+            return false;
+        if (type.Namespace?.StartsWith("System", StringComparison.Ordinal) == true)
+            return false;
+
+        return true;
     }
 
     private static bool IsScalar(object? value)

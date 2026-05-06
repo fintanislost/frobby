@@ -25,12 +25,13 @@ Status key:
   - Done: `state.event`, `event.start`, `event.skip`, runner-side `wait.event_active` / `wait.event_complete`, readable dialogue/menu text extras, and SVE scenario 03 (`sve_event_observability_krobus`).
   - Pending Slice 2 follow-up: event dialogue choice selection, reliable generic menu/global-overlay acknowledgement, script step advancement without full skip, and event-seen/mail mutation helpers for relationship-gated scenes.
 
-- [ ] Planning: Slice 3, Content Patcher asset coverage.
+- [x] Done: Slice 3, Content Patcher asset coverage.
   - SVE pressure: CP `Load` and `Edit*` actions for maps, strings, data assets, portraits, sprites, recolors, and config-gated patches.
   - Frobby goal: inspect loaded asset names and selected asset metadata, prove expected CP assets are available, and verify map/texture assets without relying only on full screenshots.
   - Design spec: `docs/superpowers/specs/2026-05-06-sve-slice-3-runtime-content-assets-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-06-sve-slice-3-runtime-content-assets.md`.
-  - First target: runtime `content.asset` query plus JSON scenario assertions for maps, data dictionaries, and textures.
+  - Done: runtime `content.asset` query plus JSON scenario assertions for maps, textures, strings, bounded data dictionaries, and selected nested data objects.
+  - Verified: SVE scenario 04 (`tests/sdv/04-sve-content-assets-runtime.test.json`) validates CP-loaded maps and `Data/Locations` runtime metadata under headless execution.
 
 - [ ] Pending: Slice 4, NPC schedules, dialogue, and relationships.
   - SVE pressure: many custom NPCs, custom homes, schedules, movie-theater strings, relationship-gated content, and post-event dialogue patches.

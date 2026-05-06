@@ -96,8 +96,8 @@ Frobby tests should exercise the UI like a player whenever possible:
   warp flows. These are neutral map introspection tools and should be preferred
   over hard-coded mod-specific helper scripts.
 - Use `content.asset` assertions when the test needs runtime truth for a named
-  Stardew asset, such as a Content Patcher-added map, a `Data/*` entry, or a
-  texture that should exist before it is rendered.
+  Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, or
+  a texture that should exist before it is rendered.
 - Use `event.start`, `event.skip`, `state.event`, `wait.event_active`, and
   `wait.event_complete` for cutscenes or other Stardew events. Active-event
   screenshots should use `screenshot.capture_next_frame`; `freeze.begin` still
@@ -137,7 +137,8 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 - Deterministic scenario sessions with fixture loading and freeze controls.
 - Semantic draw-call and text capture through SMAPI/Harmony instrumentation.
 - Runtime content-asset inspection for maps, textures, strings, and bounded
-  `Data/*` dictionaries after Content Patcher and game conditions apply.
+  `Data/*` dictionaries, including selected nested data objects, after Content
+  Patcher and game conditions apply.
 - Click-first and hover-first menu automation, including text-targeted helpers.
 - Player/world state mutators for money, inventory, mail, time, weather, shops,
   furniture, interactions, and title-screen reload flows.
