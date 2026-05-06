@@ -42,6 +42,21 @@ public static class State
         return Deserialize<LocationsState>(resp, "state.locations");
     }
 
+    public static async Task<NpcsState> Npcs(
+        bool includeOffscreen = true,
+        int limit = 200,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new NpcsStateRequest
+        {
+            IncludeOffscreen = includeOffscreen,
+            Limit = limit,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("state.npcs", p, ct);
+        return Deserialize<NpcsState>(resp, "state.npcs");
+    }
+
     public static async Task<MapTileState> MapTile(
         string? location = null,
         int? x = null,

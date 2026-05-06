@@ -58,6 +58,27 @@ public class StateTests
     }
 
     [Fact]
+    public async Task Npcs_InvokesStateNpcsWithOptions()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"npcs\":[]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var npcs = await State.Npcs(includeOffscreen: false, limit: 25);
+
+            Assert.Equal("state.npcs", inv.LastMethod);
+            Assert.Contains("\"include_offscreen\":false", inv.LastParams);
+            Assert.Contains("\"limit\":25", inv.LastParams);
+            Assert.Empty(npcs.Npcs);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
+
+    [Fact]
     public async Task Locations_InvokesStateLocations()
     {
         SdvTestSession.ResetForTests();
