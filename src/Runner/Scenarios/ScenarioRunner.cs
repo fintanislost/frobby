@@ -933,6 +933,7 @@ public sealed class ScenarioRunner
             "draw.contains" => $"draw.contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "draw.not_contains" => $"draw.not_contains {GetFilterString(assertion, "texture_asset") ?? "<draw filter>"}",
             "state" => string.IsNullOrWhiteSpace(assertion.Expr) ? "state" : $"state {assertion.Expr}",
+            "content.asset" => string.IsNullOrWhiteSpace(assertion.Asset) ? "content.asset" : $"content.asset {assertion.Asset}",
             "bitmap" => string.IsNullOrWhiteSpace(assertion.Baseline) ? "bitmap" : $"bitmap {assertion.Baseline}",
             _ => assertion.Type,
         };
@@ -1165,6 +1166,13 @@ public sealed class ScenarioRunner
                 if (!result.Passed) await TryCaptureAssertionFailureAsync(ct);
                 return (result.Passed, result.FailureMessage);
             }
+            case "content.asset":
+            {
+                var result = await EvaluateContentAssetAssertionAsync(a, ct);
+                if (!result.Passed)
+                    await TryCaptureAssertionFailureAsync(ct);
+                return result;
+            }
             case "state":
             {
                 // Minimal DSL: "state.<method>.<field>[.<subfield>...] == <literal>"
@@ -1315,6 +1323,205 @@ public sealed class ScenarioRunner
             default:
                 return (false, null);
         }
+    }
+
+    private async Task<(bool Passed, string? Detail)> EvaluateContentAssetAssertionAsync(
+        ScenarioAssertion assertion,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(assertion.Asset))
+            return (false, "content.asset requires asset");
+
+        var request = ProtocolJson.ToElement(new ContentAssetRequest
+        {
+            Name = assertion.Asset,
+            AssetType = assertion.AssetType,
+            IncludeKeys = assertion.IncludeKeys ?? false,
+            KeysLimit = assertion.KeysLimit,
+            EntryKeys = assertion.EntryKeys,
+            HashTexture = assertion.HashTexture ?? false,
+        });
+        var resp = await _session.InvokeAsync("content.asset", request, ct);
+        if (resp.Error is not null)
+            return (false, resp.Error.Message);
+        if (resp.Result is not { ValueKind: JsonValueKind.Object } root)
+            return (false, "content.asset returned no result");
+
+        if (!root.TryGetProperty("exists", out var exists)
+            || exists.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            return (false, $"content.asset returned invalid exists for {assertion.Asset}");
+        }
+
+        if (!exists.GetBoolean())
+            return (false, $"{assertion.Asset} is missing");
+
+        if (string.IsNullOrWhiteSpace(assertion.Expr))
+            return (true, null);
+
+        return EvaluateAssetExpression(root, assertion.Expr);
+    }
+
+    private static (bool Passed, string? Detail) EvaluateAssetExpression(JsonElement assetRoot, string expr)
+    {
+        var trimmed = expr.Trim();
+        var containsMatch = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            @"^asset\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
+        if (containsMatch.Success)
+        {
+            var path = "asset." + containsMatch.Groups[1].Value;
+            var objectField = containsMatch.Groups[2].Success ? containsMatch.Groups[2].Value : null;
+            var literal = containsMatch.Groups[4].Value;
+
+            if (!TryResolveAssetPath(assetRoot, path, out var array))
+                return (false, $"{path} was not found");
+            if (array.ValueKind != JsonValueKind.Array)
+                return (false, $"{path} was not an array");
+
+            foreach (var element in array.EnumerateArray())
+            {
+                if (objectField is null)
+                {
+                    if (element.ValueKind == JsonValueKind.String
+                        && string.Equals(element.GetString(), literal, StringComparison.Ordinal))
+                    {
+                        return (true, null);
+                    }
+                }
+                else if (element.ValueKind == JsonValueKind.Object
+                    && element.TryGetProperty(objectField, out var field)
+                    && field.ValueKind == JsonValueKind.String
+                    && string.Equals(field.GetString(), literal, StringComparison.Ordinal))
+                {
+                    return (true, null);
+                }
+            }
+
+            return (false, $"expected {path} to contain '{literal}'");
+        }
+
+        var neqIdx = trimmed.IndexOf("!=", StringComparison.Ordinal);
+        var eqIdx = trimmed.IndexOf("==", StringComparison.Ordinal);
+        bool negated;
+        string[] parts;
+        if (neqIdx >= 0 && (eqIdx < 0 || neqIdx < eqIdx))
+        {
+            negated = true;
+            parts = new[] { trimmed.Substring(0, neqIdx), trimmed.Substring(neqIdx + 2) };
+        }
+        else if (eqIdx >= 0)
+        {
+            negated = false;
+            parts = new[] { trimmed.Substring(0, eqIdx), trimmed.Substring(eqIdx + 2) };
+        }
+        else
+        {
+            return (false, $"unsupported content.asset expression: {expr}");
+        }
+
+        var lhs = parts[0].Trim();
+        var rhs = parts[1].Trim();
+        if (!TryResolveAssetPath(assetRoot, lhs, out var value))
+            return (false, $"{lhs} was not found");
+
+        var equal = JsonElementEqualsLiteral(value, rhs);
+        if (equal is null)
+            return (false, $"unsupported literal in content.asset expression: {rhs}");
+
+        var result = negated ? !equal.Value : equal.Value;
+        return (result, result ? null : $"{lhs} did not match {rhs}");
+    }
+
+    private static bool TryResolveAssetPath(JsonElement assetRoot, string path, out JsonElement value)
+    {
+        value = default;
+        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0 || tokens[0] != "asset")
+            return false;
+        if (tokens.Length == 1)
+        {
+            value = assetRoot;
+            return true;
+        }
+        if (assetRoot.ValueKind != JsonValueKind.Object)
+            return false;
+
+        var index = 1;
+        if (tokens[index] == "summary")
+        {
+            if (!assetRoot.TryGetProperty("summary", out value))
+                return false;
+            index++;
+        }
+        else if (assetRoot.TryGetProperty(tokens[index], out value))
+        {
+            index++;
+        }
+        else
+        {
+            if (!assetRoot.TryGetProperty("summary", out value))
+                return false;
+        }
+
+        for (; index < tokens.Length; index++)
+        {
+            if (!TryReadJsonToken(value, tokens[index], out value))
+                return false;
+        }
+
+        return true;
+    }
+
+    private static bool TryReadJsonToken(JsonElement current, string token, out JsonElement value)
+    {
+        value = default;
+        var match = System.Text.RegularExpressions.Regex.Match(token, @"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$");
+        if (!match.Success)
+            return false;
+
+        if (current.ValueKind != JsonValueKind.Object)
+            return false;
+        if (!current.TryGetProperty(match.Groups[1].Value, out value))
+            return false;
+
+        if (!match.Groups[2].Success)
+            return true;
+
+        if (value.ValueKind != JsonValueKind.Array)
+            return false;
+        var index = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+        if (index < 0 || index >= value.GetArrayLength())
+            return false;
+        value = value[index];
+        return true;
+    }
+
+    private static bool? JsonElementEqualsLiteral(JsonElement value, string rhs)
+    {
+        if ((rhs.StartsWith('\'') && rhs.EndsWith('\'')) ||
+            (rhs.StartsWith('"') && rhs.EndsWith('"')))
+        {
+            var literal = rhs.Substring(1, rhs.Length - 2);
+            return value.ValueKind == JsonValueKind.String
+                && string.Equals(value.GetString(), literal, StringComparison.Ordinal);
+        }
+
+        if (long.TryParse(rhs, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var intLiteral))
+        {
+            return value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt64(out var actual)
+                && actual == intLiteral;
+        }
+
+        if (bool.TryParse(rhs, out var boolLiteral))
+        {
+            return (value.ValueKind == JsonValueKind.True && boolLiteral)
+                || (value.ValueKind == JsonValueKind.False && !boolLiteral);
+        }
+
+        return null;
     }
 
     private async Task<(bool Passed, string? Detail)> EvaluateTextAllWithinAsync(
