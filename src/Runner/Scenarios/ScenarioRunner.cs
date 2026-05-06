@@ -169,6 +169,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeWaitLocationAsync(step, ct);
                     }
+                    else if (step.Action == "wait.npc_location")
+                    {
+                        await InvokeWaitNpcLocationAsync(step, ct);
+                    }
                     else if (step.Action == "wait.event_active")
                     {
                         await InvokeWaitEventActiveAsync(step, ct);
@@ -420,6 +424,61 @@ public sealed class ScenarioRunner
         throw new TimeoutException(
             $"wait.location timed out after {args.TimeoutMs}ms waiting for location {args.Location}{expectedTile}; " +
             $"last observed {last}");
+    }
+
+    private async Task InvokeWaitNpcLocationAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitNpcLocationStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitNpcLocationStepArgs()
+            : new WaitNpcLocationStepArgs();
+
+        if (string.IsNullOrWhiteSpace(args.Name))
+            throw new InvalidOperationException("wait.npc_location requires args.name");
+        if (string.IsNullOrWhiteSpace(args.Location))
+            throw new InvalidOperationException("wait.npc_location requires args.location");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.npc_location requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.npc_location requires args.poll_ms >= 1");
+
+        var npcParams = ProtocolJson.ToElement(new { name = args.Name });
+        var elapsed = Stopwatch.StartNew();
+        NpcState? lastObserved = null;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.npc", npcParams, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.npc_location failed during state.npc: {error.Message}");
+            if (resp.Result is { } result)
+                lastObserved = JsonSerializer.Deserialize<NpcState>(result.GetRawText(), ProtocolJson.Options);
+
+            if (lastObserved is not null
+                && string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)
+                && (args.X is null || args.X == lastObserved.Tile.X)
+                && (args.Y is null || args.Y == lastObserved.Tile.Y))
+            {
+                return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        var last = lastObserved is null
+            ? "nothing"
+            : $"{lastObserved.Location} at {lastObserved.Tile.X},{lastObserved.Tile.Y}";
+        throw new TimeoutException(
+            $"wait.npc_location timed out after {args.TimeoutMs}ms waiting for {args.Name} in {args.Location}{FormatOptionalTile(args.X, args.Y)}; " +
+            $"last observed {last}");
+    }
+
+    private static string FormatOptionalTile(int? x, int? y)
+    {
+        if (x is null && y is null)
+            return string.Empty;
+
+        return $" at {x?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "any"},{y?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "any"}";
     }
 
     private async Task InvokeWaitEventActiveAsync(ScenarioStep step, CancellationToken ct)
@@ -718,12 +777,20 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("state.assert requires args.expr");
 
         var message = GetStringArg(step.Args, "message");
+        JsonElement? assertionParams = null;
+        if (step.Args is { ValueKind: JsonValueKind.Object } obj
+            && obj.TryGetProperty("params", out var paramsElement))
+        {
+            assertionParams = paramsElement.Clone();
+        }
+
         var (passed, detail) = await EvaluateAssertionAsync(
             new ScenarioAssertion
             {
                 Type = "state",
                 Expr = expr,
                 Message = message,
+                Params = assertionParams,
             },
             assertionIndex: -1,
             ct);
@@ -828,6 +895,7 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
+            "wait.npc_location" => $"Wait for NPC {GetStringArg(step.Args, "name") ?? "unknown"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.event_active" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"}",
             "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -913,6 +981,7 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => false,
             "wait.location" => false,
+            "wait.npc_location" => false,
             "wait.event_active" => false,
             "wait.event_complete" => false,
             "draw.arm" => false,
@@ -1037,6 +1106,16 @@ public sealed class ScenarioRunner
         public int? X { get; set; }
         public int? Y { get; set; }
         public int TimeoutMs { get; set; } = 5000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class WaitNpcLocationStepArgs
+    {
+        public string? Name { get; set; }
+        public string? Location { get; set; }
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
 
@@ -1193,7 +1272,7 @@ public sealed class ScenarioRunner
                     var objectField = containsMatch.Groups[3].Success ? containsMatch.Groups[3].Value : null;
                     var literal = containsMatch.Groups[5].Value;
 
-                    var containsResp = await _session.InvokeAsync(containsMethod, params_: null, ct);
+                    var containsResp = await _session.InvokeAsync(containsMethod, a.Params, ct);
                     if (containsResp.Error is not null || containsResp.Result is not { } containsRoot)
                     {
                         await TryCaptureAssertionFailureAsync(ct);
@@ -1257,7 +1336,7 @@ public sealed class ScenarioRunner
                 if (pathTokens.Length < 3 || pathTokens[0] != "state") return (false, null);
 
                 var method = $"state.{pathTokens[1]}";
-                var resp = await _session.InvokeAsync(method, params_: null, ct);
+                var resp = await _session.InvokeAsync(method, a.Params, ct);
                 if (resp.Error is not null || resp.Result is not { } root)
                 {
                     await TryCaptureAssertionFailureAsync(ct);

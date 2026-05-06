@@ -400,6 +400,128 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitNpcLocation_PollsStateNpcUntilLocationMatches()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var npcPolls = 0;
+        JsonElement? lastNpcParams = null;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "state.npc")
+                        lastNpcParams = req.Params;
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.npc" => JsonDocument.Parse(npcPolls++ == 0
+                            ? "{\"name\":\"Sophia\",\"location\":\"Custom_SophiaHouse\",\"tile\":{\"x\":23,\"y\":6},\"friendship_points\":0,\"hearts\":0,\"gift_given_today\":false,\"portrait\":\"Sophia\"}"
+                            : "{\"name\":\"Sophia\",\"location\":\"Custom_BlueMoonVineyard\",\"tile\":{\"x\":20,\"y\":32},\"friendship_points\":0,\"hearts\":0,\"gift_given_today\":false,\"portrait\":\"Sophia\"}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_npc_location",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.npc_location",
+                    Args = JsonDocument.Parse("{\"name\":\"Sophia\",\"location\":\"Custom_BlueMoonVineyard\",\"x\":20,\"y\":32,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, npcPolls);
+        Assert.DoesNotContain("wait.npc_location", calls);
+        Assert.Contains("state.npc", calls);
+        Assert.Equal("Sophia", lastNpcParams!.Value.GetProperty("name").GetString());
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitNpcLocation_TimeoutIncludesLastObservedNpcLocation()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.npc" => JsonDocument.Parse("{\"name\":\"Sophia\",\"location\":\"Custom_SophiaHouse\",\"tile\":{\"x\":23,\"y\":6},\"friendship_points\":0,\"hearts\":0,\"gift_given_today\":false,\"portrait\":\"Sophia\"}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_npc_location_timeout",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.npc_location",
+                    Args = JsonDocument.Parse("{\"name\":\"Sophia\",\"location\":\"Custom_BlueMoonVineyard\",\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("wait.npc_location timed out after 20ms waiting for Sophia in Custom_BlueMoonVineyard", failure);
+        Assert.Contains("last observed Custom_SophiaHouse at 23,6", failure);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitEventActive_PollsStateEventUntilActive()
     {
         var socket = SocketPath();
@@ -952,6 +1074,64 @@ public class ScenarioRunnerTests
 
         Assert.True(report.Passed);
         Assert.Contains("state.menu", calls);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task StateAssert_ForwardsParamsToStateMethod()
+    {
+        var socket = SocketPath();
+        JsonElement? stateNpcParams = null;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    if (req.Method == "state.npc")
+                        stateNpcParams = req.Params;
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.npc" => JsonDocument.Parse("{\"name\":\"Sophia\",\"location\":\"Custom_BlueMoonVineyard\",\"tile\":{\"x\":20,\"y\":32},\"friendship_points\":500,\"hearts\":2,\"gift_given_today\":false,\"portrait\":\"Sophia\"}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "state_assert_params",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "state.assert",
+                    Args = JsonDocument.Parse("{\"expr\":\"state.npc.hearts == 2\",\"params\":{\"name\":\"Sophia\"}}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal("Sophia", stateNpcParams!.Value.GetProperty("name").GetString());
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
