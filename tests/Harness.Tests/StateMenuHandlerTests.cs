@@ -19,6 +19,34 @@ public class StateMenuHandlerTests
         Assert.Equal("OneMonth", state.Extra["current_panel_timeframe"]);
     }
 
+    [Fact]
+    public void AddReadableTextExtras_AddsDialogueTextFromFakeMenu()
+    {
+        var state = new MenuState { Type = "DialogueBox", Present = true };
+
+        StateMenuHandler.AddReadableTextExtras(state, new FakeDialogueMenu());
+
+        Assert.Equal("Camilla", state.Extra["character"]);
+        Assert.Equal("Welcome to the grove.", state.Extra["dialogue_text"]);
+    }
+
+    [Fact]
+    public void TryProjectDialogue_ReturnsNullWhenMenuIsNull()
+    {
+        Assert.Null(StateMenuHandler.TryProjectDialogue(null));
+    }
+
+    [Fact]
+    public void TryProjectDialogue_ProjectsReadableDialogue()
+    {
+        var projected = StateMenuHandler.TryProjectDialogue(new FakeDialogueMenu());
+
+        Assert.NotNull(projected);
+        Assert.Equal("FakeDialogueMenu", projected!.MenuType);
+        Assert.Equal("Camilla", projected.Speaker);
+        Assert.Equal("Welcome to the grove.", projected.Text);
+    }
+
     private sealed class FakeTerminalMenu
     {
         private readonly object _currentPanel;
@@ -41,5 +69,21 @@ public class StateMenuHandlerTests
         OneDay,
         FiveDay,
         OneMonth,
+    }
+
+    private sealed class FakeDialogueMenu
+    {
+        public object characterDialogue = new FakeCharacterDialogue();
+        public string dialogue = "Welcome to the grove.";
+    }
+
+    private sealed class FakeCharacterDialogue
+    {
+        public FakeSpeaker speaker = new();
+    }
+
+    private sealed class FakeSpeaker
+    {
+        public string Name = "Camilla";
     }
 }

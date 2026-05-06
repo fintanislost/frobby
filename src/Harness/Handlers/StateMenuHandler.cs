@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using System.Text.Json;
 using SdvTestFramework.Protocol.Json;
@@ -35,6 +36,7 @@ public static class StateMenuHandler
             state.Extra["character"] = dialog.characterDialogue?.speaker?.Name ?? string.Empty;
         }
         AddCurrentPanelExtras(state, menu);
+        AddReadableTextExtras(state, menu);
 
         return ProtocolJson.ToElement(state);
     }
@@ -69,5 +71,70 @@ public static class StateMenuHandler
         var type = value.GetType();
         if (type.IsEnum || type.IsPrimitive || value is string || value is decimal)
             state.Extra[key] = value.ToString() ?? string.Empty;
+    }
+
+    internal static EventDialogueState? TryProjectDialogue(object? menu)
+    {
+        if (menu is null)
+            return null;
+
+        var text = ReadFirstString(menu, "dialogue", "currentDialogue", "message", "text", "question");
+        var speaker = ReadNestedSpeaker(menu);
+        if (string.IsNullOrWhiteSpace(text) && string.IsNullOrWhiteSpace(speaker))
+            return null;
+
+        return new EventDialogueState
+        {
+            MenuType = menu.GetType().Name,
+            Speaker = speaker,
+            Text = text,
+        };
+    }
+
+    internal static void AddReadableTextExtras(MenuState state, object menu)
+    {
+        var projected = TryProjectDialogue(menu);
+        if (projected is null)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(projected.Speaker))
+            state.Extra["character"] = projected.Speaker;
+
+        if (!string.IsNullOrWhiteSpace(projected.Text))
+        {
+            var key = state.Type.Contains("Question", StringComparison.OrdinalIgnoreCase)
+                ? "question_text"
+                : state.Type.Contains("Message", StringComparison.OrdinalIgnoreCase)
+                    ? "message_text"
+                    : "dialogue_text";
+            state.Extra[key] = projected.Text;
+        }
+    }
+
+    private static string ReadFirstString(object source, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            var value = ReadMember(source, name);
+            if (value is string text && !string.IsNullOrWhiteSpace(text))
+                return text;
+        }
+
+        return string.Empty;
+    }
+
+    private static string ReadNestedSpeaker(object source)
+    {
+        var dialogue = ReadMember(source, "characterDialogue");
+        var speaker = dialogue is null ? null : ReadMember(dialogue, "speaker");
+        return speaker is null ? string.Empty : ReadFirstString(speaker, "Name", "name", "displayName");
+    }
+
+    private static object? ReadMember(object source, string name)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = source.GetType();
+        return type.GetField(name, flags)?.GetValue(source)
+            ?? type.GetProperty(name, flags)?.GetValue(source);
     }
 }
