@@ -33,6 +33,27 @@ public static class Player
         await s.InvokeAsync("player.add_mail", p, ct);
     }
 
+    /// <summary>Set friendship state for a vanilla or custom NPC.</summary>
+    public static async Task SetFriendship(
+        string npc,
+        int points,
+        bool? talkedToToday = null,
+        int? giftsToday = null,
+        int? giftsThisWeek = null,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new SetFriendshipRequest
+        {
+            Npc = npc,
+            Points = points,
+            TalkedToToday = talkedToToday,
+            GiftsToday = giftsToday,
+            GiftsThisWeek = giftsThisWeek,
+        }, ProtocolJson.Options);
+        await s.InvokeAsync("player.set_friendship", p, ct);
+    }
+
     /// <summary>Give the player <paramref name="count"/> of item <paramref name="id"/> (e.g. <c>"(O)74"</c> for prismatic shard).</summary>
     public static async Task GiveItem(string id, int count = 1, CancellationToken ct = default)
     {

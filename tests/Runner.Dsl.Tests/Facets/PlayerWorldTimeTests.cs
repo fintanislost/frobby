@@ -65,6 +65,25 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task SetFriendship_InvokesPlayerSetFriendship()
+    {
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            await Player.SetFriendship("Sophia", 500, talkedToToday: true, giftsToday: 1, giftsThisWeek: 2);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.set_friendship", inv.Calls[0].Method);
+        Assert.Contains("\"npc\":\"Sophia\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"points\":500", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"talked_to_today\":true", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"gifts_today\":1", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"gifts_this_week\":2", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task Advance_InvokesTimeAdvanceWithMinutes()
     {
         SdvTestSession.ResetForTests();  // Clear any prior state
