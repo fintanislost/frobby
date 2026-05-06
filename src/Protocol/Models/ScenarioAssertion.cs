@@ -16,6 +16,24 @@ public sealed class ScenarioAssertion
     /// <summary>For <c>state</c> assertions: an expression over <c>state.*</c> queries.</summary>
     public string? Expr { get; set; }
 
+    /// <summary>For <c>content.asset</c> assertions: runtime asset name to query.</summary>
+    public string? Asset { get; set; }
+
+    /// <summary>For <c>content.asset</c> assertions: optional type hint such as map, texture, data, or string.</summary>
+    public string? AssetType { get; set; }
+
+    /// <summary>For <c>content.asset</c> data assertions: include a bounded key list.</summary>
+    public bool? IncludeKeys { get; set; }
+
+    /// <summary>For <c>content.asset</c> data assertions: maximum key count to include.</summary>
+    public int? KeysLimit { get; set; }
+
+    /// <summary>For <c>content.asset</c> data assertions: selected data entries to summarize.</summary>
+    public string[]? EntryKeys { get; set; }
+
+    /// <summary>For <c>content.asset</c> texture assertions: include content hash when possible.</summary>
+    public bool? HashTexture { get; set; }
+
     /// <summary>For draw-call assertions: a <c>DrawFilter</c>- or <c>TextDrawFilter</c>-shaped JSON object.</summary>
     public JsonElement? Filter { get; set; }
 

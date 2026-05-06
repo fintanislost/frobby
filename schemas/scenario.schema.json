@@ -54,6 +54,18 @@
         "properties": {
           "type": { "type": "string" },
           "expr": { "type": "string" },
+          "asset": { "type": "string", "minLength": 1 },
+          "asset_type": {
+            "type": "string",
+            "enum": ["map", "texture", "data", "string", "unknown"]
+          },
+          "include_keys": { "type": "boolean" },
+          "keys_limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "entry_keys": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "hash_texture": { "type": "boolean" },
           "filter": { "type": "object" },
           "min_count": { "type": "integer", "minimum": 1 },
           "max_count": { "type": "integer", "minimum": 1 },
