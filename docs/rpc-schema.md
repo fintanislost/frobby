@@ -268,12 +268,21 @@ Response (success):
 ```json
 ← { "jsonrpc": "2.0", "id": 5, "result": {
       "name": "Abigail",
+      "display_name": "Abigail",
       "location": "Town",
       "tile": { "x": 4, "y": 23 },
       "friendship_points": 500,
       "hearts": 2,
       "gift_given_today": false,
-      "portrait": "Abigail"
+      "talked_to_today": false,
+      "portrait": "Abigail",
+      "current_schedule_time": 900,
+      "current_schedule_location": "Town",
+      "current_schedule_tile": { "x": 4, "y": 23 },
+      "current_schedule_direction": 2,
+      "current_schedule_animation": "",
+      "is_villager": true,
+      "can_socialize": true
    } }
 ```
 
@@ -289,10 +298,68 @@ Response (unknown NPC name — GameStateInvalid):
 
 Hearts derive from `friendship_points / 250`. If the farmer has no friendship record with the NPC (e.g. never met), `friendship_points` and `hearts` are `0` and `gift_given_today` is `false`.
 
+`display_name`, `talked_to_today`, schedule fields, `is_villager`, and
+`can_socialize` are optional relationship/schedule projection fields. They are
+included when the runtime exposes the data and may be `null` for non-social NPCs
+or NPCs without a current schedule key.
+
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`); the named NPC must exist in the loaded world.
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StateNpcHandler.cs`
 **Tested in:** `tests/Protocol.Tests/NpcStateSerializationTests.cs` (DTO shape).
+
+### state.npcs
+
+Returns compact relationship and location snapshots for NPCs in the loaded world.
+Use this when a scenario needs to discover Content Patcher-added NPCs, count
+custom villagers, or choose a target before making a focused `state.npc` query.
+
+Request (all NPCs):
+```json
+→ { "jsonrpc": "2.0", "id": 6, "method": "state.npcs" }
+```
+
+Request (current location only with a smaller limit):
+```json
+→ { "jsonrpc": "2.0", "id": 6, "method": "state.npcs",
+     "params": { "include_offscreen": false, "limit": 25 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 6, "result": {
+      "npcs": [
+        {
+          "name": "Sophia",
+          "display_name": "Sophia",
+          "location": "Custom_BlueMoonVineyard",
+          "tile": { "x": 20, "y": 32 },
+          "friendship_points": 1000,
+          "hearts": 4,
+          "gift_given_today": false,
+          "talked_to_today": false,
+          "portrait": "Sophia",
+          "current_schedule_time": 900,
+          "current_schedule_location": "Custom_BlueMoonVineyard",
+          "current_schedule_tile": { "x": 20, "y": 32 },
+          "current_schedule_direction": 0,
+          "current_schedule_animation": "Sophia_Farm2",
+          "is_villager": true,
+          "can_socialize": true
+        }
+      ]
+   } }
+```
+
+`include_offscreen` defaults to `true` and scans NPCs in all currently loaded
+locations. Set it to `false` to return only the current location's NPCs. `limit`
+defaults to `200` and must be between `1` and `1000`. Duplicate NPC names are
+collapsed using the first loaded instance encountered.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateNpcsHandler.cs`
+**Tested in:** `tests/Harness.Tests/StateNpcsHandlerTests.cs` and `tests/Runner.Dsl.Tests/Facets/StateTests.cs`.
 
 ### state.menu
 
@@ -572,6 +639,38 @@ Response (missing `params` or blank `id` — InvalidParams):
 **Side effects:** trims `params.id` and adds it to `Game1.MasterPlayer.mailReceived`.
 **Implemented in:** `src/Harness/Handlers/PlayerAddMailHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerAddMailHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL shape).
+
+### player.set_friendship
+
+Sets the master farmer's relationship state for a named NPC. This is a neutral
+setup mutator for scenarios that need deterministic relationship gates, birthday
+dialogue, gift limits, or social UI state without adding mod-specific hooks.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 14, "method": "player.set_friendship",
+     "params": { "npc": "Sophia", "points": 1000, "talked_to_today": false, "gifts_this_week": 0, "gifts_today": 0 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 14, "result": { "ok": true, "tick": 84205 } }
+```
+
+Response (missing NPC or invalid points — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params.npc must be non-empty" } }
+```
+
+`points` must be between `0` and `2500`. Optional `talked_to_today`,
+`gifts_this_week`, and `gifts_today` fields set the corresponding save
+relationship flags when supplied; omitted optional fields preserve existing
+friendship values or remain at Stardew defaults for a new entry.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** creates or updates `Game1.MasterPlayer.friendshipData[npc]`.
+**Implemented in:** `src/Harness/Handlers/PlayerSetFriendshipHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerSetFriendshipHandlerTests.cs` and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### time.advance
 
@@ -1016,8 +1115,10 @@ Runner scenario convenience:
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
+- `{ "action": "state.assert", "args": { "params": { "name": "Sophia" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,

@@ -119,6 +119,23 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 Use `screenshot.capture_next_frame` for active events because `freeze.begin`
 intentionally rejects cutscenes while `Game1.eventUp` is true.
 
+JSON runner scenarios can assert custom NPC relationship and schedule state with
+parameterized `state.assert` calls and runner-side NPC waits:
+
+```json
+{ "action": "player.set_friendship", "args": { "npc": "Sophia", "points": 1000 } },
+{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "timeout_ms": 10000 } },
+{ "action": "state.assert", "args": {
+  "params": { "name": "Sophia" },
+  "expr": "state.npc.hearts == 4",
+  "message": "Sophia should be at least four hearts after setup"
+} }
+```
+
+Use `state.npcs` for discovery/count checks and `state.npc` when a scenario needs
+a focused assertion for one NPC. These primitives are mod-neutral; the same shape
+works for vanilla villagers and Content Patcher-added NPCs.
+
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,
 so the assertion sees the result after Content Patcher patches and conditions,

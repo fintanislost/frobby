@@ -95,6 +95,10 @@ Frobby tests should exercise the UI like a player whenever possible:
   runner-side `wait.location` when testing custom mod locations, maps, and direct
   warp flows. These are neutral map introspection tools and should be preferred
   over hard-coded mod-specific helper scripts.
+- Use `state.npcs`, parameterized `state.npc` assertions, `player.set_friendship`,
+  and runner-side `wait.npc_location` for custom NPC relationship, schedule, and
+  dialogue flows. These helpers are mod-neutral and work for vanilla or Content
+  Patcher-added NPCs.
 - Use `content.asset` assertions when the test needs runtime truth for a named
   Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, or
   a texture that should exist before it is rendered.

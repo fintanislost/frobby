@@ -67,6 +67,10 @@
           },
           "hash_texture": { "type": "boolean" },
           "filter": { "type": "object" },
+          "params": {
+            "type": "object",
+            "description": "Optional state RPC params for type=state assertions."
+          },
           "min_count": { "type": "integer", "minimum": 1 },
           "max_count": { "type": "integer", "minimum": 1 },
           "message": { "type": "string" },
