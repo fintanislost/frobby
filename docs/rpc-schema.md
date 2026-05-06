@@ -1542,6 +1542,92 @@ callback uses the same `allow_unfrozen` and `region` params at render time.
 - `GameStateInvalid -32003` — no active scenario, or not frozen when required.
 - `InternalError -32603` — timeout, backbuffer read, PNG encode, or write failure.
 
+### content.asset
+
+Read one named asset through Stardew's live game-content pipeline and return a
+bounded JSON summary. This is for validating the final runtime result after
+Content Patcher, config, locale, and game-state conditions have applied; it does
+not parse content-pack files as source of truth.
+
+**Params:**
+```json
+{
+  "name": "Data/Locations",
+  "asset_type": "data",
+  "include_keys": true,
+  "keys_limit": 25,
+  "entry_keys": ["Custom_TownEast"],
+  "hash_texture": false
+}
+```
+
+- `name` — required asset name, e.g. `Maps/Custom_TownEast`, `Data/Locations`,
+  or a mod-owned texture path.
+- `asset_type` — optional hint: `map`, `texture`, `data`, `string`, or `unknown`.
+  Omit it to let the harness probe common runtime types.
+- `include_keys` — for data dictionaries, include a bounded key list.
+- `keys_limit` — max key count when `include_keys` is true. Valid range: 1-500.
+- `entry_keys` — selected data dictionary entries to summarize by exact key.
+- `hash_texture` — for textures, include a bounded content hash when possible.
+
+**Response (map):**
+```json
+{
+  "name": "Maps/Custom_TownEast",
+  "exists": true,
+  "kind": "map",
+  "runtime_type": "xTile.Map",
+  "summary": {
+    "width": 90,
+    "height": 64,
+    "layers": [{ "name": "Back", "width": 90, "height": 64 }],
+    "tilesheets": [{ "id": "z_sve", "image_source": "Maps/spring_z_sve" }],
+    "properties": {}
+  }
+}
+```
+
+**Response (data):**
+```json
+{
+  "name": "Data/Locations",
+  "exists": true,
+  "kind": "data",
+  "runtime_type": "System.Collections.Generic.Dictionary`2[...]",
+  "summary": {
+    "count": 482,
+    "keys": ["Custom_TownEast"],
+    "entries": {
+      "Custom_TownEast": {
+        "exists": true,
+        "value": {
+          "runtime_type": "StardewValley.GameData.Locations.LocationData",
+          "display_name": "Town East",
+          "can_plant_here": false
+        }
+      }
+    }
+  }
+}
+```
+
+**Response (missing):**
+```json
+{ "name": "Maps/Missing", "exists": false, "kind": "missing", "runtime_type": "", "summary": {} }
+```
+
+**Preconditions:** runs on the game thread. Some assets require the game content
+helper to be initialized, which is true during normal scenario execution.
+**Side effects:** read-only asset load through SMAPI/Stardew content APIs.
+**Errors:**
+- `InvalidParams -32602` — missing `name`, unsupported `asset_type`, or invalid
+  `keys_limit`.
+- `GameStateInvalid -32003` — harness content loader was not initialized.
+**Tested in:** `tests/Protocol.Tests/ContentAssetSerializationTests.cs`,
+`tests/Harness.Tests/ContentAssetProjectorTests.cs`,
+`tests/Harness.Tests/ContentAssetHandlerTests.cs`, and
+`tests/Runner.Tests/ScenarioRunnerContentAssetTests.cs`.
+
 ### fixture.save
 
 Trigger SDV's save flow, writing the current game state to a folder in `Constants.SavesPath`. Drives `SaveGame.Save()` to completion on the game thread (blocks one update tick's worth of logic, typically <1 second). Used by the M2 fixture-builder CLI to capture reproducible save-state fixtures.

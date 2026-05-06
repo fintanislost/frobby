@@ -119,6 +119,34 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 Use `screenshot.capture_next_frame` for active events because `freeze.begin`
 intentionally rejects cutscenes while `Game1.eventUp` is true.
 
+JSON runner scenarios can validate final runtime content assets directly with
+`content.asset` assertions. These load through Stardew's live content pipeline,
+so the assertion sees the result after Content Patcher patches and conditions,
+not just the content pack source files:
+
+```json
+{
+  "type": "content.asset",
+  "asset": "Maps/Custom_TownEast",
+  "asset_type": "map",
+  "expr": "asset.layers contains name 'Back'",
+  "message": "Town East map should load with a Back layer"
+},
+{
+  "type": "content.asset",
+  "asset": "Data/Locations",
+  "asset_type": "data",
+  "entry_keys": ["Custom_TownEast"],
+  "expr": "asset.entries.Custom_TownEast.value.display_name == 'Town East'"
+}
+```
+
+Expression roots are `asset.<field>`. Top-level result fields such as
+`asset.exists`, `asset.kind`, and `asset.runtime_type` are available; otherwise
+paths resolve against the bounded `summary` object, so `asset.layers` means
+`summary.layers`. Supported operators are `==`, `!=`, and array membership like
+`asset.layers contains name 'Back'`.
+
 ## Error handling
 
 RPC errors throw typed exceptions:
