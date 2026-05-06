@@ -16,6 +16,14 @@ public class StateNpcHandlerTests
     }
 
     [Fact]
+    public void Handle_MissingName_ThrowsInvalidParams()
+    {
+        var ex = Assert.Throws<JsonRpcException>(() => StateNpcHandler.Handle(null));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+    }
+
+    [Fact]
     public void Handle_NameWrongType_ThrowsInvalidParams()
     {
         var p = JsonDocument.Parse("{\"name\": 42}").RootElement;
