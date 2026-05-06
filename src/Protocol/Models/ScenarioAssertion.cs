@@ -16,6 +16,9 @@ public sealed class ScenarioAssertion
     /// <summary>For <c>state</c> assertions: an expression over <c>state.*</c> queries.</summary>
     public string? Expr { get; set; }
 
+    /// <summary>Optional params passed to the state RPC for parameterized <c>state</c> assertions.</summary>
+    public JsonElement? Params { get; set; }
+
     /// <summary>For <c>content.asset</c> assertions: runtime asset name to query.</summary>
     public string? Asset { get; set; }
 
