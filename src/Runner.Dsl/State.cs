@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +33,32 @@ public static class State
             : JsonSerializer.SerializeToElement(new { name }, ProtocolJson.Options);
         var resp = await s.InvokeAsync("state.location", p, ct);
         return Deserialize<LocationState>(resp, "state.location");
+    }
+
+    public static async Task<LocationsState> Locations(CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var resp = await s.InvokeAsync("state.locations", null, ct);
+        return Deserialize<LocationsState>(resp, "state.locations");
+    }
+
+    public static async Task<MapTileState> MapTile(
+        string? location = null,
+        int? x = null,
+        int? y = null,
+        IEnumerable<string>? layers = null,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new MapTileRequest
+        {
+            Location = location,
+            X = x,
+            Y = y,
+            Layers = layers?.ToList(),
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("state.map_tile", p, ct);
+        return Deserialize<MapTileState>(resp, "state.map_tile");
     }
 
     public static async Task<NpcState> Npc(string name, CancellationToken ct = default)

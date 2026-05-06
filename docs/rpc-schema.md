@@ -150,7 +150,13 @@ Response (success):
 ```json
 ← { "jsonrpc": "2.0", "id": 4, "result": {
       "name": "Farm",
+      "unique_name": "Farm",
       "is_outdoors": true,
+      "map_width": 120,
+      "map_height": 80,
+      "warps": [
+        { "source": { "x": 64, "y": 15 }, "target_location": "FarmHouse", "target": { "x": 8, "y": 10 } }
+      ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
       "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds" }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
@@ -164,6 +170,90 @@ If no location is loaded (e.g. on the title screen) or the requested name is unk
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StateLocationHandler.cs`
 **Tested in:** `tests/Protocol.Tests/LocationStateSerializationTests.cs` (DTO shape).
+
+### state.locations
+
+Returns compact summaries for all runtime-loaded Stardew locations. This is the
+preferred state primitive for proving a mod's custom locations registered before
+attempting direct warps or tile-action flows.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 5, "method": "state.locations" }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 5, "result": {
+      "locations": [
+        {
+          "name": "Farm",
+          "unique_name": "Farm",
+          "is_outdoors": true,
+          "map_width": 120,
+          "map_height": 80,
+          "warp_count": 12
+        }
+      ]
+   } }
+```
+
+`locations` is sorted by `name`, then `unique_name`, to keep reports stable across
+runs. `map_width` and `map_height` are tile dimensions from the loaded runtime map;
+they are `0` if a location has no map loaded.
+
+**Preconditions:** none beyond the game having initialized enough for `Game1.locations`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateLocationsHandler.cs`
+**Tested in:** `tests/Protocol.Tests/LocationsStateSerializationTests.cs` and `tests/Harness.Tests/StateLocationsHandlerTests.cs` (live placeholder).
+
+### state.map_tile
+
+Returns layer/tile/property metadata for one map coordinate. Omit all params to
+inspect the farmer's current tile in the current location, which also makes the
+method usable from scenario state assertions such as
+`state.map_tile.layers contains name 'Back'`.
+
+Request (current farmer tile):
+```json
+→ { "jsonrpc": "2.0", "id": 6, "method": "state.map_tile" }
+```
+
+Request (explicit location/tile/layers):
+```json
+→ { "jsonrpc": "2.0", "id": 6, "method": "state.map_tile",
+     "params": { "location": "Farm", "x": 64, "y": 15, "layers": ["Back", "Buildings"] } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 6, "result": {
+      "location": "Farm",
+      "x": 64,
+      "y": 15,
+      "layers": [
+        {
+          "name": "Back",
+          "tile_index": 471,
+          "tile_sheet": "outdoors",
+          "properties": {
+            "TouchAction": "MagicWarp Custom_EnchantedGrove",
+            "Passable": "F"
+          }
+        }
+      ]
+   } }
+```
+
+Tile property keys are preserved exactly as Stardew/xTile exposes them; they are not
+snake-cased. Empty tiles return `tile_index: -1`, empty `tile_sheet`, and empty
+`properties`.
+
+**Preconditions:** current location and player are required when params omit
+`location`, `x`, or `y`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateMapTileHandler.cs`
+**Tested in:** `tests/Protocol.Tests/MapTileStateSerializationTests.cs` and `tests/Harness.Tests/StateMapTileHandlerTests.cs`.
 
 ### state.npc
 
@@ -810,8 +900,12 @@ Runner scenario convenience:
 - `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
+- `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 
-All three convenience steps accept `text`, `text_equals`, `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`, `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+The three `ui.*_text` convenience steps accept `text`, `text_equals`,
+`text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,
+`poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and
+`bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
 ### shop.open
 

@@ -253,7 +253,7 @@ public static class RepoScaffoldGenerator
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               cd "$FROBBY_SOURCE_ROOT"
-              exec env -u FROBBY_ROOT dotnet run --project src/Runner/Runner.csproj -- repo run --repo-root "$REPO_ROOT" "$@"
+              exec dotnet run --project src/Runner/Runner.csproj -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo run --repo-root "$REPO_ROOT" "$@"
@@ -271,7 +271,7 @@ public static class RepoScaffoldGenerator
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               cd "$FROBBY_SOURCE_ROOT"
-              exec env -u FROBBY_ROOT dotnet run --project src/Runner/Runner.csproj -- repo repeat --repo-root "$REPO_ROOT" "$@"
+              exec dotnet run --project src/Runner/Runner.csproj -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"

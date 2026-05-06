@@ -165,6 +165,10 @@ public sealed class ScenarioRunner
                             ms = parsed;
                         if (ms > 0) await Task.Delay(ms, ct);
                     }
+                    else if (step.Action == "wait.location")
+                    {
+                        await InvokeWaitLocationAsync(step, ct);
+                    }
                     else if (step.Action == "screenshot.capture")
                     {
                         await CaptureExplicitScreenshotAsync(
@@ -361,6 +365,53 @@ public sealed class ScenarioRunner
         }
 
         return !isWarping.GetBoolean();
+    }
+
+    private async Task InvokeWaitLocationAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitLocationStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitLocationStepArgs()
+            : new WaitLocationStepArgs();
+
+        if (string.IsNullOrWhiteSpace(args.Location))
+            throw new InvalidOperationException("wait.location requires args.location");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.location requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.location requires args.poll_ms >= 1");
+
+        var elapsed = Stopwatch.StartNew();
+        PlayerState? lastObserved = null;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.player", params_: null, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.location failed during state.player: {error.Message}");
+            if (resp.Result is { } result)
+                lastObserved = JsonSerializer.Deserialize<PlayerState>(result.GetRawText(), ProtocolJson.Options);
+
+            if (lastObserved is not null
+                && string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)
+                && (args.X is null || args.X == lastObserved.Tile.X)
+                && (args.Y is null || args.Y == lastObserved.Tile.Y))
+            {
+                return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        var expectedTile = args.X is not null && args.Y is not null
+            ? $" at {args.X},{args.Y}"
+            : string.Empty;
+        var last = lastObserved is null
+            ? "nothing"
+            : $"{lastObserved.Location} at {lastObserved.Tile.X},{lastObserved.Tile.Y}";
+        throw new TimeoutException(
+            $"wait.location timed out after {args.TimeoutMs}ms waiting for location {args.Location}{expectedTile}; " +
+            $"last observed {last}");
     }
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
@@ -690,6 +741,7 @@ public sealed class ScenarioRunner
         return step.Action switch
         {
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
+            "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -772,6 +824,7 @@ public sealed class ScenarioRunner
         return step.Action switch
         {
             "wait.ms" => false,
+            "wait.location" => false,
             "draw.arm" => false,
             "draw.disarm" => false,
             "state.assert" => false,
@@ -885,6 +938,15 @@ public sealed class ScenarioRunner
 
         public string TextLabel
             => TextEquals ?? Text ?? TextMatches ?? string.Empty;
+    }
+
+    private sealed class WaitLocationStepArgs
+    {
+        public string? Location { get; set; }
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public int TimeoutMs { get; set; } = 5000;
+        public int PollMs { get; set; } = 100;
     }
 
     /// <summary>

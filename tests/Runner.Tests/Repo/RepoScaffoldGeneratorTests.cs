@@ -98,7 +98,7 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
     }
 
     [Fact]
-    public void Generate_source_wrappers_do_not_leak_frobby_root_into_dotnet_run()
+    public void Generate_source_wrappers_run_dotnet_directly_from_source_root()
     {
         RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
 
@@ -109,8 +109,10 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", repeatText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", scriptText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", repeatText);
-        Assert.Contains("exec env -u FROBBY_ROOT dotnet run", scriptText);
-        Assert.Contains("exec env -u FROBBY_ROOT dotnet run", repeatText);
+        Assert.Contains("exec dotnet run", scriptText);
+        Assert.Contains("exec dotnet run", repeatText);
+        Assert.DoesNotContain("exec env -u FROBBY_ROOT dotnet run", scriptText);
+        Assert.DoesNotContain("exec env -u FROBBY_ROOT dotnet run", repeatText);
         Assert.Contains("--project src/Runner/Runner.csproj", scriptText);
         Assert.Contains("--project src/Runner/Runner.csproj", repeatText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);

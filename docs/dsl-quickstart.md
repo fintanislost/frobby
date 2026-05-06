@@ -82,10 +82,27 @@ Environment knobs:
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
-- `State.Player()` / `Time()` / `Location(name?)` / `Npc(name)` / `Menu()` / `Mods()`
+- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `Npc(name)` / `Menu()` / `Mods()`
 - `Bitmap.Capture(region?)`
 - `Screenshot.Capture(name)`
 - `Wait.Ms(ms)`
+
+Location/map helpers are useful for complex Content Patcher or code mods with custom
+areas:
+
+```csharp
+var locations = await State.Locations();
+Assert.Contains(locations.Locations, l => l.Name == "Custom_TownEast");
+
+await Player.Warp("Custom_TownEast", 10, 20);
+await Wait.Ms(500);
+
+var location = await State.Location();
+Assert.NotEqual(0, location.MapWidth);
+
+var tile = await State.MapTile(layers: new[] { "Back" });
+Assert.Contains(tile.Layers, l => l.Name == "Back");
+```
 
 ## Error handling
 

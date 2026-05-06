@@ -90,6 +90,10 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use player/world setup helpers such as `player.set_money`, `player.give_item`,
   `player.add_mail`, `time.set`, `time.advance`, `time.next_day`, and fixture
   loading to create deterministic test state before exercising the mod.
+- Use `state.locations`, expanded `state.location`, `state.map_tile`, and
+  runner-side `wait.location` when testing custom mod locations, maps, and direct
+  warp flows. These are neutral map introspection tools and should be preferred
+  over hard-coded mod-specific helper scripts.
 
 See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
 assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the

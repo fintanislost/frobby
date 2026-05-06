@@ -24,7 +24,7 @@ public static class JsonRpcCodec
         AppendString(sb, req.Method);
         if (req.Params is { } p)
         {
-            sb.Append(",\"params\":").Append(p.GetRawText());
+            sb.Append(",\"params\":").Append(CompactJson(p));
         }
         sb.Append('}');
         return sb.ToString();
@@ -40,12 +40,12 @@ public static class JsonRpcCodec
             sb.Append(",\"error\":{\"code\":").Append((int)err.Code);
             sb.Append(",\"message\":");
             AppendString(sb, err.Message);
-            if (err.Data is { } data) sb.Append(",\"data\":").Append(data.GetRawText());
+            if (err.Data is { } data) sb.Append(",\"data\":").Append(CompactJson(data));
             sb.Append('}');
         }
         else if (resp.Result is { } result)
         {
-            sb.Append(",\"result\":").Append(result.GetRawText());
+            sb.Append(",\"result\":").Append(CompactJson(result));
         }
         else
         {
@@ -65,11 +65,14 @@ public static class JsonRpcCodec
         AppendString(sb, note.Method);
         if (note.Params is { } p)
         {
-            sb.Append(",\"params\":").Append(p.GetRawText());
+            sb.Append(",\"params\":").Append(CompactJson(p));
         }
         sb.Append('}');
         return sb.ToString();
     }
+
+    private static string CompactJson(JsonElement element)
+        => JsonSerializer.Serialize(element);
 
     // ---------------- parse ----------------
 

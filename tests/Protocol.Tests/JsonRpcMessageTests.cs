@@ -95,6 +95,59 @@ public class JsonRpcMessageTests
     }
 
     [Fact]
+    public void Request_PrettyParams_AreCompactedForNdjson()
+    {
+        var req = new JsonRpcRequest
+        {
+            Id = 2,
+            Method = "player.warp",
+            Params = JsonDocument.Parse("""
+            {
+              "location": "Custom_TownEast",
+              "x": 10,
+              "y": 20
+            }
+            """).RootElement,
+        };
+
+        var json = JsonRpcCodec.Serialize(req);
+
+        Assert.DoesNotContain('\n', json);
+        Assert.Contains("\"params\":{\"location\":\"Custom_TownEast\",\"x\":10,\"y\":20}", json);
+    }
+
+    [Fact]
+    public void Response_PrettyResultAndErrorData_AreCompactedForNdjson()
+    {
+        var result = JsonRpcResponse.Ok(
+            id: 3,
+            result: JsonDocument.Parse("""
+            {
+              "ok": true,
+              "tick": 42
+            }
+            """).RootElement);
+        var error = JsonRpcResponse.Fail(
+            id: 4,
+            error: new JsonRpcError(
+                JsonRpcErrorCode.InvalidParams,
+                "bad request",
+                JsonDocument.Parse("""
+                {
+                  "field": "x"
+                }
+                """).RootElement));
+
+        var resultJson = JsonRpcCodec.Serialize(result);
+        var errorJson = JsonRpcCodec.Serialize(error);
+
+        Assert.DoesNotContain('\n', resultJson);
+        Assert.DoesNotContain('\n', errorJson);
+        Assert.Contains("\"result\":{\"ok\":true,\"tick\":42}", resultJson);
+        Assert.Contains("\"data\":{\"field\":\"x\"}", errorJson);
+    }
+
+    [Fact]
     public void ParseRequest_MissingMethod_Throws()
     {
         var json = """{"jsonrpc":"2.0","id":1}""";

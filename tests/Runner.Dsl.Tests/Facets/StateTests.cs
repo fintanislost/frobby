@@ -56,4 +56,70 @@ public class StateTests
         }
         finally { SdvTestSession.ResetForTests(); }
     }
+
+    [Fact]
+    public async Task Locations_InvokesStateLocations()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"locations\":[{\"name\":\"Custom_TownEast\",\"unique_name\":\"Custom_TownEast\",\"is_outdoors\":true,\"map_width\":90,\"map_height\":64,\"warp_count\":5}]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var locations = await State.Locations();
+
+            Assert.Equal("state.locations", inv.LastMethod);
+            Assert.Null(inv.LastParams);
+            var location = Assert.Single(locations.Locations);
+            Assert.Equal("Custom_TownEast", location.Name);
+            Assert.Equal(90, location.MapWidth);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
+
+    [Fact]
+    public async Task MapTile_InvokesStateMapTileWithSnakeCaseArgs()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"location\":\"Custom_TownEast\",\"x\":10,\"y\":20,\"layers\":[{\"name\":\"Back\",\"tile_index\":471,\"tile_sheet\":\"outdoors\",\"properties\":{\"TouchAction\":\"MagicWarp Custom_EnchantedGrove\"}}]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var tile = await State.MapTile(location: "Custom_TownEast", x: 10, y: 20, layers: new[] { "Back" });
+
+            Assert.Equal("state.map_tile", inv.LastMethod);
+            Assert.Contains("\"location\":\"Custom_TownEast\"", inv.LastParams);
+            Assert.Contains("\"x\":10", inv.LastParams);
+            Assert.Contains("\"y\":20", inv.LastParams);
+            Assert.Contains("\"layers\":[\"Back\"]", inv.LastParams);
+            Assert.Equal("Custom_TownEast", tile.Location);
+            Assert.Equal("Back", Assert.Single(tile.Layers).Name);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
+
+    [Fact]
+    public async Task MapTile_WithNoArgs_InvokesCurrentTileSnapshot()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"location\":\"Farm\",\"x\":64,\"y\":15,\"layers\":[]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var tile = await State.MapTile();
+
+            Assert.Equal("state.map_tile", inv.LastMethod);
+            Assert.Equal("{}", inv.LastParams);
+            Assert.Equal("Farm", tile.Location);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
 }
