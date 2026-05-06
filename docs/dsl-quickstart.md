@@ -108,9 +108,11 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 `state.event` and event waits:
 
 ```json
+{ "action": "event.start", "args": { "id": "520702", "location": "BusStop" } },
 { "action": "wait.event_active", "args": { "id": "520702", "timeout_ms": 10000 } },
 { "action": "state.assert", "args": { "expr": "state.event.actors contains name 'Krobus'" } },
 { "action": "screenshot.capture_next_frame", "args": { "name": "active-event" } },
+{ "action": "event.skip", "args": {} },
 { "action": "wait.event_complete", "args": { "id": "520702", "timeout_ms": 30000 } }
 ```
 

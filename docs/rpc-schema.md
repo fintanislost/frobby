@@ -386,6 +386,65 @@ Active response:
 **Implemented in:** `src/Harness/Handlers/StateEventHandler.cs` and `src/Harness/Handlers/EventStateProjector.cs`.
 **Tested in:** `tests/Harness.Tests/EventStateProjectorTests.cs`.
 
+### event.start
+
+Starts a location event by id using Stardew's own location event resolver. This is a deterministic test primitive for event/cutscene observability; it does not mark events seen or bypass the event's normal script execution.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "event.start", "params": { "id": "520702", "location": "BusStop" } }
+```
+
+`params.id` is required. `params.location` is optional; omit it to resolve the event in the current location.
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 10, "result": { "ok": true, "tick": 84204, "id": "520702", "location": "BusStop" } }
+```
+
+Response (missing/empty `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 10, "error": { "code": -32602, "message": "params.id required" } }
+```
+
+Response (unknown location or event not found — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 10, "error": { "code": -32003, "message": "event not found: 520702 in BusStop" } }
+```
+
+After `event.start`, use runner-side `wait.event_active` and `wait.event_complete` to observe script state. Active-event screenshots should use `screenshot.capture_next_frame` because `freeze.begin` rejects cutscenes while `Game1.eventUp` is true.
+
+**Preconditions:** world loaded; requested location must exist; requested event must resolve for the current farmer/save state.
+**Side effects:** calls `GameLocation.startEvent` for the resolved event.
+**Implemented in:** `src/Harness/Handlers/EventStartHandler.cs`.
+**Tested in:** `tests/Harness.Tests/EventStartHandlerTests.cs`.
+
+### event.skip
+
+Skips the currently active Stardew event/cutscene. This is useful when a scenario needs to prove an event is observable and then cleanly return the save to normal gameplay without clicking through every dialogue, popup, or long scripted movement.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 11, "method": "event.skip" }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 11, "result": { "ok": true, "tick": 84220, "id": "520702" } }
+```
+
+Response (no active event — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 11, "error": { "code": -32003, "message": "event.skip requires an active event" } }
+```
+
+After `event.skip`, use `wait.event_complete` to wait until `state.event` reports inactive.
+
+**Preconditions:** a Stardew event must be active.
+**Side effects:** calls `Event.skipEvent()` on the active event.
+**Implemented in:** `src/Harness/Handlers/EventSkipHandler.cs`.
+**Tested in:** `tests/Harness.Tests/EventSkipHandlerTests.cs`.
+
 ### player.warp
 
 Queues a warp of the local farmer to `(x, y)` in the named location. First **state-mutator** RPC method. `params.location` is required (non-empty string); `params.x` and `params.y` are required integers.
