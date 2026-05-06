@@ -82,7 +82,7 @@ Environment knobs:
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
-- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `Npc(name)` / `Menu()` / `Mods()`
+- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `Npc(name)` / `Menu()` / `Event()` / `Mods()`
 - `Bitmap.Capture(region?)`
 - `Screenshot.Capture(name)`
 - `Wait.Ms(ms)`
@@ -103,6 +103,19 @@ Assert.NotEqual(0, location.MapWidth);
 var tile = await State.MapTile(layers: new[] { "Back" });
 Assert.Contains(tile.Layers, l => l.Name == "Back");
 ```
+
+JSON runner scenarios can observe cutscenes and other Stardew events with
+`state.event` and event waits:
+
+```json
+{ "action": "wait.event_active", "args": { "id": "520702", "timeout_ms": 10000 } },
+{ "action": "state.assert", "args": { "expr": "state.event.actors contains name 'Krobus'" } },
+{ "action": "screenshot.capture_next_frame", "args": { "name": "active-event" } },
+{ "action": "wait.event_complete", "args": { "id": "520702", "timeout_ms": 30000 } }
+```
+
+Use `screenshot.capture_next_frame` for active events because `freeze.begin`
+intentionally rejects cutscenes while `Game1.eventUp` is true.
 
 ## Error handling
 

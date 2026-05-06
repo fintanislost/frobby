@@ -320,7 +320,7 @@ Response (no menu active):
 `type` is the CLR class name of the menu (`ShopMenu`, `DialogueBox`, `GameMenu`, etc.). `extra` carries a small, menu-type-specific payload:
 
 - `ShopMenu`: `currency` (int as string; 0 = gold, 1 = star tokens, 2 = Qi coins), `item_count` (count of `forSale`).
-- `DialogueBox`: `character` (name of the speaker, or empty if narration-only).
+- `DialogueBox`: `character` (name of the speaker, or empty if narration-only), plus best-effort `dialogue_text` when readable from runtime menu fields.
 - Other menu types currently emit `extra: {}`; extend per scenario need.
 
 Nested menus (e.g. inventory inside a shop) are not exposed here — `Game1.activeClickableMenu` is the top-level only, per `.claude/rules/sdv-conventions.md`.
@@ -329,6 +329,62 @@ Nested menus (e.g. inventory inside a shop) are not exposed here — `Game1.acti
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StateMenuHandler.cs`
 **Tested in:** `tests/Protocol.Tests/MenuStateSerializationTests.cs` (DTO shape).
+
+### state.event
+
+Returns a best-effort snapshot of the active Stardew event/cutscene. It is inactive at the title screen, in normal gameplay, and after an event completes. `params` is not used.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 9, "method": "state.event" }
+```
+
+Inactive response:
+```json
+← { "jsonrpc": "2.0", "id": 9, "result": {
+      "active": false,
+      "event_up": false,
+      "location": "",
+      "id": "",
+      "is_festival": false,
+      "is_skippable": false,
+      "player_control_locked": false,
+      "actors": [],
+      "dialogue": null,
+      "viewport": null
+   } }
+```
+
+Active response:
+```json
+← { "jsonrpc": "2.0", "id": 9, "result": {
+      "active": true,
+      "event_up": true,
+      "location": "BusStop",
+      "id": "520702",
+      "is_festival": false,
+      "is_skippable": true,
+      "player_control_locked": true,
+      "actors": [
+        {
+          "name": "Krobus",
+          "tile": { "x": 16, "y": 23 },
+          "pixel": { "x": 1024, "y": 1472 },
+          "facing_direction": 3,
+          "current_frame": 0
+        }
+      ],
+      "dialogue": null,
+      "viewport": { "x": 896, "y": 1472, "width": 1280, "height": 720 }
+   } }
+```
+
+`id`, `is_festival`, `is_skippable`, actor list, and dialogue are best-effort fields read from runtime state through stable public fields when possible and reflection when needed. Missing Stardew fields are omitted or returned as default values rather than failing the RPC.
+
+**Preconditions:** none beyond the harness running. Safe outside a save; inactive responses use empty/default fields.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateEventHandler.cs` and `src/Harness/Handlers/EventStateProjector.cs`.
+**Tested in:** `tests/Harness.Tests/EventStateProjectorTests.cs`.
 
 ### player.warp
 
@@ -901,11 +957,18 @@ Runner scenario convenience:
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
+- `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,
 `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and
 `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
+
+`wait.event_active` and `wait.event_complete` accept `id`, `location`,
+`timeout_ms`, and `poll_ms`. Active-event screenshots should use live or
+next-frame capture because `freeze.begin` rejects cutscenes while `Game1.eventUp`
+is true.
 
 ### shop.open
 

@@ -94,6 +94,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   runner-side `wait.location` when testing custom mod locations, maps, and direct
   warp flows. These are neutral map introspection tools and should be preferred
   over hard-coded mod-specific helper scripts.
+- Use `state.event`, `wait.event_active`, and `wait.event_complete` for
+  cutscenes or other Stardew events. Active-event screenshots should use
+  `screenshot.capture_next_frame`; `freeze.begin` still rejects cutscenes.
 
 See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
 assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the
