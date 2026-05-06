@@ -29,6 +29,7 @@ Status key:
   - SVE pressure: CP `Load` and `Edit*` actions for maps, strings, data assets, portraits, sprites, recolors, and config-gated patches.
   - Frobby goal: inspect loaded asset names and selected asset metadata, prove expected CP assets are available, and verify map/texture assets without relying only on full screenshots.
   - Design spec: `docs/superpowers/specs/2026-05-06-sve-slice-3-runtime-content-assets-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-06-sve-slice-3-runtime-content-assets.md`.
   - First target: runtime `content.asset` query plus JSON scenario assertions for maps, data dictionaries, and textures.
 
 - [ ] Pending: Slice 4, NPC schedules, dialogue, and relationships.
