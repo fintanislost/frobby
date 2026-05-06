@@ -169,6 +169,14 @@ public sealed class ScenarioRunner
                     {
                         await InvokeWaitLocationAsync(step, ct);
                     }
+                    else if (step.Action == "wait.event_active")
+                    {
+                        await InvokeWaitEventActiveAsync(step, ct);
+                    }
+                    else if (step.Action == "wait.event_complete")
+                    {
+                        await InvokeWaitEventCompleteAsync(step, ct);
+                    }
                     else if (step.Action == "screenshot.capture")
                     {
                         await CaptureExplicitScreenshotAsync(
@@ -413,6 +421,84 @@ public sealed class ScenarioRunner
             $"wait.location timed out after {args.TimeoutMs}ms waiting for location {args.Location}{expectedTile}; " +
             $"last observed {last}");
     }
+
+    private async Task InvokeWaitEventActiveAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = ParseWaitEventArgs(step);
+        var elapsed = Stopwatch.StartNew();
+        EventState? lastObserved = null;
+
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            lastObserved = await ReadEventStateAsync(step.Action, ct);
+            if (lastObserved.Active
+                && (string.IsNullOrWhiteSpace(args.Id) || string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
+                && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)))
+            {
+                return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms; last observed {FormatEventState(lastObserved)}");
+    }
+
+    private async Task InvokeWaitEventCompleteAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = ParseWaitEventArgs(step);
+        var elapsed = Stopwatch.StartNew();
+        var sawRequestedId = string.IsNullOrWhiteSpace(args.Id);
+        EventState? lastObserved = null;
+
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            lastObserved = await ReadEventStateAsync(step.Action, ct);
+            if (!sawRequestedId
+                && lastObserved.Active
+                && string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
+            {
+                sawRequestedId = true;
+            }
+
+            if (sawRequestedId && !lastObserved.Active && !lastObserved.EventUp)
+                return;
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms; last observed {FormatEventState(lastObserved)}");
+    }
+
+    private async Task<EventState> ReadEventStateAsync(string action, CancellationToken ct)
+    {
+        var resp = await _session.InvokeAsync("state.event", params_: null, ct);
+        if (resp.Error is { } error)
+            throw new InvalidOperationException($"{action} failed during state.event: {error.Message}");
+        if (resp.Result is not { } result)
+            return new EventState();
+        return JsonSerializer.Deserialize<EventState>(result.GetRawText(), ProtocolJson.Options) ?? new EventState();
+    }
+
+    private static WaitEventStepArgs ParseWaitEventArgs(ScenarioStep step)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitEventStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new WaitEventStepArgs()
+            : new WaitEventStepArgs();
+
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+        return args;
+    }
+
+    private static string FormatEventState(EventState? state)
+        => state is null
+            ? "nothing"
+            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}'";
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
     {
@@ -742,6 +828,8 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
+            "wait.event_active" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"}",
+            "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -825,6 +913,8 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => false,
             "wait.location" => false,
+            "wait.event_active" => false,
+            "wait.event_complete" => false,
             "draw.arm" => false,
             "draw.disarm" => false,
             "state.assert" => false,
@@ -946,6 +1036,14 @@ public sealed class ScenarioRunner
         public int? X { get; set; }
         public int? Y { get; set; }
         public int TimeoutMs { get; set; } = 5000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class WaitEventStepArgs
+    {
+        public string? Id { get; set; }
+        public string? Location { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
 
