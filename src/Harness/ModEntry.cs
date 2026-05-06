@@ -84,6 +84,8 @@ public sealed class ModEntry : Mod
         _rpc.Register(ScenarioEndHandler.Method, p => ScenarioEndHandler.Handle(p));
         StateModsHandler.Registry = helper.ModRegistry;
         _rpc.Register(StateModsHandler.Method, p => StateModsHandler.Handle(p));
+        ContentAssetHandler.Loader = new Assets.SmapiContentAssetLoader(helper.GameContent);
+        _rpc.Register(ContentAssetHandler.Method, p => ContentAssetHandler.Handle(p));
         _rpc.Register(FixtureLoadHandler.Method, p => FixtureLoadHandler.Handle(p));
         _rpc.RegisterAsync(
             FixtureSaveHandler.Method,
@@ -165,7 +167,7 @@ public sealed class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
 
         this.Monitor.Log(
-            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.locations, state.map_tile, state.npc, state.menu, state.event, state.mods. Manipulators: player.warp, player.give_item, player.set_money, player.add_mail, event.start, event.skip, time.advance, time.set, time.next_day, shop.open, shop.purchase, world.set_weather, world.interact_npc, world.place_furniture, world.place_inventory_furniture, world.interact_tile, input.key, input.text, input.click, input.click_text, input.click_menu_button, input.hover, input.hover_text. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save, game.return_to_title. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture, bitmap.capture_next_frame. Diagnostic: diagnostic.build_texture_manifest.",
+            "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.locations, state.map_tile, state.npc, state.menu, state.event, state.mods. Content: content.asset. Manipulators: player.warp, player.give_item, player.set_money, player.add_mail, event.start, event.skip, time.advance, time.set, time.next_day, shop.open, shop.purchase, world.set_weather, world.interact_npc, world.place_furniture, world.place_inventory_furniture, world.interact_tile, input.key, input.text, input.click, input.click_text, input.click_menu_button, input.hover, input.hover_text. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save, game.return_to_title. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture, bitmap.capture_next_frame. Diagnostic: diagnostic.build_texture_manifest.",
             LogLevel.Info);
     }
 
