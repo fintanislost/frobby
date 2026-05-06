@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Xna.Framework.Graphics;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
+using StardewValley.GameData.Locations;
 using xTile;
 
 namespace SdvTestFramework.Harness.Assets;
@@ -81,6 +82,9 @@ public static class ContentAssetProjector
 
         if (loader.TryLoad<Dictionary<string, object>>(req.Name, out var objectDict) && objectDict is not null)
             return Found(req.Name, "data", objectDict.GetType(), SummarizeDictionary(objectDict, req));
+
+        if (loader.TryLoad<Dictionary<string, LocationData>>(req.Name, out var locationDict) && locationDict is not null)
+            return Found(req.Name, "data", locationDict.GetType(), SummarizeDictionary(locationDict, req));
 
         return null;
     }
@@ -194,11 +198,63 @@ public static class ContentAssetProjector
         var preview = text is null
             ? string.Empty
             : text.Length <= 160 ? text : text[..160];
-        return new JsonObject
+        var obj = new JsonObject
         {
             ["runtime_type"] = value.GetType().FullName ?? value.GetType().Name,
             ["string_preview"] = preview,
         };
+
+        foreach (var prop in value.GetType().GetProperties(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
+        {
+            if (prop.GetIndexParameters().Length != 0)
+                continue;
+
+            object? propValue;
+            try { propValue = prop.GetValue(value); }
+            catch { continue; }
+
+            if (IsScalar(propValue))
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
+        }
+
+        foreach (var field in value.GetType().GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public))
+        {
+            object? fieldValue;
+            try { fieldValue = field.GetValue(value); }
+            catch { continue; }
+
+            if (IsScalar(fieldValue))
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
+        }
+
+        return obj;
+    }
+
+    private static bool IsScalar(object? value)
+        => value is null or string or bool or int or long or float or double or decimal;
+
+    private static string ToSnakeCase(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return value;
+
+        var chars = new List<char>(value.Length + 8);
+        for (var i = 0; i < value.Length; i++)
+        {
+            var c = value[i];
+            if (char.IsUpper(c))
+            {
+                if (i > 0)
+                    chars.Add('_');
+                chars.Add(char.ToLowerInvariant(c));
+            }
+            else
+            {
+                chars.Add(c);
+            }
+        }
+
+        return new string(chars.ToArray());
     }
 
     private static ContentAssetResult Found(string name, string kind, Type runtimeType, JsonObject summary)

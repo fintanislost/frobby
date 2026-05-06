@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SdvTestFramework.Harness.Assets;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
+using StardewValley.GameData.Locations;
 using Xunit;
 
 namespace SdvTestFramework.Harness.Tests;
@@ -81,6 +82,30 @@ public class ContentAssetProjectorTests
         Assert.True(entries["Custom_TownEast"]!["exists"]!.GetValue<bool>());
         Assert.Equal("Town East payload", entries["Custom_TownEast"]!["value"]!.GetValue<string>());
         Assert.False(entries["Missing_Key"]!["exists"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesLocationDataScalarProperties()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/Locations", new Dictionary<string, LocationData>
+        {
+            ["Custom_TownEast"] = new() { DisplayName = "Town East", CanPlantHere = false },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Locations",
+            AssetType = "data",
+            EntryKeys = new[] { "Custom_TownEast" },
+        });
+
+        Assert.True(result.Exists);
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var entry = entries["Custom_TownEast"]!;
+        Assert.True(entry["exists"]!.GetValue<bool>());
+        Assert.Equal("Town East", entry["value"]!["display_name"]!.GetValue<string>());
+        Assert.False(entry["value"]!["can_plant_here"]!.GetValue<bool>());
     }
 
     [Fact]
