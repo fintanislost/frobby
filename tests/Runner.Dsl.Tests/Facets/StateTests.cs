@@ -122,4 +122,27 @@ public class StateTests
         }
         finally { SdvTestSession.ResetForTests(); }
     }
+
+    [Fact]
+    public async Task Event_InvokesStateEventAndDeserializes()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"active\":true,\"event_up\":true,\"location\":\"BusStop\",\"id\":\"520702\",\"is_festival\":false,\"is_skippable\":true,\"player_control_locked\":true,\"actors\":[{\"name\":\"Krobus\",\"tile\":{\"x\":16,\"y\":23},\"pixel\":{\"x\":1024,\"y\":1472},\"facing_direction\":3,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":896,\"y\":1472,\"width\":1280,\"height\":720}}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var state = await State.Event();
+
+            Assert.Equal("state.event", inv.LastMethod);
+            Assert.Null(inv.LastParams);
+            Assert.True(state.Active);
+            Assert.Equal("520702", state.Id);
+            Assert.Equal("Krobus", Assert.Single(state.Actors).Name);
+            Assert.Equal(1280, state.Viewport?.Width);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
 }

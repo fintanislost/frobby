@@ -76,6 +76,13 @@ public static class State
         return Deserialize<MenuState>(resp, "state.menu");
     }
 
+    public static async Task<EventState> Event(CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var resp = await s.InvokeAsync("state.event", null, ct);
+        return Deserialize<EventState>(resp, "state.event");
+    }
+
     public static async Task<ModsState> Mods(CancellationToken ct = default)
     {
         var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
