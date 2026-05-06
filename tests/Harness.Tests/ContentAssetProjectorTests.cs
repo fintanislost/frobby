@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using SdvTestFramework.Harness.Assets;
+using SdvTestFramework.Protocol;
+using SdvTestFramework.Protocol.Models;
+using Xunit;
+
+namespace SdvTestFramework.Harness.Tests;
+
+public class ContentAssetProjectorTests
+{
+    private sealed class FakeLoader : IContentAssetLoader
+    {
+        private readonly Dictionary<(Type Type, string Name), object> _assets = new();
+
+        public void Add<T>(string name, T asset) where T : notnull
+            => _assets[(typeof(T), name)] = asset;
+
+        public bool TryLoad<T>(string name, out T? asset) where T : notnull
+        {
+            if (_assets.TryGetValue((typeof(T), name), out var value))
+            {
+                asset = (T)value;
+                return true;
+            }
+            asset = default;
+            return false;
+        }
+    }
+
+    [Fact]
+    public void Project_RequiresName()
+    {
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ContentAssetProjector.Project(new FakeLoader(), new ContentAssetRequest()));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("name", ex.Message);
+    }
+
+    [Fact]
+    public void Project_RejectsExcessiveKeyLimit()
+    {
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ContentAssetProjector.Project(new FakeLoader(), new ContentAssetRequest
+            {
+                Name = "Data/Locations",
+                AssetType = "data",
+                KeysLimit = 501,
+            }));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("keys_limit", ex.Message);
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesKeysAndSelectedEntries()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/Locations", new Dictionary<string, string>
+        {
+            ["Custom_TownEast"] = "Town East payload",
+            ["Custom_GrandpasShed"] = "Shed payload",
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Locations",
+            AssetType = "data",
+            IncludeKeys = true,
+            KeysLimit = 10,
+            EntryKeys = new[] { "Custom_TownEast", "Missing_Key" },
+        });
+
+        Assert.True(result.Exists);
+        Assert.Equal("data", result.Kind);
+        Assert.Equal(2, result.Summary["count"]!.GetValue<int>());
+        var keys = Assert.IsType<System.Text.Json.Nodes.JsonArray>(result.Summary["keys"]);
+        Assert.Contains(keys, node => node?.GetValue<string>() == "Custom_TownEast");
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        Assert.True(entries["Custom_TownEast"]!["exists"]!.GetValue<bool>());
+        Assert.Equal("Town East payload", entries["Custom_TownEast"]!["value"]!.GetValue<string>());
+        Assert.False(entries["Missing_Key"]!["exists"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Project_MissingAsset_ReturnsMissingResult()
+    {
+        var result = ContentAssetProjector.Project(new FakeLoader(), new ContentAssetRequest
+        {
+            Name = "Maps/Missing",
+            AssetType = "map",
+        });
+
+        Assert.False(result.Exists);
+        Assert.Equal("missing", result.Kind);
+        Assert.Equal("Maps/Missing", result.Name);
+    }
+}
