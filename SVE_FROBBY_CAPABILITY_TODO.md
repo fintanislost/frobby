@@ -37,7 +37,8 @@ Status key:
   - SVE pressure: many custom NPCs, custom homes, schedules, movie-theater strings, relationship-gated content, and post-event dialogue patches.
   - Frobby goal: set relationship and mail state, locate NPCs, move time/date, interact with NPCs, and assert speaker/text/location state.
   - Design spec: `docs/superpowers/specs/2026-05-06-sve-slice-4-npc-schedules-dialogue-relationships-design.md`.
-  - First target: `state.npcs`, expanded `state.npc`, `player.set_friendship`, runner-side `wait.npc_location`, and SVE scenario 05 against Sophia.
+  - Implementation plan: `docs/superpowers/plans/2026-05-06-sve-slice-4-npc-schedules-dialogue-relationships.md`.
+  - First target: `state.npcs`, expanded `state.npc`, `player.set_friendship`, parameterized `state.assert`, runner-side `wait.npc_location`, and SVE scenario 05 against Sophia.
 
 - [ ] Pending: Slice 5, Farm Type Manager spawn and conditional world content.
   - SVE pressure: FTM pack content, conditional forage/monster spawns, location-specific spawn rules, config/mail-gated difficulty variants.
