@@ -33,12 +33,12 @@ Status key:
   - Done: runtime `content.asset` query plus JSON scenario assertions for maps, textures, strings, bounded data dictionaries, and selected nested data objects.
   - Verified: SVE scenario 04 (`tests/sdv/04-sve-content-assets-runtime.test.json`) validates CP-loaded maps and `Data/Locations` runtime metadata under headless execution.
 
-- [ ] Planning: Slice 4, NPC schedules, dialogue, and relationships.
+- [x] Done: Slice 4, NPC schedules, dialogue, and relationships.
   - SVE pressure: many custom NPCs, custom homes, schedules, movie-theater strings, relationship-gated content, and post-event dialogue patches.
   - Frobby goal: set relationship and mail state, locate NPCs, move time/date, interact with NPCs, and assert speaker/text/location state.
   - Design spec: `docs/superpowers/specs/2026-05-06-sve-slice-4-npc-schedules-dialogue-relationships-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-06-sve-slice-4-npc-schedules-dialogue-relationships.md`.
-  - Active target: `state.npcs`, expanded `state.npc`, `player.set_friendship`, parameterized `state.assert`, runner-side `wait.npc_location`, and SVE scenario 05 against Sophia.
+  - Done: `state.npcs`, expanded `state.npc`, `player.set_friendship`, `world.warp_npc`, parameterized `state.assert`, runner-side `wait.npc_location`, readable `state.menu` dialogue text, active-menu-safe next-frame screenshots, and SVE scenario 05 against Sophia.
 
 - [ ] Pending: Slice 5, Farm Type Manager spawn and conditional world content.
   - SVE pressure: FTM pack content, conditional forage/monster spawns, location-specific spawn rules, config/mail-gated difficulty variants.

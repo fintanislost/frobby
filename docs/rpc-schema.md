@@ -395,7 +395,7 @@ Nested menus (e.g. inventory inside a shop) are not exposed here — `Game1.acti
 **Preconditions:** none beyond the harness being running. Safe on the title screen (returns `present:false`).
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StateMenuHandler.cs`
-**Tested in:** `tests/Protocol.Tests/MenuStateSerializationTests.cs` (DTO shape).
+**Tested in:** `tests/Protocol.Tests/MenuStateSerializationTests.cs` (DTO shape) and `tests/Harness.Tests/StateMenuHandlerTests.cs`.
 
 ### state.event
 
@@ -671,6 +671,35 @@ friendship values or remain at Stardew defaults for a new entry.
 **Side effects:** creates or updates `Game1.MasterPlayer.friendshipData[npc]`.
 **Implemented in:** `src/Harness/Handlers/PlayerSetFriendshipHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerSetFriendshipHandlerTests.cs` and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
+
+### world.warp_npc
+
+Places a loaded vanilla or custom NPC at a named location/tile. This is a neutral
+setup mutator for scenarios where direct clock writes or fixture state leave an
+NPC in a non-interactable schedule position, but the test needs to exercise
+normal interaction paths such as `world.interact_npc`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "world.warp_npc",
+     "params": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 15, "result": { "ok": true, "tick": 84206 } }
+```
+
+Response (missing NPC name — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "params.name must be non-empty" } }
+```
+
+**Preconditions:** world loaded; the named NPC and target location must exist.
+**Side effects:** moves the NPC to the requested location/tile through Stardew's
+character-warp API.
+**Implemented in:** `src/Harness/Handlers/WorldWarpNpcHandler.cs`
+**Tested in:** `tests/Protocol.Tests/WarpNpcRequestSerializationTests.cs` and `tests/Harness.Tests/WorldWarpNpcHandlerTests.cs`.
 
 ### time.advance
 
@@ -1114,8 +1143,8 @@ Runner scenario convenience:
 - `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
-- `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "state.assert", "args": { "params": { "name": "Sophia" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
@@ -1573,8 +1602,12 @@ Pure query — returns the current FREEZE state without mutating anything.
 **Response:**
 
 ```json
-{"frozen": true, "is_warping": false, "tick": 8421}
+{"frozen": true, "is_warping": false, "is_fading": false, "tick": 8421}
 ```
+
+`is_fading` tracks Stardew's global fade/fade-to-black transition state. Runner
+wait helpers use `is_warping` and `is_fading` together so scenarios do not
+continue while a warp has changed state but the screen is still visually black.
 
 ## `bitmap.capture`
 
@@ -1616,9 +1649,10 @@ Capture the current backbuffer as a PNG. FREEZE-phase only unless
 
 ## `bitmap.capture_next_frame`
 
-Queue a bitmap capture and complete it from the next SMAPI `Display.Rendered` event.
-Use this after a state-changing input RPC when immediate backbuffer capture might race
-the render that reflects the new UI state.
+Queue a bitmap capture after the next render pass and complete it on the following
+update tick. Use this after a state-changing input RPC when immediate backbuffer
+capture might race the render that reflects the new UI state, including active
+menus and dialogue boxes.
 
 The written PNG and response shape are identical to `bitmap.capture`; the capture
 callback uses the same `allow_unfrozen` and `region` params at render time.
@@ -1633,7 +1667,7 @@ callback uses the same `allow_unfrozen` and `region` params at render time.
 { "allow_unfrozen": false, "timeout_ms": 2000, "region": { "x": 0, "y": 0, "w": 640, "h": 480 } }
 ```
 - `timeout_ms` — optional int, default `2000`, must be `>= 1`. The request fails if
-  no render event arrives before the timeout.
+  no render/update cycle arrives before the timeout.
 - `allow_unfrozen` and `region` match `bitmap.capture`.
 
 **Response:** same as `bitmap.capture`.
@@ -1811,8 +1845,10 @@ On Ctrl-C (in an interactive terminal), the recorder writes `tests/samples/<name
 ### `world.interact_npc`
 
 Trigger an interaction with an NPC by name. Mirrors what SDV does when the player presses
-action while facing the NPC at conversation distance — calls `NPC.checkAction(player, location)`
-directly. The NPC must be in the player's current location; otherwise returns
+action while facing the NPC at conversation distance by calling `NPC.checkAction(player, location)`.
+If that call does not open a renderable menu and the target NPC can talk, Frobby
+refreshes the NPC's current dialogue and falls back to Stardew's dialogue opener
+for that NPC. The NPC must be in the player's current location; otherwise returns
 `GameStateInvalid`.
 
 **Params:** `{name: string}` — NPC name (e.g. `"Pierre"`, `"Abigail"`).

@@ -23,13 +23,18 @@ public static class FixtureLoadHandler
 {
     public const string Method = "fixture.load";
 
+    private static readonly IFixtureLoadWorld ProductionWorld = new SdvFixtureLoadWorld();
+
     public static JsonElement Handle(JsonElement? paramsElement)
+        => Handle(paramsElement, ProductionWorld);
+
+    internal static JsonElement Handle(JsonElement? paramsElement, IFixtureLoadWorld world)
     {
         var req = RpcParams.Required<FixtureLoadRequest>(paramsElement);
         if (string.IsNullOrEmpty(req.Name))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.name required");
 
-        if (Context.IsWorldReady)
+        if (world.IsWorldReady)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "already in a save — return to title first");
 
@@ -37,14 +42,43 @@ public static class FixtureLoadHandler
         // enumerator doesn't fail until a later tick tries to read the file, which would
         // leave the runner polling for world-ready until timeout. Folder-only check is
         // sufficient: SDV will error later if the inner file is missing.
-        var saveFolder = Path.Combine(Constants.SavesPath, req.Name);
-        if (!Directory.Exists(saveFolder))
+        var saveFolder = world.SavePath(req.Name);
+        if (!world.SaveExists(req.Name))
             throw new JsonRpcException(JsonRpcErrorCode.FixtureLoadFailed,
                 $"no save named '{req.Name}' (looked in {saveFolder})");
 
-        Game1.currentLoader = SaveGame.getLoadEnumerator(req.Name);
-        Game1.gameMode = 6;
+        world.ClearActiveMenu();
+        world.QueueLoad(req.Name);
 
-        return ProtocolJson.ToElement(new MutatorOk { Tick = Game1.ticks });
+        return ProtocolJson.ToElement(new MutatorOk { Tick = world.Tick });
+    }
+}
+
+internal interface IFixtureLoadWorld
+{
+    bool IsWorldReady { get; }
+    int Tick { get; }
+    bool SaveExists(string name);
+    string SavePath(string name);
+    void ClearActiveMenu();
+    void QueueLoad(string name);
+}
+
+internal sealed class SdvFixtureLoadWorld : IFixtureLoadWorld
+{
+    public bool IsWorldReady => Context.IsWorldReady;
+    public int Tick => Game1.ticks;
+    public bool SaveExists(string name) => Directory.Exists(SavePath(name));
+    public string SavePath(string name) => Path.Combine(Constants.SavesPath, name);
+
+    public void ClearActiveMenu()
+    {
+        Game1.activeClickableMenu = null;
+    }
+
+    public void QueueLoad(string name)
+    {
+        Game1.currentLoader = SaveGame.getLoadEnumerator(name);
+        Game1.gameMode = 6;
     }
 }

@@ -373,10 +373,21 @@ public sealed class ScenarioRunner
         if (!status.TryGetProperty("is_warping", out var isWarping)
             || (isWarping.ValueKind != JsonValueKind.True && isWarping.ValueKind != JsonValueKind.False))
         {
+            return IsFadeSettled(status);
+        }
+
+        return !isWarping.GetBoolean() && IsFadeSettled(status);
+    }
+
+    private static bool IsFadeSettled(JsonElement status)
+    {
+        if (!status.TryGetProperty("is_fading", out var isFading)
+            || (isFading.ValueKind != JsonValueKind.True && isFading.ValueKind != JsonValueKind.False))
+        {
             return true;
         }
 
-        return !isWarping.GetBoolean();
+        return !isFading.GetBoolean();
     }
 
     private async Task InvokeWaitLocationAsync(ScenarioStep step, CancellationToken ct)
@@ -407,7 +418,8 @@ public sealed class ScenarioRunner
             if (lastObserved is not null
                 && string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)
                 && (args.X is null || args.X == lastObserved.Tile.X)
-                && (args.Y is null || args.Y == lastObserved.Tile.Y))
+                && (args.Y is null || args.Y == lastObserved.Tile.Y)
+                && await IsWarpSettledAsync(ct))
             {
                 return;
             }
@@ -457,7 +469,8 @@ public sealed class ScenarioRunner
             if (lastObserved is not null
                 && string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)
                 && (args.X is null || args.X == lastObserved.Tile.X)
-                && (args.Y is null || args.Y == lastObserved.Tile.Y))
+                && (args.Y is null || args.Y == lastObserved.Tile.Y)
+                && await IsWarpSettledAsync(ct))
             {
                 return;
             }

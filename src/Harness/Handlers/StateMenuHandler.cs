@@ -78,7 +78,11 @@ public static class StateMenuHandler
         if (menu is null)
             return null;
 
+        var dialogue = ReadMember(menu, "characterDialogue");
         var text = ReadFirstString(menu, "dialogue", "currentDialogue", "message", "text", "question");
+        if (string.IsNullOrWhiteSpace(text) && dialogue is not null)
+            text = ReadDialogueText(dialogue);
+
         var speaker = ReadNestedSpeaker(menu);
         if (string.IsNullOrWhiteSpace(text) && string.IsNullOrWhiteSpace(speaker))
             return null;
@@ -128,6 +132,13 @@ public static class StateMenuHandler
         var dialogue = ReadMember(source, "characterDialogue");
         var speaker = dialogue is null ? null : ReadMember(dialogue, "speaker");
         return speaker is null ? string.Empty : ReadFirstString(speaker, "Name", "name", "displayName");
+    }
+
+    private static string ReadDialogueText(object dialogue)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = dialogue.GetType().GetMethod("getCurrentDialogue", flags, Type.EmptyTypes);
+        return method?.Invoke(dialogue, null) as string ?? string.Empty;
     }
 
     private static object? ReadMember(object source, string name)

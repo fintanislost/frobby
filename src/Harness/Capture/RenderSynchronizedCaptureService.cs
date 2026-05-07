@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Protocol.Models;
@@ -29,17 +30,33 @@ public sealed class RenderSynchronizedCaptureService
         return pending.Task;
     }
 
-    public void OnRendered()
+    public void OnRendered(bool activeMenuVisible = false)
+        => this.MarkPendingReady();
+
+    public void OnRenderedActiveMenu()
+        => this.MarkPendingReady();
+
+    public void OnUpdateTicked()
     {
         PendingCapture[] captures;
         lock (_gate)
         {
-            captures = _pending.ToArray();
-            _pending.Clear();
+            captures = _pending.Where(p => p.Ready).ToArray();
+            foreach (var pending in captures)
+                _pending.Remove(pending);
         }
 
         foreach (var pending in captures)
             pending.Complete();
+    }
+
+    private void MarkPendingReady()
+    {
+        lock (_gate)
+        {
+            foreach (var pending in _pending)
+                pending.MarkReady();
+        }
     }
 
     private void Remove(PendingCapture pending)
@@ -57,6 +74,7 @@ public sealed class RenderSynchronizedCaptureService
         private readonly CancellationTokenRegistration _cancelRegistration;
         private readonly Timer _timer;
         private int _completed;
+        private int _ready;
 
         public PendingCapture(
             Func<BitmapCaptureResult> capture,
@@ -77,6 +95,9 @@ public sealed class RenderSynchronizedCaptureService
 
         public Task<BitmapCaptureResult> Task => _tcs.Task;
         public bool IsCompleted => _completed != 0;
+        public bool Ready => _ready != 0;
+
+        public void MarkReady() => Interlocked.Exchange(ref _ready, 1);
 
         public void Complete()
         {

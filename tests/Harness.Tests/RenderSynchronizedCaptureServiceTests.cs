@@ -10,17 +10,33 @@ namespace SdvTestFramework.Harness.Tests;
 public class RenderSynchronizedCaptureServiceTests
 {
     [Fact]
-    public async Task RequestAsync_CompletesOnRendered()
+    public async Task RequestAsync_CompletesOnUpdateAfterRenderedWhenNoActiveMenu()
     {
         var service = new RenderSynchronizedCaptureService();
-        var task = service.RequestAsync(
-            () => new BitmapCaptureResult { Path = "/tmp/capture.png", Width = 1280, Height = 720 },
-            TimeSpan.FromSeconds(1),
-            CancellationToken.None);
+        var task = service.RequestAsync(Result, TimeSpan.FromSeconds(5), CancellationToken.None);
 
+        service.OnRendered(activeMenuVisible: false);
         Assert.False(task.IsCompleted);
 
-        service.OnRendered();
+        service.OnUpdateTicked();
+
+        var result = await task;
+        Assert.Equal("/tmp/capture.png", result.Path);
+    }
+
+    [Fact]
+    public async Task RequestAsync_WaitsForUpdateAfterRenderedActiveMenuWhenMenuVisible()
+    {
+        var service = new RenderSynchronizedCaptureService();
+        var task = service.RequestAsync(Result, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        service.OnRendered(activeMenuVisible: true);
+        Assert.False(task.IsCompleted);
+
+        service.OnRenderedActiveMenu();
+        Assert.False(task.IsCompleted);
+
+        service.OnUpdateTicked();
 
         var result = await task;
         Assert.Equal("/tmp/capture.png", result.Path);
@@ -45,10 +61,11 @@ public class RenderSynchronizedCaptureServiceTests
         var service = new RenderSynchronizedCaptureService();
         var task = service.RequestAsync(
             () => throw new InvalidOperationException("capture failed"),
-            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         service.OnRendered();
+        service.OnUpdateTicked();
 
         var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await task);
         Assert.Equal("capture failed", ex.Message);
@@ -72,7 +89,16 @@ public class RenderSynchronizedCaptureServiceTests
         await Assert.ThrowsAsync<TimeoutException>(async () => await task);
 
         service.OnRendered();
+        service.OnUpdateTicked();
 
         Assert.Equal(0, captures);
     }
+
+    private static BitmapCaptureResult Result()
+        => new()
+        {
+            Path = "/tmp/capture.png",
+            Width = 1280,
+            Height = 720,
+        };
 }

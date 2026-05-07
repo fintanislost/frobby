@@ -124,6 +124,7 @@ parameterized `state.assert` calls and runner-side NPC waits:
 
 ```json
 { "action": "player.set_friendship", "args": { "npc": "Sophia", "points": 1000 } },
+{ "action": "world.warp_npc", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } },
 { "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "timeout_ms": 10000 } },
 { "action": "state.assert", "args": {
   "params": { "name": "Sophia" },
@@ -134,7 +135,10 @@ parameterized `state.assert` calls and runner-side NPC waits:
 
 Use `state.npcs` for discovery/count checks and `state.npc` when a scenario needs
 a focused assertion for one NPC. These primitives are mod-neutral; the same shape
-works for vanilla villagers and Content Patcher-added NPCs.
+works for vanilla villagers and Content Patcher-added NPCs. `wait.location` and
+`wait.npc_location` wait for SDV warp/fade transitions to settle before they
+return, which keeps follow-up assertions and screenshots out of black transition
+frames.
 
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,

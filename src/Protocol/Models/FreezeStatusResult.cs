@@ -5,5 +5,6 @@ public sealed class FreezeStatusResult
 {
     public bool Frozen { get; set; }
     public bool IsWarping { get; set; }
+    public bool IsFading { get; set; }
     public int Tick { get; set; }
 }

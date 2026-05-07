@@ -21,6 +21,7 @@ public class FreezeStatusHandlerTests
         var result = FreezeStatusHandler.Handle(null);
         Assert.False(result.GetProperty("frozen").GetBoolean());
         Assert.False(result.GetProperty("is_warping").GetBoolean());
+        Assert.False(result.GetProperty("is_fading").GetBoolean());
     }
 
     [Fact]

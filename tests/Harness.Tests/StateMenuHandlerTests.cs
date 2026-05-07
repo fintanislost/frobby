@@ -47,6 +47,16 @@ public class StateMenuHandlerTests
         Assert.Equal("Welcome to the grove.", projected.Text);
     }
 
+    [Fact]
+    public void TryProjectDialogue_ReadsCurrentDialogueMethod()
+    {
+        var projected = StateMenuHandler.TryProjectDialogue(new FakeStardewDialogueMenu());
+
+        Assert.NotNull(projected);
+        Assert.Equal("Camilla", projected!.Speaker);
+        Assert.Equal("The vineyard is quiet this morning.", projected.Text);
+    }
+
     private sealed class FakeTerminalMenu
     {
         private readonly object _currentPanel;
@@ -77,9 +87,21 @@ public class StateMenuHandlerTests
         public string dialogue = "Welcome to the grove.";
     }
 
+    private sealed class FakeStardewDialogueMenu
+    {
+        public object characterDialogue = new FakeCharacterDialogueWithText();
+    }
+
     private sealed class FakeCharacterDialogue
     {
         public FakeSpeaker speaker = new();
+    }
+
+    private sealed class FakeCharacterDialogueWithText
+    {
+        public FakeSpeaker speaker = new();
+
+        public string getCurrentDialogue() => "The vineyard is quiet this morning.";
     }
 
     private sealed class FakeSpeaker
