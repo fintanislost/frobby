@@ -50,21 +50,23 @@ public class LocationContentProjectorTests
         var monster = new GreenSlime
         {
             tile = new Vector2(44, 31),
-            Name = "Green Slime",
-            Health = 50,
-            MaxHealth = 50,
-            DamageToFarmer = 10,
+            Name = "Mummy",
+            Health = 2000,
+            MaxHealth = 2000,
+            DamageToFarmer = 100,
+            Sprite = new FakeAnimatedSprite { textureName = "Characters\\Monsters\\CorruptMummy" },
         };
 
         var summary = LocationContentProjector.ProjectMonsterForTests(monster);
 
         Assert.Equal(44, summary.Tile.X);
         Assert.Equal(31, summary.Tile.Y);
-        Assert.Equal("Green Slime", summary.Name);
+        Assert.Equal("Mummy", summary.Name);
         Assert.Equal("GreenSlime", summary.Type);
-        Assert.Equal(50, summary.Health);
-        Assert.Equal(50, summary.MaxHealth);
-        Assert.Equal(10, summary.Damage);
+        Assert.Equal(2000, summary.Health);
+        Assert.Equal(2000, summary.MaxHealth);
+        Assert.Equal(100, summary.Damage);
+        Assert.Equal("Characters/Monsters/CorruptMummy", summary.SpriteTexture);
     }
 
     [Fact]
@@ -99,5 +101,11 @@ public class LocationContentProjectorTests
         public int Health;
         public int MaxHealth;
         public int DamageToFarmer;
+        public FakeAnimatedSprite? Sprite;
+    }
+
+    private sealed class FakeAnimatedSprite
+    {
+        public string textureName = string.Empty;
     }
 }

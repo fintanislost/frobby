@@ -72,6 +72,7 @@ internal static class LocationContentProjector
             Health = ReadInt(monster, "Health", "health"),
             MaxHealth = ReadInt(monster, "MaxHealth", "maxHealth"),
             Damage = ReadInt(monster, "DamageToFarmer", "damageToFarmer", "damage"),
+            SpriteTexture = NormalizeAssetName(ReadSpriteTexture(monster)),
         };
     }
 
@@ -86,6 +87,26 @@ internal static class LocationContentProjector
             "668" or "670" or "845" or "846" or "847" => "Mine Rock",
             _ => $"ResourceClump {id}",
         };
+
+    private static string? ReadSpriteTexture(object monster)
+    {
+        var direct = ReadString(monster, "spriteTexture", "SpriteTexture", "textureName", "TextureName");
+        if (!string.IsNullOrWhiteSpace(direct))
+            return direct;
+
+        var sprite = ReadMemberRaw(monster, "Sprite", "sprite", "AnimatedSprite", "animatedSprite");
+        return sprite is null
+            ? null
+            : ReadString(sprite, "textureName", "TextureName");
+    }
+
+    private static string? NormalizeAssetName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return value.Replace('\\', '/');
+    }
 
     private static Vector2? ReadVector2(object instance, params string[] names)
     {
