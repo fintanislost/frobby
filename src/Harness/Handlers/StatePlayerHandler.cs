@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using System.Collections.Generic;
 using System.Linq;
@@ -122,8 +123,15 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
         }
     }
 
-    private static string StripQualifiedPrefix(string value)
-        => value.Length > 3 && value[0] == '(' && value[2] == ')'
-            ? value[3..]
-            : value;
+    internal static string StripQualifiedPrefix(string value)
+    {
+        if (value.Length > 0 && value[0] == '(')
+        {
+            var close = value.IndexOf(')', StringComparison.Ordinal);
+            if (close >= 0 && close + 1 < value.Length)
+                return value[(close + 1)..];
+        }
+
+        return value;
+    }
 }

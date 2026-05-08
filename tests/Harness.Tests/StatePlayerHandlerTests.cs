@@ -32,6 +32,12 @@ public class StatePlayerHandlerTests
             });
     }
 
+    [Fact]
+    public void StripQualifiedPrefix_HandlesMultiCharacterQualifier()
+    {
+        Assert.Equal("custom_big_craftable", SdvPlayerStateWorld.StripQualifiedPrefix("(BC)custom_big_craftable"));
+    }
+
     private sealed class FakePlayerStateWorld : IPlayerStateWorld
     {
         public string Name => "Tester";
