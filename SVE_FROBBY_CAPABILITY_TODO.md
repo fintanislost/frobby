@@ -55,7 +55,8 @@ Status key:
   - Frobby goal: give/assert qualified item ids, inspect inventory and shops, trigger reward flows, and validate item icons/sprites when needed.
   - Done: `state.shop`, raw/qualified shop purchase matching, enriched `state.player.items`, and SVE scenario 08 against a custom vendor.
 
-- [ ] Pending: Slice 7, sprites, temporary animations, lighting, and weather-like visual effects.
+- [ ] Planning: Slice 7, sprites, temporary animations, lighting, and weather-like visual effects.
+  - Design spec: `docs/superpowers/specs/2026-05-08-sve-slice-7-visual-effects-design.md`.
   - SVE pressure: temporary animated sprites, custom cauldron effects, map lighting changes, recolors, mist effects, and location-specific ambience.
   - Frobby goal: expose enough render/state metadata to assert animated sprites and lighting effects without brittle whole-screen diffs.
 
