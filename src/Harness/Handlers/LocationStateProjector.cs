@@ -38,6 +38,9 @@ internal static class LocationStateProjector
 
         foreach (var npc in loc.characters)
         {
+            if (LocationContentProjector.IsMonster(npc))
+                continue;
+
             state.Npcs.Add(new NpcSummary
             {
                 Name = npc.Name ?? string.Empty,
@@ -51,6 +54,11 @@ internal static class LocationStateProjector
             {
                 Tile = new TilePoint { X = (int)kv.Key.X, Y = (int)kv.Key.Y },
                 Name = kv.Value.Name ?? kv.Value.GetType().Name,
+                Id = kv.Value.ItemId ?? string.Empty,
+                QualifiedId = kv.Value.QualifiedItemId ?? string.Empty,
+                Category = kv.Value.Category,
+                Stack = kv.Value.Stack,
+                Quality = kv.Value.Quality,
             });
         }
 
@@ -76,6 +84,9 @@ internal static class LocationStateProjector
                 Kind = kv.Value.GetType().Name,
             });
         }
+
+        state.ResourceClumps.AddRange(LocationContentProjector.ProjectResourceClumps(loc));
+        state.Monsters.AddRange(LocationContentProjector.ProjectMonsters(loc));
 
         return state;
     }
