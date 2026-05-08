@@ -200,4 +200,26 @@ public class StateTests
         }
         finally { SdvTestSession.ResetForTests(); }
     }
+
+    [Fact]
+    public async Task Shop_InvokesStateShopAndDeserializes()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"present\":true,\"menu_type\":\"ShopMenu\",\"shop_id\":\"FlashShifter.StardewValleyExpandedCP_CamillaVendor\",\"currency\":0,\"items\":[{\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\",\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\",\"display_name\":\"Gravity Elixir\",\"price\":4000,\"stock\":5,\"category\":0,\"quality\":0,\"runtime_type\":\"Object\"}]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var shop = await State.Shop();
+
+            Assert.Equal("state.shop", inv.LastMethod);
+            Assert.Null(inv.LastParams);
+            Assert.True(shop.Present);
+            Assert.Equal("FlashShifter.StardewValleyExpandedCP_CamillaVendor", shop.ShopId);
+            Assert.Equal("FlashShifter.StardewValleyExpandedCP_Gravity_Elixir", Assert.Single(shop.Items).ItemId);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
 }

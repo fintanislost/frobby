@@ -114,6 +114,13 @@ public static class State
         return Deserialize<MenuState>(resp, "state.menu");
     }
 
+    public static async Task<ShopState> Shop(CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var resp = await s.InvokeAsync("state.shop", null, ct);
+        return Deserialize<ShopState>(resp, "state.shop");
+    }
+
     public static async Task<EventState> Event(CancellationToken ct = default)
     {
         var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
