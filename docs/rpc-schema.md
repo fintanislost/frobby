@@ -261,8 +261,10 @@ Response (success):
    } }
 ```
 
-If no location is loaded or the named location cannot be found, the result uses
-an empty `location` with empty `temporary_sprites` and `light_sources`.
+If no current location is loaded, the result uses an empty `location` with empty
+`temporary_sprites`. If a named location cannot be found, the response preserves
+the requested `location` and returns empty `temporary_sprites`. Ambient light,
+global light sources, and best-effort weather debris counts are still reported.
 `texture_asset` is omitted when Stardew exposes a sprite texture object without a
 stable asset name.
 
