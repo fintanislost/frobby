@@ -88,6 +88,23 @@ public class ShopPurchaseHandlerTests
         Assert.Equal(30000, purchase.PreviousMoney);
         Assert.Equal(5000, purchase.Money);
         Assert.Equal("(F)terminal", world.PurchasedItemId);
+        Assert.Equal("(F)terminal", world.PurchasedQualifiedId);
+        Assert.Equal(1, world.PurchasedCount);
+    }
+
+    [Fact]
+    public void Handle_PurchasesMatchingRawItemId()
+    {
+        var world = new FakeShopPurchaseWorld();
+        var p = JsonDocument.Parse("{\"item_id\":\"terminal\",\"count\":1}").RootElement;
+
+        var result = ShopPurchaseHandler.Handle(p, world);
+        var purchase = JsonSerializer.Deserialize<ShopPurchaseResult>(result, ProtocolJson.Options)!;
+
+        Assert.True(purchase.Ok);
+        Assert.Equal("(F)terminal", purchase.ItemId);
+        Assert.Equal("terminal", world.PurchasedRawItemId);
+        Assert.Equal("(F)terminal", world.PurchasedQualifiedId);
         Assert.Equal(1, world.PurchasedCount);
     }
 
@@ -98,12 +115,16 @@ public class ShopPurchaseHandlerTests
         public int Money { get; private set; } = 30000;
         public bool PurchaseSucceeds { get; init; } = true;
         public string? PurchasedItemId { get; private set; }
+        public string? PurchasedRawItemId { get; private set; }
+        public string? PurchasedQualifiedId { get; private set; }
         public int PurchasedCount { get; private set; }
         public IShopMenuState? ActiveShop { get; init; } = new FakeShop();
 
         public bool Purchase(IShopItem item, int count)
         {
-            PurchasedItemId = item.ItemId;
+            PurchasedItemId = item.QualifiedId;
+            PurchasedRawItemId = item.ItemId;
+            PurchasedQualifiedId = item.QualifiedId;
             PurchasedCount = count;
             if (!PurchaseSucceeds)
                 return false;
@@ -115,11 +136,13 @@ public class ShopPurchaseHandlerTests
 
     private sealed class FakeShop : IShopMenuState
     {
+        public string MenuType => "ShopMenu";
         public string ShopId => "Carpenter";
+        public int Currency => 0;
         public IReadOnlyList<IShopItem> Items { get; } = new[]
         {
-            new ShopItem("(F)terminal", "Terminal", 25000),
-            new ShopItem("(O)388", "Wood", 10),
+            new ShopItem("terminal", "(F)terminal", "Terminal", 25000, 1, -9, 0, "Furniture"),
+            new ShopItem("388", "(O)388", "Wood", 10, null, -16, 0, "Object"),
         };
     }
 }

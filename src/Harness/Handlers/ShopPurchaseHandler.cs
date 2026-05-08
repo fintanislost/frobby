@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
@@ -37,7 +35,7 @@ public static class ShopPurchaseHandler
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "shop.purchase requires an active ShopMenu");
 
-        var item = shop.Items.FirstOrDefault(i => string.Equals(i.ItemId, req.ItemId, System.StringComparison.Ordinal))
+        var item = shop.Items.FirstOrDefault(i => ShopStateProjector.MatchesRequestedItem(i, req.ItemId))
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 $"shop.purchase item not found: {req.ItemId}");
 
@@ -50,7 +48,7 @@ public static class ShopPurchaseHandler
         {
             Tick = world.Tick,
             ShopId = shop.ShopId,
-            ItemId = item.ItemId,
+            ItemId = item.QualifiedId,
             DisplayName = item.DisplayName,
             Count = req.Count,
             UnitPrice = item.UnitPrice,
@@ -68,21 +66,6 @@ internal interface IShopPurchaseWorld
     IShopMenuState? ActiveShop { get; }
     bool Purchase(IShopItem item, int count);
 }
-
-internal interface IShopMenuState
-{
-    string ShopId { get; }
-    IReadOnlyList<IShopItem> Items { get; }
-}
-
-internal interface IShopItem
-{
-    string ItemId { get; }
-    string DisplayName { get; }
-    int UnitPrice { get; }
-}
-
-internal sealed record ShopItem(string ItemId, string DisplayName, int UnitPrice) : IShopItem;
 
 internal sealed class SdvShopPurchaseWorld : IShopPurchaseWorld
 {
@@ -112,42 +95,4 @@ internal sealed class SdvShopPurchaseWorld : IShopPurchaseWorld
         sdvItem.Salable.actionWhenPurchased(sdvItem.Shop.ShopId);
         return true;
     }
-}
-
-internal sealed class SdvShopMenuState : IShopMenuState
-{
-    private readonly ShopMenu _shop;
-
-    public SdvShopMenuState(ShopMenu shop)
-    {
-        _shop = shop;
-    }
-
-    public string ShopId => _shop.ShopId;
-
-    public IReadOnlyList<IShopItem> Items => _shop.forSale
-        .Select(item =>
-        {
-            var price = _shop.itemPriceAndStock.TryGetValue(item, out var stock)
-                ? stock.Price
-                : item.salePrice();
-            return new SdvShopItem(_shop, item, price);
-        })
-        .ToList();
-}
-
-internal sealed class SdvShopItem : IShopItem
-{
-    public SdvShopItem(ShopMenu shop, ISalable salable, int unitPrice)
-    {
-        Shop = shop;
-        Salable = salable;
-        UnitPrice = unitPrice;
-    }
-
-    public ShopMenu Shop { get; }
-    public ISalable Salable { get; }
-    public string ItemId => Salable.QualifiedItemId;
-    public string DisplayName => Salable.DisplayName;
-    public int UnitPrice { get; }
 }
