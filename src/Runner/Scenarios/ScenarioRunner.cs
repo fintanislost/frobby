@@ -607,6 +607,7 @@ public sealed class ScenarioRunner
 
         return element.ValueKind == JsonValueKind.Object
             && element.TryGetProperty(property, out var value)
+            && value.ValueKind == JsonValueKind.Number
             && value.TryGetInt32(out var actual)
             && actual == expected.Value;
     }
