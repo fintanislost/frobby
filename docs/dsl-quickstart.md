@@ -209,6 +209,27 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 This is mod-neutral: Frobby observes the runtime location state and does not call
 Farm Type Manager or parse its content packs.
 
+The same runner wait can target hostile monsters with exact metadata filters:
+
+```json
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "ExampleCombatMap",
+    "collection": "monsters",
+    "name": "Mummy",
+    "type": "Mummy",
+    "health": 2000,
+    "max_health": 2000,
+    "damage": 100,
+    "sprite_texture": "Characters/Monsters/CorruptMummy",
+    "min_count": 1,
+    "timeout_ms": 10000,
+    "poll_ms": 100
+  }
+}
+```
+
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,
 so the assertion sees the result after Content Patcher patches and conditions,
