@@ -66,7 +66,33 @@ public sealed class RepoTestConfig
 
             RequireText(modSet.Name, path, $"modSets[{i}].name");
             Require(modSet.ExtraMods is { Count: > 0 }, path, $"modSets[{i}].extraMods");
+            ValidateDependencies(modSet.Deps, path, $"modSets[{i}].deps");
             ValidateEntries(modSet.ExtraMods, path, $"modSets[{i}].extraMods");
+        }
+    }
+
+    private static void ValidateDependencies(
+        IReadOnlyList<RepoModDependencyConfig>? dependencies,
+        string path,
+        string field)
+    {
+        if (dependencies is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < dependencies.Count; i++)
+        {
+            if (dependencies[i] is not { } dependency)
+            {
+                throw Missing(path, $"{field}[{i}]");
+            }
+
+            RequireText(dependency.Id, path, $"{field}[{i}].id");
+            if (dependency.Version is not null)
+            {
+                RequireText(dependency.Version, path, $"{field}[{i}].version");
+            }
         }
     }
 
@@ -126,6 +152,18 @@ public sealed class RepoModSetConfig
     [JsonPropertyName("name")]
     public string? Name { get; init; }
 
+    [JsonPropertyName("deps")]
+    public IReadOnlyList<RepoModDependencyConfig> Deps { get; init; } = Array.Empty<RepoModDependencyConfig>();
+
     [JsonPropertyName("extraMods")]
     public IReadOnlyList<string> ExtraMods { get; init; } = Array.Empty<string>();
+}
+
+public sealed class RepoModDependencyConfig
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; init; }
+
+    [JsonPropertyName("version")]
+    public string? Version { get; init; }
 }

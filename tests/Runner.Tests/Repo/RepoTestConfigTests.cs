@@ -53,6 +53,39 @@ public sealed class RepoTestConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_reads_mod_set_deps()
+    {
+        WriteConfig(
+            """
+            {
+              "project": { "name": "Frobby", "slug": "frobby", "version": "1.2.3" },
+              "build": { "command": "dotnet" },
+              "defaultTarget": "smoke",
+              "modSets": [
+                {
+                  "name": "core",
+                  "deps": [
+                    { "id": "Pathoschild.ContentPatcher", "version": "2.7.0" },
+                    { "id": "Esca.FarmTypeManager" }
+                  ],
+                  "extraMods": ["mods/Frobby"]
+                }
+              ]
+            }
+            """);
+
+        var config = RepoTestConfig.Load(_repoRoot);
+
+        var modSet = Assert.Single(config.ModSets);
+        Assert.Equal("core", modSet.Name);
+        Assert.Equal(2, modSet.Deps.Count);
+        Assert.Equal("Pathoschild.ContentPatcher", modSet.Deps[0].Id);
+        Assert.Equal("2.7.0", modSet.Deps[0].Version);
+        Assert.Equal("Esca.FarmTypeManager", modSet.Deps[1].Id);
+        Assert.Null(modSet.Deps[1].Version);
+    }
+
+    [Fact]
     public void Load_missing_config_throws_file_not_found_with_config_name()
     {
         var ex = Assert.Throws<FileNotFoundException>(() => RepoTestConfig.Load(_repoRoot));
@@ -69,6 +102,8 @@ public sealed class RepoTestConfigTests : IDisposable
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[]}""", "modSets")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"extraMods":["mods/a"]}]}""", "modSets[0].name")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":[]}]}""", "modSets[0].extraMods")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{"id":" "}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
     public void Load_validates_required_fields(string json, string field)
     {
         WriteConfig(json);
@@ -76,6 +111,31 @@ public sealed class RepoTestConfigTests : IDisposable
         var ex = Assert.Throws<InvalidOperationException>(() => RepoTestConfig.Load(_repoRoot));
 
         Assert.Contains(field, ex.Message);
+        Assert.Contains("sdv-test.config.json", ex.Message);
+    }
+
+    [Fact]
+    public void Load_validates_dep_version_entry_when_present()
+    {
+        WriteConfig(
+            """
+            {
+              "project": { "name": "Frobby", "slug": "frobby", "version": "1.0.0" },
+              "build": { "command": "dotnet" },
+              "defaultTarget": "smoke",
+              "modSets": [
+                {
+                  "name": "smoke",
+                  "deps": [{ "id": "Pathoschild.ContentPatcher", "version": " " }],
+                  "extraMods": ["mods/a"]
+                }
+              ]
+            }
+            """);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RepoTestConfig.Load(_repoRoot));
+
+        Assert.Contains("modSets[0].deps[0].version", ex.Message);
         Assert.Contains("sdv-test.config.json", ex.Message);
     }
 
