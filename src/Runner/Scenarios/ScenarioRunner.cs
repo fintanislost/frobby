@@ -173,6 +173,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeWaitNpcLocationAsync(step, ct);
                     }
+                    else if (step.Action == "wait.location_content")
+                    {
+                        await InvokeWaitLocationContentAsync(step, ct);
+                    }
                     else if (step.Action == "wait.event_active")
                     {
                         await InvokeWaitEventActiveAsync(step, ct);
@@ -484,6 +488,143 @@ public sealed class ScenarioRunner
         throw new TimeoutException(
             $"wait.npc_location timed out after {args.TimeoutMs}ms waiting for {args.Name} in {args.Location}{FormatOptionalTile(args.X, args.Y)}; " +
             $"last observed {last}");
+    }
+
+    private async Task InvokeWaitLocationContentAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitLocationContentStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitLocationContentStepArgs()
+            : new WaitLocationContentStepArgs();
+
+        ValidateWaitLocationContentArgs(args);
+
+        var request = ProtocolJson.ToElement(new { name = args.Location });
+        var elapsed = Stopwatch.StartNew();
+        int lastMatched = 0;
+        int lastTotal = 0;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.location", request, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.location_content failed during state.location: {error.Message}");
+
+            if (resp.Result is { } root)
+            {
+                lastMatched = CountLocationContentMatches(root, args, out lastTotal);
+                var withinMin = lastMatched >= args.MinCount;
+                var withinMax = args.MaxCount is null || lastMatched <= args.MaxCount.Value;
+                if (withinMin && withinMax)
+                    return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"wait.location_content timed out after {args.TimeoutMs}ms waiting for {FormatExpectedContentCount(args)} " +
+            $"{args.Collection} in {args.Location}{FormatLocationContentFilters(args)}; " +
+            $"last observed {lastMatched} matched out of {lastTotal} {args.Collection}");
+    }
+
+    private static void ValidateWaitLocationContentArgs(WaitLocationContentStepArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.Location))
+            throw new InvalidOperationException("wait.location_content requires args.location");
+        if (string.IsNullOrWhiteSpace(args.Collection))
+            throw new InvalidOperationException("wait.location_content requires args.collection");
+        if (!AllowedLocationContentCollections.Contains(args.Collection))
+            throw new InvalidOperationException("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters");
+        if (args.MinCount < 1)
+            throw new InvalidOperationException("wait.location_content requires args.min_count >= 1");
+        if (args.MaxCount is not null && args.MaxCount < 1)
+            throw new InvalidOperationException("wait.location_content requires args.max_count >= 1");
+        if (args.MaxCount is not null && args.MaxCount < args.MinCount)
+            throw new InvalidOperationException("wait.location_content requires args.max_count >= args.min_count");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.location_content requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.location_content requires args.poll_ms >= 1");
+        if ((args.X is null) != (args.Y is null))
+            throw new InvalidOperationException("wait.location_content requires both args.x and args.y when filtering by tile");
+    }
+
+    private static int CountLocationContentMatches(JsonElement root, WaitLocationContentStepArgs args, out int totalCount)
+    {
+        totalCount = 0;
+        if (args.Collection is null
+            || !root.TryGetProperty(args.Collection, out var array)
+            || array.ValueKind != JsonValueKind.Array)
+        {
+            return 0;
+        }
+
+        var matched = 0;
+        foreach (var element in array.EnumerateArray())
+        {
+            totalCount++;
+            if (LocationContentElementMatches(element, args))
+                matched++;
+        }
+
+        return matched;
+    }
+
+    private static bool LocationContentElementMatches(JsonElement element, WaitLocationContentStepArgs args)
+    {
+        return StringFilterMatches(element, "name", args.Name)
+            && StringFilterMatches(element, "type", args.Type)
+            && StringFilterMatches(element, "kind", args.Kind)
+            && StringFilterMatches(element, "id", args.Id)
+            && StringFilterMatches(element, "qualified_id", args.QualifiedId)
+            && TileFilterMatches(element, args.X, args.Y);
+    }
+
+    private static bool StringFilterMatches(JsonElement element, string property, string? expected)
+    {
+        if (expected is null)
+            return true;
+
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var value)
+            && value.ValueKind == JsonValueKind.String
+            && string.Equals(value.GetString(), expected, StringComparison.Ordinal);
+    }
+
+    private static bool TileFilterMatches(JsonElement element, int? x, int? y)
+    {
+        if (x is null && y is null)
+            return true;
+
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty("tile", out var tile)
+            && tile.ValueKind == JsonValueKind.Object
+            && tile.TryGetProperty("x", out var tileX)
+            && tile.TryGetProperty("y", out var tileY)
+            && tileX.TryGetInt32(out var actualX)
+            && tileY.TryGetInt32(out var actualY)
+            && actualX == x
+            && actualY == y;
+    }
+
+    private static string FormatExpectedContentCount(WaitLocationContentStepArgs args)
+        => args.MaxCount is null
+            ? $"at least {args.MinCount}"
+            : args.MinCount == args.MaxCount.Value
+                ? $"exactly {args.MinCount}"
+                : $"between {args.MinCount} and {args.MaxCount.Value}";
+
+    private static string FormatLocationContentFilters(WaitLocationContentStepArgs args)
+    {
+        var filters = new List<string>();
+        if (args.Name is not null) filters.Add($"name={args.Name}");
+        if (args.Type is not null) filters.Add($"type={args.Type}");
+        if (args.Kind is not null) filters.Add($"kind={args.Kind}");
+        if (args.Id is not null) filters.Add($"id={args.Id}");
+        if (args.QualifiedId is not null) filters.Add($"qualified_id={args.QualifiedId}");
+        if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
+        return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
 
     private static string FormatOptionalTile(int? x, int? y)
@@ -909,6 +1050,7 @@ public sealed class ScenarioRunner
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.npc_location" => $"Wait for NPC {GetStringArg(step.Args, "name") ?? "unknown"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
+            "wait.location_content" => $"Wait for {GetStringArg(step.Args, "collection") ?? "content"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.event_active" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"}",
             "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -996,6 +1138,7 @@ public sealed class ScenarioRunner
             "wait.ms" => false,
             "wait.location" => false,
             "wait.npc_location" => false,
+            "wait.location_content" => false,
             "wait.event_active" => false,
             "wait.event_complete" => false,
             "draw.arm" => false,
@@ -1129,6 +1272,31 @@ public sealed class ScenarioRunner
         public string? Location { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private static readonly HashSet<string> AllowedLocationContentCollections = new(StringComparer.Ordinal)
+    {
+        "objects",
+        "resource_clumps",
+        "monsters",
+        "critters",
+    };
+
+    private sealed class WaitLocationContentStepArgs
+    {
+        public string? Location { get; set; }
+        public string? Collection { get; set; }
+        public string? Name { get; set; }
+        public string? Type { get; set; }
+        public string? Kind { get; set; }
+        public string? Id { get; set; }
+        public string? QualifiedId { get; set; }
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public int MinCount { get; set; } = 1;
+        public int? MaxCount { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
