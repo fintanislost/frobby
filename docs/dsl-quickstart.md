@@ -82,7 +82,7 @@ Environment knobs:
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
-- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `TileActions(location?, x?, y?, radius?, layers?, properties?)` / `Npc(name)` / `Menu()` / `Shop()` / `Event()` / `Mods()`
+- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `TileActions(location?, x?, y?, radius?, layers?, properties?)` / `VisualEffects(location?)` / `Npc(name)` / `Menu()` / `Shop()` / `Event()` / `Mods()`
 - `Bitmap.Capture(region?)`
 - `Screenshot.Capture(name)`
 - `Wait.Ms(ms)`
@@ -117,6 +117,15 @@ await World.InteractTileAction(
     y: 48,
     property: "TouchAction",
     layers: new[] { "Back" });
+```
+
+Visual-effect state is useful for proving that runtime temporary sprites,
+lighting, or weather debris exist before taking final render evidence:
+
+```csharp
+var effects = await State.VisualEffects("Example.VisualLocation");
+Assert.Contains(effects.TemporarySprites, s =>
+    s.TextureAsset == "ExampleMod/Visuals/Effects");
 ```
 
 `world.interact_tile_action` is for map-defined `Action` and `TouchAction`

@@ -205,6 +205,72 @@ when Stardew or a mod does not expose them.
 **Implemented in:** `src/Harness/Handlers/StateLocationHandler.cs`
 **Tested in:** `tests/Protocol.Tests/LocationStateSerializationTests.cs` (DTO shape).
 
+### state.visual_effects
+
+Returns a runtime visual-effect snapshot for the current location, or for a named
+location via `params.location`. `params` is optional; omit it to inspect the
+farmer's current location. This is state-level evidence for temporary sprites,
+ambient lighting, light sources, and weather debris counts. Draw, bitmap, and
+screenshot tools remain the final proof for what actually rendered on screen.
+
+Request (current location):
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "state.visual_effects" }
+```
+
+Request (named location):
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "state.visual_effects", "params": { "location": "Example.VisualLocation" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 10, "result": {
+      "location": "Example.VisualLocation",
+      "ambient_light": [255, 240, 220, 255],
+      "temporary_sprites": [
+        {
+          "texture_asset": "ExampleMod/Visuals/Effects",
+          "source_rect": [0, 32, 16, 16],
+          "position": [128.0, 256.0],
+          "motion": [0.0, -0.25],
+          "acceleration": [0.0, 0.0],
+          "color": [255, 255, 255, 255],
+          "alpha": 0.85,
+          "alpha_fade": 0.0,
+          "scale": 4.0,
+          "scale_change": 0.0,
+          "rotation": 0.0,
+          "rotation_change": 0.0,
+          "layer_depth": 0.73,
+          "draw_above_always_front": false,
+          "runtime_type": "TemporaryAnimatedSprite"
+        }
+      ],
+      "light_sources": [
+        {
+          "id": "Example.VisualLight",
+          "position": [160.0, 288.0],
+          "color": [255, 220, 160, 255],
+          "radius": 2.0,
+          "texture_index": 4,
+          "context": "MapLight"
+        }
+      ],
+      "weather_debris_count": 3
+   } }
+```
+
+If no location is loaded or the named location cannot be found, the result uses
+an empty `location` with empty `temporary_sprites` and `light_sources`.
+`texture_asset` is omitted when Stardew exposes a sprite texture object without a
+stable asset name.
+
+**Preconditions:** world loaded. Same note as `state.player`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateVisualEffectsHandler.cs`
+**Tested in:** `tests/Protocol.Tests/VisualEffectsStateSerializationTests.cs` and `tests/Harness.Tests/StateVisualEffectsHandlerTests.cs`.
+
 ### state.locations
 
 Returns compact summaries for all runtime-loaded Stardew locations. This is the
@@ -1328,6 +1394,7 @@ Runner scenario convenience:
 - `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "Custom_GrandpasShedOutside", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only. It polls `state.location` for the named location until the selected collection has enough matching entries. Supported collections are `objects`, `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and optional: `name`, `type`, `kind`, `id`, `qualified_id`, and `x`/`y` tile. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`, and reports the last matched/total counts on timeout.
+- `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "state.assert", "args": { "params": { "name": "Sophia" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
