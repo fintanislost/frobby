@@ -57,6 +57,7 @@ Status key:
 
 - [ ] Planning: Slice 7, sprites, temporary animations, lighting, and weather-like visual effects.
   - Design spec: `docs/superpowers/specs/2026-05-08-sve-slice-7-visual-effects-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-08-sve-slice-7-visual-effects.md`.
   - SVE pressure: temporary animated sprites, custom cauldron effects, map lighting changes, recolors, mist effects, and location-specific ambience.
   - Frobby goal: expose enough render/state metadata to assert animated sprites and lighting effects without brittle whole-screen diffs.
 
