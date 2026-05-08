@@ -20,13 +20,13 @@ public sealed class PlayerItemSummary
 {
     public int Slot { get; set; }
     public string Id { get; set; } = string.Empty;
-    public string ItemId { get; set; } = string.Empty;
-    public string QualifiedId { get; set; } = string.Empty;
+    public string? ItemId { get; set; }
+    public string? QualifiedId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int Stack { get; set; }
     public int? Category { get; set; }
     public int? Quality { get; set; }
-    public string RuntimeType { get; set; } = string.Empty;
+    public string? RuntimeType { get; set; }
 }
 
 public sealed class TilePoint

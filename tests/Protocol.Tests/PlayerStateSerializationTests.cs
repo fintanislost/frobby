@@ -46,6 +46,31 @@ public class PlayerStateSerializationTests
     }
 
     [Fact]
+    public void Serialize_OmitsUnsetAdditiveInventoryMetadata()
+    {
+        var p = new PlayerState
+        {
+            Name = "Tester",
+            Location = "Farm",
+            Tile = new TilePoint { X = 1, Y = 2 },
+        };
+        p.Items.Add(new PlayerItemSummary
+        {
+            Slot = 0,
+            Id = "(O)388",
+            Name = "Wood",
+            Stack = 5,
+        });
+
+        var json = JsonSerializer.Serialize(p, ProtocolJson.Options);
+
+        Assert.Contains("\"id\":\"(O)388\"", json);
+        Assert.DoesNotContain("\"item_id\"", json);
+        Assert.DoesNotContain("\"qualified_id\"", json);
+        Assert.DoesNotContain("\"runtime_type\"", json);
+    }
+
+    [Fact]
     public void Deserialize_RoundTrips()
     {
         var original = new PlayerState
