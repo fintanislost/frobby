@@ -92,9 +92,9 @@ areas:
 
 ```csharp
 var locations = await State.Locations();
-Assert.Contains(locations.Locations, l => l.Name == "Custom_TownEast");
+Assert.Contains(locations.Locations, l => l.Name == "ExampleTownEast");
 
-await Player.Warp("Custom_TownEast", 10, 20);
+await Player.Warp("ExampleTownEast", 10, 20);
 await Wait.Ms(500);
 
 var location = await State.Location();
@@ -104,7 +104,7 @@ var tile = await State.MapTile(layers: new[] { "Back" });
 Assert.Contains(tile.Layers, l => l.Name == "Back");
 
 var actions = await State.TileActions(
-    location: "Custom_BlueMoonVineyard",
+    location: "ExampleVineyard",
     x: 56,
     y: 48,
     layers: new[] { "Back" },
@@ -112,7 +112,7 @@ var actions = await State.TileActions(
 Assert.Contains(actions.Actions, a => a.Value == "LoadMap Town 50 114 0");
 
 await World.InteractTileAction(
-    location: "Custom_BlueMoonVineyard",
+    location: "ExampleVineyard",
     x: 56,
     y: 48,
     property: "TouchAction",
@@ -153,13 +153,13 @@ JSON runner scenarios can assert custom NPC relationship and schedule state with
 parameterized `state.assert` calls and runner-side NPC waits:
 
 ```json
-{ "action": "player.set_friendship", "args": { "npc": "Sophia", "points": 1000 } },
-{ "action": "world.warp_npc", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } },
-{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "timeout_ms": 10000 } },
+{ "action": "player.set_friendship", "args": { "npc": "Riley", "points": 1000 } },
+{ "action": "world.warp_npc", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } },
+{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "timeout_ms": 10000 } },
 { "action": "state.assert", "args": {
-  "params": { "name": "Sophia" },
+  "params": { "name": "Riley" },
   "expr": "state.npc.hearts == 4",
-  "message": "Sophia should be at least four hearts after setup"
+  "message": "Riley should be at least four hearts after setup"
 } }
 ```
 
@@ -196,7 +196,7 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 {
   "action": "wait.location_content",
   "args": {
-    "location": "Custom_GrandpasShedOutside",
+    "location": "ExampleForestEdge",
     "collection": "resource_clumps",
     "name": "Log",
     "min_count": 2,
@@ -217,7 +217,7 @@ not just the content pack source files:
 ```json
 {
   "type": "content.asset",
-  "asset": "Maps/Custom_TownEast",
+  "asset": "Maps/ExampleTownEast",
   "asset_type": "map",
   "expr": "asset.layers contains name 'Back'",
   "message": "Town East map should load with a Back layer"
@@ -226,15 +226,15 @@ not just the content pack source files:
   "type": "content.asset",
   "asset": "Data/Locations",
   "asset_type": "data",
-  "entry_keys": ["Custom_TownEast"],
-  "expr": "asset.entries.Custom_TownEast.value.display_name == 'Town East'"
+  "entry_keys": ["ExampleTownEast"],
+  "expr": "asset.entries.ExampleTownEast.value.display_name == 'Town East'"
 },
 {
   "type": "content.asset",
   "asset": "Data/Locations",
   "asset_type": "data",
-  "entry_keys": ["Custom_EnchantedGrove"],
-  "expr": "asset.entries.Custom_EnchantedGrove.value.create_on_load.map_path != ''"
+  "entry_keys": ["ExampleAncientGrove"],
+  "expr": "asset.entries.ExampleAncientGrove.value.create_on_load.map_path != ''"
 }
 ```
 
