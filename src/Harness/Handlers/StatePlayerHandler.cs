@@ -31,8 +31,13 @@ public static class StatePlayerHandler
                 {
                     Slot = i.Slot,
                     Id = i.Id,
+                    ItemId = i.ItemId,
+                    QualifiedId = i.QualifiedId,
                     Name = i.Name,
                     Stack = i.Stack,
+                    Category = i.Category,
+                    Quality = i.Quality,
+                    RuntimeType = i.RuntimeType,
                 })
                 .ToList(),
         };
@@ -56,11 +61,25 @@ internal interface IPlayerInventoryItem
 {
     int Slot { get; }
     string Id { get; }
+    string ItemId { get; }
+    string QualifiedId { get; }
     string Name { get; }
     int Stack { get; }
+    int? Category { get; }
+    int? Quality { get; }
+    string RuntimeType { get; }
 }
 
-internal sealed record PlayerInventoryItem(int Slot, string Id, string Name, int Stack) : IPlayerInventoryItem;
+internal sealed record PlayerInventoryItem(
+    int Slot,
+    string Id,
+    string ItemId,
+    string QualifiedId,
+    string Name,
+    int Stack,
+    int? Category,
+    int? Quality,
+    string RuntimeType) : IPlayerInventoryItem;
 
 internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
 {
@@ -84,14 +103,27 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
                 if (Player.Items[slot] is not Item item)
                     continue;
 
+                var qualifiedId = item.QualifiedItemId ?? item.ItemId ?? string.Empty;
+                var itemId = item.ItemId ?? StripQualifiedPrefix(qualifiedId);
+
                 items.Add(new PlayerInventoryItem(
                     slot,
-                    item.QualifiedItemId ?? item.ItemId ?? string.Empty,
+                    qualifiedId,
+                    itemId,
+                    qualifiedId,
                     item.DisplayName ?? item.Name ?? string.Empty,
-                    item.Stack));
+                    item.Stack,
+                    item.Category,
+                    item.Quality,
+                    item.GetType().Name));
             }
 
             return items;
         }
     }
+
+    private static string StripQualifiedPrefix(string value)
+        => value.Length > 3 && value[0] == '(' && value[2] == ')'
+            ? value[3..]
+            : value;
 }

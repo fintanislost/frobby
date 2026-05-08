@@ -22,8 +22,13 @@ public class StatePlayerHandlerTests
             {
                 Assert.Equal(5, item.Slot);
                 Assert.Equal("(F)example_terminal", item.Id);
+                Assert.Equal("example_terminal", item.ItemId);
+                Assert.Equal("(F)example_terminal", item.QualifiedId);
                 Assert.Equal("Example Terminal", item.Name);
                 Assert.Equal(1, item.Stack);
+                Assert.Equal(-9, item.Category);
+                Assert.Equal(0, item.Quality);
+                Assert.Equal("Furniture", item.RuntimeType);
             });
     }
 
@@ -38,7 +43,7 @@ public class StatePlayerHandlerTests
         public TilePoint Tile => new() { X = 8, Y = 10 };
         public IReadOnlyList<IPlayerInventoryItem> Items { get; } = new[]
         {
-            new PlayerInventoryItem(5, "(F)example_terminal", "Example Terminal", 1),
+            new PlayerInventoryItem(5, "(F)example_terminal", "example_terminal", "(F)example_terminal", "Example Terminal", 1, -9, 0, "Furniture"),
         };
     }
 }
