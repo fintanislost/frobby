@@ -51,9 +51,8 @@ internal sealed class SdvVisualEffectsWorld : IVisualEffectsWorld
 
     public int[] AmbientLight => ToColorArray(Game1.ambientLight);
 
-    public IReadOnlyList<IVisualLightSource> LightSources => Game1.currentLightSources?.Values
-        .Cast<object>()
-        .Select(light => new ReflectedVisualLightSource(light))
+    public IReadOnlyList<IVisualLightSource> LightSources => Game1.currentLightSources?
+        .Select(pair => new SdvVisualLightSource(pair.Key?.ToString() ?? string.Empty, pair.Value))
         .Cast<IVisualLightSource>()
         .ToList() ?? new List<IVisualLightSource>();
 
@@ -125,16 +124,20 @@ internal sealed class ReflectedVisualTemporarySprite : IVisualTemporarySprite
     public string RuntimeType => _sprite.GetType().Name;
 }
 
-internal sealed class ReflectedVisualLightSource : IVisualLightSource
+internal sealed class SdvVisualLightSource : IVisualLightSource
 {
+    private readonly string _id;
     private readonly object _light;
 
-    public ReflectedVisualLightSource(object light)
+    public SdvVisualLightSource(string id, object light)
     {
+        _id = id;
         _light = light;
     }
 
-    public string Id => ReflectionReader.ReadString(_light, "Id", "id") ?? string.Empty;
+    public string Id => string.IsNullOrWhiteSpace(_id)
+        ? ReflectionReader.ReadString(_light, "Id", "id") ?? string.Empty
+        : _id;
     public float[]? Position => ReflectionReader.ReadVector(_light, "position", "Position");
     public float Radius => ReflectionReader.ReadSingle(_light, "radius", "Radius");
     public int[]? Color => ReflectionReader.ReadColor(_light, "color", "Color");

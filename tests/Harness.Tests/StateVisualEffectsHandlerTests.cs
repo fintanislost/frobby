@@ -171,6 +171,16 @@ public class StateVisualEffectsHandlerTests
             light => Assert.Equal("b-light", light.Id));
     }
 
+    [Fact]
+    public void SdvVisualLightSource_Id_UsesDictionaryKeyBeforeReflectedLightId()
+    {
+        var keyedLight = new SdvVisualLightSource("dictionary-key", new FakeReflectedLight { Id = "reflected-id" });
+        var fallbackLight = new SdvVisualLightSource("", new FakeReflectedLight { Id = "reflected-id" });
+
+        Assert.Equal("dictionary-key", keyedLight.Id);
+        Assert.Equal("reflected-id", fallbackLight.Id);
+    }
+
     private sealed class FakeVisualEffectsWorld : IVisualEffectsWorld
     {
         public IVisualEffectsLocation? CurrentLocation { get; init; } = new FakeVisualEffectsLocation();
@@ -216,5 +226,10 @@ public class StateVisualEffectsHandlerTests
         public int[]? Color { get; init; }
         public int TextureIndex { get; init; }
         public string Context { get; init; } = string.Empty;
+    }
+
+    private sealed class FakeReflectedLight
+    {
+        public string Id { get; init; } = string.Empty;
     }
 }
