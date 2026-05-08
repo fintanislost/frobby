@@ -29,6 +29,7 @@ packages/
 
 # Local run outputs
 .cache/
+.worktrees/
 *.log
 *.binlog
 *.tmp
