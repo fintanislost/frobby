@@ -222,4 +222,25 @@ public class StateTests
         }
         finally { SdvTestSession.ResetForTests(); }
     }
+
+    [Fact]
+    public async Task VisualEffects_InvokesStateVisualEffectsAndDeserializes()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[12,34,56,255],\"temporary_sprites\":[{\"texture_asset\":\"LooseSprites/Cursors\",\"source_rect\":[372,1956,10,10]}],\"light_sources\":[],\"weather_debris_count\":0}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            var state = await State.VisualEffects("Custom_GrandpasGrove");
+
+            Assert.Equal("state.visual_effects", inv.LastMethod);
+            Assert.Contains("\"location\":\"Custom_GrandpasGrove\"", inv.LastParams);
+            Assert.Equal("Custom_GrandpasGrove", state.Location);
+            Assert.Equal("LooseSprites/Cursors", Assert.Single(state.TemporarySprites).TextureAsset);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
 }

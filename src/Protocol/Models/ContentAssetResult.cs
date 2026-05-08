@@ -12,7 +12,7 @@ public sealed class ContentAssetResult
 
     /// <summary>
     /// Asset-specific bounded metadata. JsonObject is intentional so runtime asset keys
-    /// like <c>Custom_TownEast</c> are not transformed by the protocol dictionary naming policy.
+    /// like <c>ExampleTownEast</c> are not transformed by the protocol dictionary naming policy.
     /// </summary>
     public JsonObject Summary { get; set; } = new();
 }

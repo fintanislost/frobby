@@ -205,6 +205,74 @@ when Stardew or a mod does not expose them.
 **Implemented in:** `src/Harness/Handlers/StateLocationHandler.cs`
 **Tested in:** `tests/Protocol.Tests/LocationStateSerializationTests.cs` (DTO shape).
 
+### state.visual_effects
+
+Returns a runtime visual-effect snapshot for the current location, or for a named
+location via `params.location`. `params` is optional; omit it to inspect the
+farmer's current location. This is state-level evidence for temporary sprites,
+ambient lighting, light sources, and weather debris counts. Draw, bitmap, and
+screenshot tools remain the final proof for what actually rendered on screen.
+
+Request (current location):
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "state.visual_effects" }
+```
+
+Request (named location):
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "state.visual_effects", "params": { "location": "Example.VisualLocation" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 10, "result": {
+      "location": "Example.VisualLocation",
+      "ambient_light": [255, 240, 220, 255],
+      "temporary_sprites": [
+        {
+          "texture_asset": "ExampleMod/Visuals/Effects",
+          "source_rect": [0, 32, 16, 16],
+          "position": [128.0, 256.0],
+          "motion": [0.0, -0.25],
+          "acceleration": [0.0, 0.0],
+          "color": [255, 255, 255, 255],
+          "alpha": 0.85,
+          "alpha_fade": 0.0,
+          "scale": 4.0,
+          "scale_change": 0.0,
+          "rotation": 0.0,
+          "rotation_change": 0.0,
+          "layer_depth": 0.73,
+          "draw_above_always_front": false,
+          "runtime_type": "TemporaryAnimatedSprite"
+        }
+      ],
+      "light_sources": [
+        {
+          "id": "Example.VisualLight",
+          "position": [160.0, 288.0],
+          "color": [255, 220, 160, 255],
+          "radius": 2.0,
+          "texture_index": 4,
+          "context": "MapLight"
+        }
+      ],
+      "weather_debris_count": 3
+   } }
+```
+
+If no current location is loaded, the result uses an empty `location` with empty
+`temporary_sprites`. If a named location cannot be found, the response preserves
+the requested `location` and returns empty `temporary_sprites`. Ambient light,
+global light sources, and best-effort weather debris counts are still reported.
+`texture_asset` is omitted when Stardew exposes a sprite texture object without a
+stable asset name.
+
+**Preconditions:** world loaded. Same note as `state.player`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateVisualEffectsHandler.cs`
+**Tested in:** `tests/Protocol.Tests/VisualEffectsStateSerializationTests.cs` and `tests/Harness.Tests/StateVisualEffectsHandlerTests.cs`.
+
 ### state.locations
 
 Returns compact summaries for all runtime-loaded Stardew locations. This is the
@@ -271,7 +339,7 @@ Response (success):
           "tile_index": 471,
           "tile_sheet": "outdoors",
           "properties": {
-            "TouchAction": "MagicWarp Custom_EnchantedGrove",
+            "TouchAction": "MagicWarp ExampleAncientGrove",
             "Passable": "F"
           }
         }
@@ -304,14 +372,14 @@ Request (current farmer tile):
 Request (explicit tile, radius, layer, and property filters):
 ```json
 → { "jsonrpc": "2.0", "id": 7, "method": "state.tile_actions",
-     "params": { "location": "Custom_BlueMoonVineyard", "x": 56, "y": 48,
+     "params": { "location": "ExampleVineyard", "x": 56, "y": 48,
                  "radius": 1, "layers": ["Back"], "properties": ["TouchAction"] } }
 ```
 
 Response (success):
 ```json
 ← { "jsonrpc": "2.0", "id": 7, "result": {
-      "location": "Custom_BlueMoonVineyard",
+      "location": "ExampleVineyard",
       "x": 56,
       "y": 48,
       "radius": 1,
@@ -413,20 +481,20 @@ Response (success):
 ← { "jsonrpc": "2.0", "id": 6, "result": {
       "npcs": [
         {
-          "name": "Sophia",
-          "display_name": "Sophia",
-          "location": "Custom_BlueMoonVineyard",
+          "name": "Riley",
+          "display_name": "Riley",
+          "location": "ExampleVineyard",
           "tile": { "x": 20, "y": 32 },
           "friendship_points": 1000,
           "hearts": 4,
           "gift_given_today": false,
           "talked_to_today": false,
-          "portrait": "Sophia",
+          "portrait": "Riley",
           "current_schedule_time": 900,
-          "current_schedule_location": "Custom_BlueMoonVineyard",
+          "current_schedule_location": "ExampleVineyard",
           "current_schedule_tile": { "x": 20, "y": 32 },
           "current_schedule_direction": 0,
-          "current_schedule_animation": "Sophia_Farm2",
+          "current_schedule_animation": "Riley_Work",
           "is_villager": true,
           "can_socialize": true
         }
@@ -781,7 +849,7 @@ dialogue, gift limits, or social UI state without adding mod-specific hooks.
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 14, "method": "player.set_friendship",
-     "params": { "npc": "Sophia", "points": 1000, "talked_to_today": false, "gifts_this_week": 0, "gifts_today": 0 } }
+     "params": { "npc": "Riley", "points": 1000, "talked_to_today": false, "gifts_this_week": 0, "gifts_today": 0 } }
 ```
 
 Response (success):
@@ -814,7 +882,7 @@ normal interaction paths such as `world.interact_npc`.
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 15, "method": "world.warp_npc",
-     "params": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }
+     "params": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }
 ```
 
 Response (success):
@@ -1003,7 +1071,7 @@ scenario needs to discover or prove the map property before executing it.
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 14, "method": "world.interact_tile_action",
-     "params": { "location": "Custom_BlueMoonVineyard", "x": 56, "y": 48,
+     "params": { "location": "ExampleVineyard", "x": 56, "y": 48,
                  "property": "TouchAction", "layers": ["Back"] } }
 ```
 
@@ -1325,12 +1393,13 @@ Runner scenario convenience:
 - `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
-- `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.location_content", "args": { "location": "Custom_GrandpasShedOutside", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only. It polls `state.location` for the named location until the selected collection has enough matching entries. Supported collections are `objects`, `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and optional: `name`, `type`, `kind`, `id`, `qualified_id`, and `x`/`y` tile. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`, and reports the last matched/total counts on timeout.
+- `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only. It polls `state.location` for the named location until the selected collection has enough matching entries. Supported collections are `objects`, `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and optional: `name`, `type`, `kind`, `id`, `qualified_id`, and `x`/`y` tile. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`, and reports the last matched/total counts on timeout.
+- `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
-- `{ "action": "state.assert", "args": { "params": { "name": "Sophia" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
+- `{ "action": "state.assert", "args": { "params": { "name": "Riley" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,
@@ -1878,12 +1947,12 @@ not parse content-pack files as source of truth.
   "asset_type": "data",
   "include_keys": true,
   "keys_limit": 25,
-  "entry_keys": ["Custom_TownEast"],
+  "entry_keys": ["ExampleTownEast"],
   "hash_texture": false
 }
 ```
 
-- `name` — required asset name, e.g. `Maps/Custom_TownEast`, `Data/Locations`,
+- `name` — required asset name, e.g. `Maps/ExampleTownEast`, `Data/Locations`,
   or a mod-owned texture path.
 - `asset_type` — optional hint: `map`, `texture`, `data`, `string`, or `unknown`.
   Omit it to let the harness probe common runtime types.
@@ -1899,7 +1968,7 @@ summarized by runtime type and count instead of expanded.
 **Response (map):**
 ```json
 {
-  "name": "Maps/Custom_TownEast",
+  "name": "Maps/ExampleTownEast",
   "exists": true,
   "kind": "map",
   "runtime_type": "xTile.Map",
@@ -1907,7 +1976,7 @@ summarized by runtime type and count instead of expanded.
     "width": 90,
     "height": 64,
     "layers": [{ "name": "Back", "width": 90, "height": 64 }],
-    "tilesheets": [{ "id": "z_sve", "image_source": "Maps/spring_z_sve" }],
+    "tilesheets": [{ "id": "example_tilesheet", "image_source": "Maps/spring_example_tilesheet" }],
     "properties": {}
   }
 }
@@ -1922,9 +1991,9 @@ summarized by runtime type and count instead of expanded.
   "runtime_type": "System.Collections.Generic.Dictionary`2[...]",
   "summary": {
     "count": 482,
-    "keys": ["Custom_TownEast"],
+    "keys": ["ExampleTownEast"],
     "entries": {
-      "Custom_TownEast": {
+      "ExampleTownEast": {
         "exists": true,
         "value": {
           "runtime_type": "StardewValley.GameData.Locations.LocationData",
@@ -1933,7 +2002,7 @@ summarized by runtime type and count instead of expanded.
           "create_on_load": {
             "runtime_type": "StardewValley.GameData.Locations.CreateLocationData",
             "always_active": false,
-            "map_path": "Maps\\Custom_TownEast"
+            "map_path": "Maps\\ExampleTownEast"
           }
         }
       }

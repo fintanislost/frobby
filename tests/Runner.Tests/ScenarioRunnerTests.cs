@@ -184,6 +184,7 @@ public class ScenarioRunnerTests
     [InlineData("state.assert", false)]
     [InlineData("ui.wait_text", false)]
     [InlineData("wait.location_content", false)]
+    [InlineData("wait.visual_effects", false)]
     [InlineData("ui.click_text", true)]
     [InlineData("ui.hover_text", true)]
     [InlineData("input.click_text", true)]
@@ -997,6 +998,234 @@ public class ScenarioRunnerTests
 
         Assert.False(report.Passed);
         Assert.Contains("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters", Assert.Single(report.Failures));
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitVisualEffects_PollsStateUntilTemporarySpriteMatches()
+    {
+        var socket = SocketPath();
+        var calls = new List<string>();
+        var visualEffectsPolls = 0;
+        JsonElement? lastVisualEffectsParams = null;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "state.visual_effects")
+                        lastVisualEffectsParams = req.Params;
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.visual_effects" => JsonDocument.Parse(visualEffectsPolls++ == 0
+                            ? "{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[255,255,255,255],\"temporary_sprites\":[],\"light_sources\":[],\"weather_debris_count\":0}"
+                            : "{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[255,255,255,255],\"temporary_sprites\":[{\"texture_asset\":\"LooseSprites/Cursors\",\"source_rect\":[372,1956,10,10],\"color\":[255,255,255,255],\"runtime_type\":\"TemporaryAnimatedSprite\",\"layer_depth\":0.5}],\"light_sources\":[],\"weather_debris_count\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_visual_effects_sprite",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.visual_effects",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_GrandpasGrove\",\"temporary_sprites\":{\"texture_asset\":\"LooseSprites/Cursors\",\"source_rect\":[372,1956,10,10],\"min_count\":1},\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, visualEffectsPolls);
+        Assert.DoesNotContain("wait.visual_effects", calls);
+        Assert.Contains("state.visual_effects", calls);
+        Assert.Equal("Custom_GrandpasGrove", lastVisualEffectsParams!.Value.GetProperty("location").GetString());
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitVisualEffects_PollsStateUntilLightAndAmbientMatch()
+    {
+        var socket = SocketPath();
+        var visualEffectsPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.visual_effects" => JsonDocument.Parse(visualEffectsPolls++ == 0
+                            ? "{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[1,2,3,255],\"temporary_sprites\":[],\"light_sources\":[],\"weather_debris_count\":0}"
+                            : "{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[8,9,10,255],\"temporary_sprites\":[],\"light_sources\":[{\"id\":\"SVE_FH_Lantern\",\"color\":[255,240,220,255],\"context\":\"GameLocation\"}],\"weather_debris_count\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_visual_effects_light_ambient",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.visual_effects",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[8,9,10,255],\"light_sources\":{\"id_contains\":\"SVE_FH\",\"min_count\":1},\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, visualEffectsPolls);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitVisualEffects_TimeoutIncludesLastObservedCounts()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.visual_effects" => JsonDocument.Parse("{\"location\":\"Custom_GrandpasGrove\",\"ambient_light\":[255,255,255,255],\"temporary_sprites\":[{\"texture_asset\":\"LooseSprites/Cursors\",\"source_rect\":[372,1956,10,10],\"color\":[255,255,255,255],\"runtime_type\":\"TemporaryAnimatedSprite\",\"layer_depth\":0.5}],\"light_sources\":[],\"weather_debris_count\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_visual_effects_timeout",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.visual_effects",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_GrandpasGrove\",\"temporary_sprites\":{\"texture_asset\":\"Maps/SandstormEffect\",\"min_count\":1},\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("wait.visual_effects timed out after 20ms waiting for at least 1 temporary_sprites in Custom_GrandpasGrove", failure);
+        Assert.Contains("last observed 0 matched temporary_sprites out of 1", failure);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitVisualEffects_RejectsInvalidSourceRect()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_visual_effects_invalid_source_rect",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.visual_effects",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_GrandpasGrove\",\"temporary_sprites\":{\"source_rect\":[1,2,3],\"min_count\":1},\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        Assert.Contains("wait.visual_effects requires args.temporary_sprites.source_rect to have 4 values", Assert.Single(report.Failures));
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }

@@ -177,6 +177,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeWaitLocationContentAsync(step, ct);
                     }
+                    else if (step.Action == "wait.visual_effects")
+                    {
+                        await InvokeWaitVisualEffectsAsync(step, ct);
+                    }
                     else if (step.Action == "wait.event_active")
                     {
                         await InvokeWaitEventActiveAsync(step, ct);
@@ -627,6 +631,192 @@ public sealed class ScenarioRunner
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
 
+    private async Task InvokeWaitVisualEffectsAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitVisualEffectsStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitVisualEffectsStepArgs()
+            : new WaitVisualEffectsStepArgs();
+
+        ValidateWaitVisualEffectsArgs(args);
+
+        JsonElement? request = string.IsNullOrWhiteSpace(args.Location)
+            ? null
+            : ProtocolJson.ToElement(new VisualEffectsRequest { Location = args.Location });
+
+        var elapsed = Stopwatch.StartNew();
+        var lastObserved = new VisualEffectsObservedCounts();
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.visual_effects", request, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.visual_effects failed during state.visual_effects: {error.Message}");
+
+            if (resp.Result is { } result)
+            {
+                var state = JsonSerializer.Deserialize<VisualEffectsState>(result.GetRawText(), ProtocolJson.Options);
+                if (state is not null)
+                {
+                    lastObserved = CountVisualEffectMatches(state, args);
+                    if (VisualEffectCriteriaSatisfied(args, lastObserved))
+                        return;
+                }
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"wait.visual_effects timed out after {args.TimeoutMs}ms waiting for {FormatVisualEffectsExpectation(args)} " +
+            $"in {args.Location ?? "current location"}; last observed {FormatVisualEffectsLastObserved(args, lastObserved)}");
+    }
+
+    private static void ValidateWaitVisualEffectsArgs(WaitVisualEffectsStepArgs args)
+    {
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.visual_effects requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.visual_effects requires args.poll_ms >= 1");
+        if (args.TemporarySprites is null
+            && args.LightSources is null
+            && args.AmbientLight is null
+            && args.WeatherDebrisMinCount is null)
+            throw new InvalidOperationException("wait.visual_effects requires at least one of args.temporary_sprites, args.light_sources, args.ambient_light, args.weather_debris_min_count");
+
+        if (args.AmbientLight is not null && args.AmbientLight.Length != 4)
+            throw new InvalidOperationException("wait.visual_effects requires args.ambient_light to have 4 values");
+        if (args.WeatherDebrisMinCount is not null && args.WeatherDebrisMinCount < 1)
+            throw new InvalidOperationException("wait.visual_effects requires args.weather_debris_min_count >= 1");
+
+        if (args.TemporarySprites is { } sprites)
+        {
+            if (sprites.SourceRect is not null && sprites.SourceRect.Length != 4)
+                throw new InvalidOperationException("wait.visual_effects requires args.temporary_sprites.source_rect to have 4 values");
+            if (sprites.Color is not null && sprites.Color.Length != 4)
+                throw new InvalidOperationException("wait.visual_effects requires args.temporary_sprites.color to have 4 values");
+            ValidateVisualEffectCount("temporary_sprites", sprites.MinCount, sprites.MaxCount);
+        }
+
+        if (args.LightSources is { } lights)
+        {
+            if (lights.Color is not null && lights.Color.Length != 4)
+                throw new InvalidOperationException("wait.visual_effects requires args.light_sources.color to have 4 values");
+            ValidateVisualEffectCount("light_sources", lights.MinCount, lights.MaxCount);
+        }
+    }
+
+    private static void ValidateVisualEffectCount(string criterion, int minCount, int? maxCount)
+    {
+        if (minCount < 1)
+            throw new InvalidOperationException($"wait.visual_effects requires args.{criterion}.min_count >= 1");
+        if (maxCount is not null && maxCount < 1)
+            throw new InvalidOperationException($"wait.visual_effects requires args.{criterion}.max_count >= 1");
+        if (maxCount is not null && maxCount < minCount)
+            throw new InvalidOperationException($"wait.visual_effects requires args.{criterion}.max_count >= args.{criterion}.min_count");
+    }
+
+    private static VisualEffectsObservedCounts CountVisualEffectMatches(VisualEffectsState state, WaitVisualEffectsStepArgs args)
+    {
+        var observed = new VisualEffectsObservedCounts
+        {
+            TemporarySpritesTotal = state.TemporarySprites.Count,
+            LightSourcesTotal = state.LightSources.Count,
+            WeatherDebrisCount = state.WeatherDebrisCount,
+            AmbientLightMatches = args.AmbientLight is null || IntArrayMatches(state.AmbientLight, args.AmbientLight),
+        };
+
+        if (args.TemporarySprites is not null)
+        {
+            foreach (var sprite in state.TemporarySprites)
+            {
+                if (TemporarySpriteMatches(sprite, args.TemporarySprites))
+                    observed.TemporarySpritesMatched++;
+            }
+        }
+
+        if (args.LightSources is not null)
+        {
+            foreach (var light in state.LightSources)
+            {
+                if (LightSourceMatches(light, args.LightSources))
+                    observed.LightSourcesMatched++;
+            }
+        }
+
+        return observed;
+    }
+
+    private static bool VisualEffectCriteriaSatisfied(WaitVisualEffectsStepArgs args, VisualEffectsObservedCounts observed)
+    {
+        return (args.TemporarySprites is null || CountWithinRange(observed.TemporarySpritesMatched, args.TemporarySprites.MinCount, args.TemporarySprites.MaxCount))
+            && (args.LightSources is null || CountWithinRange(observed.LightSourcesMatched, args.LightSources.MinCount, args.LightSources.MaxCount))
+            && (args.AmbientLight is null || observed.AmbientLightMatches)
+            && (args.WeatherDebrisMinCount is null || observed.WeatherDebrisCount >= args.WeatherDebrisMinCount.Value);
+    }
+
+    private static bool TemporarySpriteMatches(TemporarySpriteSummary sprite, VisualEffectTemporarySpriteCriteria criteria)
+    {
+        return StringEquals(sprite.TextureAsset, criteria.TextureAsset)
+            && IntArrayMatches(sprite.SourceRect, criteria.SourceRect)
+            && IntArrayMatches(sprite.Color, criteria.Color)
+            && StringEquals(sprite.RuntimeType, criteria.RuntimeType)
+            && (criteria.MinLayerDepth is null || sprite.LayerDepth >= criteria.MinLayerDepth.Value)
+            && (criteria.MaxLayerDepth is null || sprite.LayerDepth <= criteria.MaxLayerDepth.Value);
+    }
+
+    private static bool LightSourceMatches(LightSourceSummary light, VisualEffectLightSourceCriteria criteria)
+    {
+        return StringEquals(light.Id, criteria.Id)
+            && (criteria.IdContains is null || light.Id.Contains(criteria.IdContains, StringComparison.Ordinal))
+            && StringEquals(light.Context, criteria.Context)
+            && IntArrayMatches(light.Color, criteria.Color);
+    }
+
+    private static bool StringEquals(string? actual, string? expected)
+        => expected is null || string.Equals(actual, expected, StringComparison.Ordinal);
+
+    private static bool IntArrayMatches(int[]? actual, int[]? expected)
+        => expected is null || (actual is not null && actual.SequenceEqual(expected));
+
+    private static bool CountWithinRange(int actual, int min, int? max)
+        => actual >= min && (max is null || actual <= max.Value);
+
+    private static string FormatVisualEffectsExpectation(WaitVisualEffectsStepArgs args)
+    {
+        var expectations = new List<string>();
+        if (args.TemporarySprites is not null)
+            expectations.Add($"{FormatExpectedVisualEffectCount(args.TemporarySprites.MinCount, args.TemporarySprites.MaxCount)} temporary_sprites");
+        if (args.LightSources is not null)
+            expectations.Add($"{FormatExpectedVisualEffectCount(args.LightSources.MinCount, args.LightSources.MaxCount)} light_sources");
+        if (args.AmbientLight is not null)
+            expectations.Add($"ambient_light [{string.Join(",", args.AmbientLight)}]");
+        if (args.WeatherDebrisMinCount is not null)
+            expectations.Add($"at least {args.WeatherDebrisMinCount.Value} weather_debris");
+        return string.Join(" and ", expectations);
+    }
+
+    private static string FormatExpectedVisualEffectCount(int minCount, int? maxCount)
+        => maxCount is null
+            ? $"at least {minCount}"
+            : minCount == maxCount.Value
+                ? $"exactly {minCount}"
+                : $"between {minCount} and {maxCount.Value}";
+
+    private static string FormatVisualEffectsLastObserved(WaitVisualEffectsStepArgs args, VisualEffectsObservedCounts observed)
+    {
+        var parts = new List<string>();
+        if (args.TemporarySprites is not null)
+            parts.Add($"{observed.TemporarySpritesMatched} matched temporary_sprites out of {observed.TemporarySpritesTotal}");
+        if (args.LightSources is not null)
+            parts.Add($"{observed.LightSourcesMatched} matched light_sources out of {observed.LightSourcesTotal}");
+        if (args.AmbientLight is not null)
+            parts.Add($"ambient_light {(observed.AmbientLightMatches ? "matched" : "did not match")}");
+        if (args.WeatherDebrisMinCount is not null)
+            parts.Add($"{observed.WeatherDebrisCount} weather_debris");
+        return string.Join("; ", parts);
+    }
+
     private static string FormatOptionalTile(int? x, int? y)
     {
         if (x is null && y is null)
@@ -1051,6 +1241,7 @@ public sealed class ScenarioRunner
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.npc_location" => $"Wait for NPC {GetStringArg(step.Args, "name") ?? "unknown"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.location_content" => $"Wait for {GetStringArg(step.Args, "collection") ?? "content"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
+            "wait.visual_effects" => $"Wait for visual effects in {GetStringArg(step.Args, "location") ?? "current location"}",
             "wait.event_active" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"}",
             "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -1139,6 +1330,7 @@ public sealed class ScenarioRunner
             "wait.location" => false,
             "wait.npc_location" => false,
             "wait.location_content" => false,
+            "wait.visual_effects" => false,
             "wait.event_active" => false,
             "wait.event_complete" => false,
             "draw.arm" => false,
@@ -1299,6 +1491,49 @@ public sealed class ScenarioRunner
         public int? MaxCount { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class WaitVisualEffectsStepArgs
+    {
+        public string? Location { get; set; }
+        public VisualEffectTemporarySpriteCriteria? TemporarySprites { get; set; }
+        public VisualEffectLightSourceCriteria? LightSources { get; set; }
+        public int[]? AmbientLight { get; set; }
+        public int? WeatherDebrisMinCount { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class VisualEffectTemporarySpriteCriteria
+    {
+        public string? TextureAsset { get; set; }
+        public int[]? SourceRect { get; set; }
+        public int[]? Color { get; set; }
+        public string? RuntimeType { get; set; }
+        public float? MinLayerDepth { get; set; }
+        public float? MaxLayerDepth { get; set; }
+        public int MinCount { get; set; } = 1;
+        public int? MaxCount { get; set; }
+    }
+
+    private sealed class VisualEffectLightSourceCriteria
+    {
+        public string? Id { get; set; }
+        public string? IdContains { get; set; }
+        public string? Context { get; set; }
+        public int[]? Color { get; set; }
+        public int MinCount { get; set; } = 1;
+        public int? MaxCount { get; set; }
+    }
+
+    private sealed class VisualEffectsObservedCounts
+    {
+        public int TemporarySpritesMatched { get; set; }
+        public int TemporarySpritesTotal { get; set; }
+        public int LightSourcesMatched { get; set; }
+        public int LightSourcesTotal { get; set; }
+        public bool AmbientLightMatches { get; set; }
+        public int WeatherDebrisCount { get; set; }
     }
 
     private sealed class WaitEventStepArgs
