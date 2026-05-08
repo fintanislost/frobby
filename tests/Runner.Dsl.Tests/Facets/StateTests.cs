@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Runner.Dsl;
 using Xunit;
 
@@ -140,6 +141,39 @@ public class StateTests
             Assert.Equal("state.map_tile", inv.LastMethod);
             Assert.Equal("{}", inv.LastParams);
             Assert.Equal("Farm", tile.Location);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+    }
+
+    [Fact]
+    public async Task TileActions_InvokesStateTileActionsWithFilters()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new StubInvoker
+        {
+            NextJson = "{\"location\":\"Custom_BlueMoonVineyard\",\"x\":56,\"y\":48,\"radius\":1,\"actions\":[{\"tile\":{\"x\":56,\"y\":48},\"layer\":\"Back\",\"property\":\"TouchAction\",\"value\":\"LoadMap Town 50 114 0\",\"distance\":0}]}",
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try
+        {
+            TileActionsState actions = await State.TileActions(
+                location: "Custom_BlueMoonVineyard",
+                x: 56,
+                y: 48,
+                radius: 1,
+                layers: new[] { "Back" },
+                properties: new[] { "TouchAction" });
+
+            Assert.Equal("state.tile_actions", inv.LastMethod);
+            Assert.Contains("\"location\":\"Custom_BlueMoonVineyard\"", inv.LastParams);
+            Assert.Contains("\"x\":56", inv.LastParams);
+            Assert.Contains("\"y\":48", inv.LastParams);
+            Assert.Contains("\"radius\":1", inv.LastParams);
+            Assert.Contains("\"layers\":[\"Back\"]", inv.LastParams);
+            Assert.Contains("\"properties\":[\"TouchAction\"]", inv.LastParams);
+            var action = Assert.Single(actions.Actions);
+            Assert.Equal("TouchAction", action.Property);
+            Assert.Equal("LoadMap Town 50 114 0", action.Value);
         }
         finally { SdvTestSession.ResetForTests(); }
     }

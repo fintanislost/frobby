@@ -5,5 +5,7 @@ public sealed class InteractTileResult : MutatorOk
 {
     public bool Handled { get; set; }
     public string TargetType { get; set; } = string.Empty;
+    public string ActionType { get; set; } = string.Empty;
+    public string Action { get; set; } = string.Empty;
     public TilePoint Tile { get; set; } = new();
 }

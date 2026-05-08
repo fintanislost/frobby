@@ -91,12 +91,13 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use player/world setup helpers such as `player.set_money`, `player.give_item`,
   `player.add_mail`, `time.set`, `time.advance`, `time.next_day`, and fixture
   loading to create deterministic test state before exercising the mod.
-- Use `state.locations`, expanded `state.location`, `state.map_tile`, and
-  runner-side `wait.location` when testing custom mod locations, maps, and direct
-  warp flows. These waits also hold through Stardew warp/fade transitions, so
-  scenarios do not assert against a black transition frame. These are neutral map
-  introspection tools and should be preferred over hard-coded mod-specific helper
-  scripts.
+- Use `state.locations`, expanded `state.location`, `state.map_tile`,
+  `state.tile_actions`, `world.interact_tile_action`, and runner-side
+  `wait.location` when testing custom mod locations, maps, direct warp flows, and
+  map-defined `Action` / `TouchAction` behavior. These waits also hold through
+  Stardew warp/fade transitions, so scenarios do not assert against a black
+  transition frame. These are neutral map introspection and interaction tools and
+  should be preferred over hard-coded mod-specific helper scripts.
 - Use `state.npcs`, parameterized `state.npc` assertions, `player.set_friendship`,
   `world.warp_npc`, and runner-side `wait.npc_location` for custom NPC
   relationship, schedule, and dialogue flows. These helpers are mod-neutral and

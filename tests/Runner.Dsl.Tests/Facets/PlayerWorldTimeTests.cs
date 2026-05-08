@@ -168,6 +168,40 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task InteractTileAction_InvokesWorldInteractTileAction()
+    {
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"handled\":true,\"target_type\":\"MapTileAction\",\"action_type\":\"TouchAction\",\"action\":\"LoadMap Town 50 114 0\",\"tile\":{\"x\":56,\"y\":48}}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        InteractTileResult result;
+        try
+        {
+            result = await World.InteractTileAction(
+                x: 56,
+                y: 48,
+                location: "Custom_BlueMoonVineyard",
+                property: "TouchAction",
+                layers: new[] { "Back" });
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("world.interact_tile_action", inv.Calls[0].Method);
+        Assert.Contains("\"location\":\"Custom_BlueMoonVineyard\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"x\":56", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":48", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"property\":\"TouchAction\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"layers\":[\"Back\"]", inv.Calls[0].ParamsJson);
+        Assert.True(result.Handled);
+        Assert.Equal("MapTileAction", result.TargetType);
+        Assert.Equal("TouchAction", result.ActionType);
+        Assert.Equal("LoadMap Town 50 114 0", result.Action);
+    }
+
+    [Fact]
     public async Task InputKey_InvokesInputKey()
     {
         var inv = new CapturingInvoker();

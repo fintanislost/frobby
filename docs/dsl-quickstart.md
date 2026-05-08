@@ -77,12 +77,12 @@ Environment knobs:
 
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
-- `World.SetWeather(type)`
+- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
-- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `Npc(name)` / `Menu()` / `Event()` / `Mods()`
+- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `TileActions(location?, x?, y?, radius?, layers?, properties?)` / `Npc(name)` / `Menu()` / `Event()` / `Mods()`
 - `Bitmap.Capture(region?)`
 - `Screenshot.Capture(name)`
 - `Wait.Ms(ms)`
@@ -102,7 +102,28 @@ Assert.NotEqual(0, location.MapWidth);
 
 var tile = await State.MapTile(layers: new[] { "Back" });
 Assert.Contains(tile.Layers, l => l.Name == "Back");
+
+var actions = await State.TileActions(
+    location: "Custom_BlueMoonVineyard",
+    x: 56,
+    y: 48,
+    layers: new[] { "Back" },
+    properties: new[] { "TouchAction" });
+Assert.Contains(actions.Actions, a => a.Value == "LoadMap Town 50 114 0");
+
+await World.InteractTileAction(
+    location: "Custom_BlueMoonVineyard",
+    x: 56,
+    y: 48,
+    property: "TouchAction",
+    layers: new[] { "Back" });
 ```
+
+`world.interact_tile_action` is for map-defined `Action` and `TouchAction`
+properties. For `TouchAction`, Frobby moves the farmer onto the tile before
+calling Stardew's direct touch-action path; use JSON `wait.location` or DSL
+`Wait.Ms` after actions that warp or resolve on the next game tick.
+`world.interact_tile` still targets furniture and placed objects.
 
 JSON runner scenarios can observe cutscenes and other Stardew events with
 `state.event` and event waits:

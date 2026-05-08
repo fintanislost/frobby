@@ -76,6 +76,29 @@ public static class State
         return Deserialize<MapTileState>(resp, "state.map_tile");
     }
 
+    public static async Task<TileActionsState> TileActions(
+        string? location = null,
+        int? x = null,
+        int? y = null,
+        int radius = 0,
+        IEnumerable<string>? layers = null,
+        IEnumerable<string>? properties = null,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new TileActionsRequest
+        {
+            Location = location,
+            X = x,
+            Y = y,
+            Radius = radius,
+            Layers = layers?.ToList(),
+            Properties = properties?.ToList(),
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("state.tile_actions", p, ct);
+        return Deserialize<TileActionsState>(resp, "state.tile_actions");
+    }
+
     public static async Task<NpcState> Npc(string name, CancellationToken ct = default)
     {
         var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();

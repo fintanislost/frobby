@@ -590,8 +590,12 @@ env FROBBY_ROOT=/home/fintan/stardewRepos/frobby/sdv-test-framework ./scripts/sd
 
 ## Follow-Up After This Plan
 
-After this plan lands, continue Slice 1 with map action behavior:
+Completed 2026-05-07 as the Slice 1 follow-up:
 
-- Add `world.interact_tile_action` or expand `world.interact_tile` to optionally trigger map tile actions.
-- Add a neutral way to list tile action candidates around the player.
-- Add SVE scenario 03 for custom location warp/tile action behavior.
+- Added `state.tile_actions` to list nearby `Action` and `TouchAction` candidates.
+- Added `world.interact_tile_action` for map action execution. `Action` uses
+  Stardew's direct action path; `TouchAction` first moves the farmer onto the tile,
+  then invokes Stardew's direct touch-action path so update/tick-driven mods receive
+  a player-like tile-transition signal.
+- Added SVE scenario 06 (`sve_tile_action_warp`) for Blue Moon Vineyard
+  `TouchAction` discovery and warp execution.

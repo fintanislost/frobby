@@ -255,6 +255,55 @@ snake-cased. Empty tiles return `tile_index: -1`, empty `tile_sheet`, and empty
 **Implemented in:** `src/Harness/Handlers/StateMapTileHandler.cs`
 **Tested in:** `tests/Protocol.Tests/MapTileStateSerializationTests.cs` and `tests/Harness.Tests/StateMapTileHandlerTests.cs`.
 
+### state.tile_actions
+
+Returns map tile `Action` and `TouchAction` candidates around one coordinate.
+Omit all params to inspect the farmer's current tile in the current location.
+This is a discovery/debugging companion for `world.interact_tile_action`, so
+scenario authors can assert a map-defined action exists before triggering it.
+
+Request (current farmer tile):
+```json
+→ { "jsonrpc": "2.0", "id": 7, "method": "state.tile_actions" }
+```
+
+Request (explicit tile, radius, layer, and property filters):
+```json
+→ { "jsonrpc": "2.0", "id": 7, "method": "state.tile_actions",
+     "params": { "location": "Custom_BlueMoonVineyard", "x": 56, "y": 48,
+                 "radius": 1, "layers": ["Back"], "properties": ["TouchAction"] } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 7, "result": {
+      "location": "Custom_BlueMoonVineyard",
+      "x": 56,
+      "y": 48,
+      "radius": 1,
+      "actions": [
+        {
+          "tile": { "x": 56, "y": 48 },
+          "layer": "Back",
+          "property": "TouchAction",
+          "value": "LoadMap Town 50 114 0",
+          "distance": 0
+        }
+      ]
+   } }
+```
+
+`radius` is a Manhattan-search convenience bounded to `0..25`; results are sorted
+by distance, then tile coordinate, for stable reports. `properties` accepts only
+`Action` and `TouchAction`. Tile property keys and values are preserved exactly as
+Stardew/xTile exposes them.
+
+**Preconditions:** current location and player are required when params omit
+`location`, `x`, or `y`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateTileActionsHandler.cs`
+**Tested in:** `tests/Protocol.Tests/TileActionsStateSerializationTests.cs`, `tests/Harness.Tests/StateTileActionsHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/StateTests.cs`.
+
 ### state.npc
 
 Returns a snapshot of a named NPC. `params.name` is **required**.
@@ -860,6 +909,56 @@ Response (no furniture or object at the tile — GameStateInvalid):
 **Side effects:** calls SDV's `checkForAction` on the matched furniture or object, which may open menus or mutate game state depending on the target.
 **Implemented in:** `src/Harness/Handlers/WorldInteractTileHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InteractTileRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldInteractTileHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
+### world.interact_tile_action
+
+Invokes a map tile `Action` or `TouchAction` property in the current location.
+This is separate from `world.interact_tile`, which remains focused on furniture
+and placed objects. Use `state.tile_actions` or `state.map_tile` first when a
+scenario needs to discover or prove the map property before executing it.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 14, "method": "world.interact_tile_action",
+     "params": { "location": "Custom_BlueMoonVineyard", "x": 56, "y": 48,
+                 "property": "TouchAction", "layers": ["Back"] } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 14, "result": {
+      "ok": true,
+      "tick": 84201,
+      "handled": true,
+      "target_type": "MapTileAction",
+      "action_type": "TouchAction",
+      "action": "LoadMap Town 50 114 0",
+      "tile": { "x": 56, "y": 48 }
+   } }
+```
+
+Response (`property` is not `Action` or `TouchAction` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params.property must be Action or TouchAction" } }
+```
+
+Response (no map action property at the requested tile — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32003, "message": "no Action or TouchAction at tile 56,48 in Farm" } }
+```
+
+If `property` is omitted, the handler tries `Action` before `TouchAction` across
+the requested layers, matching Stardew's activate-first interaction shape. For
+`TouchAction`, the RPC first moves the farmer onto the requested tile, then calls
+Stardew's direct touch-action path. That preserves native behavior while also
+giving update/tick-driven mods the same tile-transition signal a real player
+would create. The RPC returns `handled: true` once the direct call completes; a
+follow-up `wait.location` or `wait.ms` step should observe asynchronous effects.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode` and `Game1.hasLoadedGame`); the current location must contain a matching map property at the requested tile.
+**Side effects:** calls SDV's `performAction` or `performTouchAction`, which may warp the farmer, open menus, show messages, or mutate game state depending on the map action.
+**Implemented in:** `src/Harness/Handlers/WorldInteractTileActionHandler.cs`
+**Tested in:** `tests/Protocol.Tests/InteractTileActionRequestSerializationTests.cs`, `tests/Harness.Tests/WorldInteractTileActionHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### input.key
 

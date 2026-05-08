@@ -45,6 +45,9 @@ public class BitmapCaptureNextFrameHandlerTests
         Assert.False(task.IsCompleted);
 
         service.OnRendered();
+        Assert.False(task.IsCompleted);
+
+        service.OnUpdateTicked();
 
         var result = await task;
         Assert.Equal("/tmp/next.png", result!.Value.GetProperty("path").GetString());

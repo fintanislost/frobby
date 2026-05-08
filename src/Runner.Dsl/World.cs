@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,5 +46,31 @@ public static class World
         return JsonSerializer.Deserialize<InteractTileResult>(resp, ProtocolJson.Options)
             ?? throw new SdvRpcException("world.interact_tile", Protocol.JsonRpcErrorCode.InternalError,
                 "empty world.interact_tile response");
+    }
+
+    /// <summary>Run an Action or TouchAction map property at a tile in the current location.</summary>
+    public static async Task<InteractTileResult> InteractTileAction(
+        int? x = null,
+        int? y = null,
+        string? location = null,
+        string? property = null,
+        IEnumerable<string>? layers = null,
+        bool justCheckingForActivity = false,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new InteractTileActionRequest
+        {
+            Location = location,
+            X = x,
+            Y = y,
+            Property = property,
+            Layers = layers?.ToList(),
+            JustCheckingForActivity = justCheckingForActivity,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("world.interact_tile_action", p, ct);
+        return JsonSerializer.Deserialize<InteractTileResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("world.interact_tile_action", Protocol.JsonRpcErrorCode.InternalError,
+                "empty world.interact_tile_action response");
     }
 }

@@ -10,12 +10,12 @@ Status key:
 
 ## Capability Slices
 
-- [ ] Active: Slice 1, custom locations, maps, warps, and tile actions.
+- [x] Done: Slice 1, custom locations, maps, warps, and tile actions.
   - SVE pressure: many Content Patcher `CustomLocations`, custom map assets, `TouchAction`/`MagicWarp`/`LoadMap` style behavior, and code patches around location warps.
   - Frobby goal: let tests prove custom locations exist, can be entered, expose map/tile metadata, and support player-like tile action flows.
   - Implementation plan: `docs/superpowers/plans/2026-05-05-sve-slice-1-location-map-tools.md`.
   - Done: introspection foundation (`state.locations`, expanded `state.location`, `state.map_tile`, and `wait.location`) verified against SVE scenario 02.
-  - Pending Slice 1 follow-up: tile-action execution (`world.interact_tile_action` or equivalent), tile-action candidate discovery, and SVE scenario 03.
+  - Done: tile-action candidate discovery (`state.tile_actions`), tile-action execution (`world.interact_tile_action`), and SVE scenario 06 (`sve_tile_action_warp`) verified headlessly.
 
 - [x] Done: Slice 2, events and cutscenes observability foundation.
   - SVE pressure: event scripts, world-change events, actor positioning, viewport corrections, grange judging patches, dialogue during scripted scenes.
@@ -58,16 +58,17 @@ Status key:
 
 Available now:
 - `player.warp` queues a warp to a named location and tile.
-- `state.location` returns current or named location with `name`, `is_outdoors`, NPCs, objects, furniture, and terrain.
+- `state.locations` lists loaded runtime locations.
+- `state.location` returns current or named location with `name`, `unique_name`, map dimensions, warps, NPCs, objects, furniture, and terrain.
+- `state.map_tile` returns tile/layer metadata and raw map properties.
+- `state.tile_actions` lists nearby `Action` and `TouchAction` candidates.
+- `wait.location` waits for player location/tile transitions to settle.
 - `world.interact_tile` interacts with furniture or placed objects in the current location.
+- `world.interact_tile_action` executes map `Action` properties and simulates stepping onto `TouchAction` tiles before invoking Stardew's direct touch-action path.
 - `draw.*`, `bitmap.capture`, `screenshot.*`, and `freeze.*` can verify the rendered outcome once a location is loaded.
 
 Observed gaps for SVE-style map testing:
-- No way to list loaded locations or assert that many CP custom locations registered.
-- `state.location` does not report map dimensions, map asset name, layers, warps, tile properties, or location context.
-- No neutral RPC for inspecting a specific tile's layer properties such as `TouchAction`, `Action`, `Passable`, `NoSpawn`, or map-defined warp strings.
-- `world.interact_tile` does not exercise map tile actions; it only checks furniture and objects.
-- Scenario authors must guess when a queued warp has settled unless they write repeated `state.player` checks.
+- Slice 1's core map and tile-action coverage is implemented. Future map work should be driven by more specialized slices, such as spawn/conditional content, custom items, or visual effects.
 
 ### Recommended Approach
 
