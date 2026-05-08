@@ -171,6 +171,37 @@ public sealed class RepoRunPlannerTests : IDisposable
         Assert.Equal(frobbyMod, plan.FrobbyArgs[secondExtraFlag + 1]);
     }
 
+    [Fact]
+    public void BuildRunPlan_allows_missing_repo_extra_mods_when_build_will_run()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var missingBuiltMod = Path.Combine(_repoRoot, ".cache", "frobby-game-mods", "ExampleMod");
+        var config = Config(defaultTarget: "tests/scenarios", extraMods: [".cache/frobby-game-mods/ExampleMod"]);
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, NoBuild: false, false, false, null, null, Array.Empty<string>()));
+
+        Assert.Equal(new[] { missingBuiltMod }, plan.ExtraMods);
+        Assert.NotNull(plan.BuildCommand);
+    }
+
+    [Fact]
+    public void BuildRunPlan_requires_repo_extra_mods_when_no_build_is_set()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var config = Config(defaultTarget: "tests/scenarios", extraMods: [".cache/frobby-game-mods/ExampleMod"]);
+
+        var ex = Assert.Throws<DirectoryNotFoundException>(() =>
+            RepoRunPlanner.BuildRunPlan(
+                _repoRoot,
+                config,
+                new RepoRunRequest(false, NoBuild: true, false, false, null, null, Array.Empty<string>())));
+
+        Assert.Contains(".cache/frobby-game-mods/ExampleMod", ex.Message);
+    }
+
     public void Dispose()
     {
         Directory.Delete(_repoRoot, recursive: true);

@@ -39,8 +39,9 @@ public static class RepoRunPlanner
         var dependencyMods = modSet.Deps
             .Select(dependency => RepoDependencyCache.ResolveRequired(dependency, environment))
             .ToArray();
+        var requireRepoExtraMods = request.NoBuild;
         var repoExtraMods = modSet.ExtraMods
-            .Select(path => RepoPathResolver.Resolve(fullRepoRoot, path, environment, requireExists: true))
+            .Select(path => RepoPathResolver.Resolve(fullRepoRoot, path, environment, requireExists: requireRepoExtraMods))
             .ToArray();
         var extraMods = dependencyMods.Concat(repoExtraMods).ToArray();
         var buildCommand = request.NoBuild
