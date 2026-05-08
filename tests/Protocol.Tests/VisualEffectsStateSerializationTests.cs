@@ -71,7 +71,10 @@ public class VisualEffectsStateSerializationTests
 
         var roundTrip = JsonSerializer.Deserialize<VisualEffectsState>(json, ProtocolJson.Options)!;
         Assert.Equal("Custom_GrandpasGrove", roundTrip.Location);
+        Assert.Equal(3, roundTrip.WeatherDebrisCount);
         Assert.Equal("LooseSprites/Cursors", Assert.Single(roundTrip.TemporarySprites).TextureAsset);
+        Assert.Equal(new[] { 372, 1956, 10, 10 }, Assert.Single(roundTrip.TemporarySprites).SourceRect);
+        Assert.False(Assert.Single(roundTrip.TemporarySprites).DrawAboveAlwaysFront);
         Assert.Equal(new[] { 255, 220, 160, 255 }, Assert.Single(roundTrip.LightSources).Color);
     }
 }
