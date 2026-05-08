@@ -23,10 +23,10 @@ public class PlayerStateSerializationTests
         p.Items.Add(new PlayerItemSummary
         {
             Slot = 12,
-            Id = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-            ItemId = "FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-            QualifiedId = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-            Name = "Gravity Elixir",
+            Id = "(O)ExampleMod.CustomDrink",
+            ItemId = "ExampleMod.CustomDrink",
+            QualifiedId = "(O)ExampleMod.CustomDrink",
+            Name = "Custom Drink",
             Stack = 1,
             Category = 0,
             Quality = 0,
@@ -38,8 +38,8 @@ public class PlayerStateSerializationTests
         Assert.Contains("\"name\":\"Tester\"", json);
         Assert.Contains("\"max_stamina\":270", json);
         Assert.Contains("\"tile\":{\"x\":64,\"y\":15}", json);
-        Assert.Contains("\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
-        Assert.Contains("\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
+        Assert.Contains("\"item_id\":\"ExampleMod.CustomDrink\"", json);
+        Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"runtime_type\":\"Object\"", json);
         Assert.DoesNotContain("MaxStamina", json);
         Assert.DoesNotContain("QualifiedId", json);

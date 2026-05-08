@@ -121,6 +121,10 @@ Frobby tests should exercise the UI like a player whenever possible:
   `world.warp_npc`, and runner-side `wait.npc_location` for custom NPC
   relationship, schedule, and dialogue flows. These helpers are mod-neutral and
   work for vanilla or Content Patcher-added NPCs.
+- Use `shop.open`, `shop.purchase`, `state.shop`, and `state.player.items` for
+  custom shop and inventory flows. Prefer `qualified_id` when asserting Stardew
+  1.6 custom items, and use raw `item_id` only when the scenario intentionally
+  works from unqualified mod data.
 - Use `state.location.resource_clumps`, `state.location.monsters`, and
   runner-side `wait.location_content` when testing spawned world content such as
   logs, boulders, forage-like objects, ore, or monsters. These helpers observe
@@ -172,6 +176,8 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 - Click-first and hover-first menu automation, including text-targeted helpers.
 - Player/world state mutators for money, inventory, mail, time, weather, shops,
   furniture, interactions, and title-screen reload flows.
+- Structured runtime shop and inventory snapshots with qualified item ids for
+  custom item, reward, and purchase assertions.
 - Static HTML reports with report hub, scenario pages, step screenshots, failure
   screenshots, bitmap diff artifacts, and JSON summaries.
 - Bitmap fallback assertions with SSIM, pixel-exact, dHash, tolerance tiers, and

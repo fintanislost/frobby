@@ -48,11 +48,12 @@ Status key:
   - Done: `state.location.resource_clumps`, `state.location.monsters`, richer object metadata, runner-side `wait.location_content`, and SVE scenario 07 against Grandpa's Shed exterior logs.
   - Pending Slice 5 follow-up: add an SVE monster-spawn scenario once a deterministic spawned-monster location/date is selected.
 
-- [ ] Planning: Slice 6, custom items, inventory, rewards, and shops.
+- [x] Done: Slice 6, custom items, inventory, rewards, and shops.
   - Design spec: `docs/superpowers/specs/2026-05-08-sve-slice-6-shop-inventory-items-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-08-sve-slice-6-shop-inventory-items.md`.
   - SVE pressure: custom items, special rewards, secret-note/buried-item patches, shops and rewards that may reference modded qualified item ids.
   - Frobby goal: give/assert qualified item ids, inspect inventory and shops, trigger reward flows, and validate item icons/sprites when needed.
+  - Done: `state.shop`, raw/qualified shop purchase matching, enriched `state.player.items`, and SVE scenario 08 against a custom vendor.
 
 - [ ] Pending: Slice 7, sprites, temporary animations, lighting, and weather-like visual effects.
   - SVE pressure: temporary animated sprites, custom cauldron effects, map lighting changes, recolors, mist effects, and location-specific ambience.

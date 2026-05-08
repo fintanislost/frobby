@@ -82,7 +82,7 @@ Environment knobs:
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
 - `Draw.Arm()` / `Disarm()` / `Snapshot()` / `Find(filter)` / `AssertContains(filter)` / `AssertNotContains(filter)`
-- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `TileActions(location?, x?, y?, radius?, layers?, properties?)` / `Npc(name)` / `Menu()` / `Event()` / `Mods()`
+- `State.Player()` / `Time()` / `Location(name?)` / `Locations()` / `MapTile(location?, x?, y?, layers?)` / `TileActions(location?, x?, y?, radius?, layers?, properties?)` / `Npc(name)` / `Menu()` / `Shop()` / `Event()` / `Mods()`
 - `Bitmap.Capture(region?)`
 - `Screenshot.Capture(name)`
 - `Wait.Ms(ms)`
@@ -160,6 +160,26 @@ works for vanilla villagers and Content Patcher-added NPCs. `wait.location` and
 `wait.npc_location` wait for SDV warp/fade transitions to settle before they
 return, which keeps follow-up assertions and screenshots out of black transition
 frames.
+
+Custom shop and inventory scenarios can assert runtime shop entries and purchased
+items by qualified id:
+
+```json
+{ "action": "player.set_money", "args": { "amount": 10000 } },
+{ "action": "shop.open", "args": { "shop_id": "ExampleShop", "force_open": true } },
+{ "action": "state.assert", "args": {
+  "expr": "state.shop.items contains qualified_id '(O)ExampleMod.CustomItem'",
+  "message": "Example shop should sell the custom item"
+} },
+{ "action": "shop.purchase", "args": { "item_id": "(O)ExampleMod.CustomItem", "count": 1 } },
+{ "action": "state.assert", "args": {
+  "expr": "state.player.items contains qualified_id '(O)ExampleMod.CustomItem'",
+  "message": "Purchased custom item should be visible in player inventory"
+} }
+```
+
+Use `State.Shop()` in C# DSL tests when a test needs to inspect the active shop
+snapshot directly after a click flow or setup helper.
 
 For spawned world content, prefer `wait.location_content` over fixed sleeps:
 

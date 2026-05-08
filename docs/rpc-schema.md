@@ -98,12 +98,38 @@ values without opinion).
 
 ### state.player
 
-Returns the local farmer's current state.
+Returns the local farmer's current state, including a compact inventory snapshot.
 
 ```json
 → { "jsonrpc": "2.0", "id": 2, "method": "state.player" }
-← { "jsonrpc": "2.0", "id": 2, "result": { "name": "Tester", "money": 1000, "stamina": 270, "max_stamina": 270, "health": 100, "location": "Farm", "tile": { "x": 64, "y": 15 }, "items": [{ "slot": 5, "id": "(F)example_terminal", "name": "Example Terminal", "stack": 1 }] } }
+← { "jsonrpc": "2.0", "id": 2, "result": {
+      "name": "Tester",
+      "money": 1000,
+      "stamina": 270,
+      "max_stamina": 270,
+      "health": 100,
+      "location": "Farm",
+      "tile": { "x": 64, "y": 15 },
+      "items": [
+        {
+          "slot": 5,
+          "id": "(F)example_terminal",
+          "item_id": "example_terminal",
+          "qualified_id": "(F)example_terminal",
+          "name": "Example Terminal",
+          "stack": 1,
+          "category": -24,
+          "quality": 0,
+          "runtime_type": "Furniture"
+        }
+      ]
+   } }
 ```
+
+Inventory `id` remains the backwards-compatible stable identifier. New tests should
+prefer `qualified_id` for exact Stardew 1.6 item matching and `item_id` when a
+scenario intentionally wants the raw unqualified id. Metadata fields are omitted
+when Stardew or a mod does not expose them.
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`). No request-time check yet; result fields will reflect title/loading-screen defaults if invoked too early.
 **Side effects:** none.
@@ -453,6 +479,55 @@ Nested menus (e.g. inventory inside a shop) are not exposed here — `Game1.acti
 **Side effects:** none.
 **Implemented in:** `src/Harness/Handlers/StateMenuHandler.cs`
 **Tested in:** `tests/Protocol.Tests/MenuStateSerializationTests.cs` (DTO shape) and `tests/Harness.Tests/StateMenuHandlerTests.cs`.
+
+### state.shop
+
+Returns a structured snapshot of the active Stardew `ShopMenu`. This is the
+preferred state primitive for asserting custom shop inventories, prices, stock,
+and modded item ids after a player-like flow or a direct `shop.open`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 8, "method": "state.shop" }
+```
+
+Response (shop active):
+```json
+← { "jsonrpc": "2.0", "id": 8, "result": {
+      "present": true,
+      "menu_type": "ShopMenu",
+      "shop_id": "Carpenter",
+      "currency": 0,
+      "items": [
+        {
+          "item_id": "example_terminal",
+          "qualified_id": "(F)example_terminal",
+          "display_name": "Example Terminal",
+          "price": 25000,
+          "stock": 1,
+          "category": -24,
+          "quality": 0,
+          "runtime_type": "Furniture"
+        }
+      ]
+   } }
+```
+
+Response (no active shop):
+```json
+← { "jsonrpc": "2.0", "id": 8, "result": { "present": false, "menu_type": "", "shop_id": "", "currency": 0, "items": [] } }
+```
+
+`currency` follows Stardew's shop currency codes; `0` is gold. `item_id` is the
+raw item id and `qualified_id` is the Stardew 1.6 qualified id. Item metadata is
+best-effort because custom salables may expose only part of the item contract.
+Scenarios can assert either raw or qualified ids; qualified ids are the most
+precise check for custom item rewards and shop inventory.
+
+**Preconditions:** none beyond the harness running. Safe outside a shop; returns `present:false`.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateShopHandler.cs` and `src/Harness/Handlers/ShopStateProjector.cs`.
+**Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs`, `tests/Harness.Tests/StateShopHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/StateTests.cs`.
 
 ### state.event
 
@@ -1294,7 +1369,7 @@ test specifically needs Stardew's normal shop-availability behavior.
 
 ### shop.purchase
 
-Purchases an item from the active `ShopMenu` by qualified item ID. The handler searches
+Purchases an item from the active `ShopMenu` by qualified or raw item ID. The handler searches
 the full shop inventory, not just the currently visible page, checks the player's gold,
 creates the salable instance, debits the total price, and adds the item to inventory.
 
@@ -1307,6 +1382,10 @@ Response:
 ```json
 ← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)example_terminal", "display_name": "Example Terminal", "count": 1, "unit_price": 25000, "previous_money": 30000, "money": 5000 } }
 ```
+
+Use the exact `qualified_id` from `state.shop.items` for the strictest match. Raw
+`item_id` matching is also supported for mods whose scenario data naturally refers
+to item ids without Stardew's qualifier prefix.
 
 **Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
 **Side effects:** debits player gold and adds the purchased item to inventory.

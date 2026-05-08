@@ -207,7 +207,7 @@ public class StateTests
         SdvTestSession.ResetForTests();
         var inv = new StubInvoker
         {
-            NextJson = "{\"present\":true,\"menu_type\":\"ShopMenu\",\"shop_id\":\"FlashShifter.StardewValleyExpandedCP_CamillaVendor\",\"currency\":0,\"items\":[{\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\",\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\",\"display_name\":\"Gravity Elixir\",\"price\":4000,\"stock\":5,\"category\":0,\"quality\":0,\"runtime_type\":\"Object\"}]}",
+            NextJson = "{\"present\":true,\"menu_type\":\"ShopMenu\",\"shop_id\":\"ExampleMod.CustomVendor\",\"currency\":0,\"items\":[{\"item_id\":\"ExampleMod.CustomDrink\",\"qualified_id\":\"(O)ExampleMod.CustomDrink\",\"display_name\":\"Custom Drink\",\"price\":4000,\"stock\":5,\"category\":0,\"quality\":0,\"runtime_type\":\"Object\"}]}",
         };
         SdvTestSession.InitializeForTests(inv);
         try
@@ -217,8 +217,8 @@ public class StateTests
             Assert.Equal("state.shop", inv.LastMethod);
             Assert.Null(inv.LastParams);
             Assert.True(shop.Present);
-            Assert.Equal("FlashShifter.StardewValleyExpandedCP_CamillaVendor", shop.ShopId);
-            Assert.Equal("FlashShifter.StardewValleyExpandedCP_Gravity_Elixir", Assert.Single(shop.Items).ItemId);
+            Assert.Equal("ExampleMod.CustomVendor", shop.ShopId);
+            Assert.Equal("ExampleMod.CustomDrink", Assert.Single(shop.Items).ItemId);
         }
         finally { SdvTestSession.ResetForTests(); }
     }

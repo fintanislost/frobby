@@ -78,15 +78,15 @@ public class ShopRequestSerializationTests
         {
             Present = true,
             MenuType = "ShopMenu",
-            ShopId = "FlashShifter.StardewValleyExpandedCP_CamillaVendor",
+            ShopId = "ExampleMod.CustomVendor",
             Currency = 0,
             Items =
             {
                 new ShopItemSummary
                 {
-                    ItemId = "FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-                    QualifiedId = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-                    DisplayName = "Gravity Elixir",
+                    ItemId = "ExampleMod.CustomDrink",
+                    QualifiedId = "(O)ExampleMod.CustomDrink",
+                    DisplayName = "Custom Drink",
                     Price = 4000,
                     Stock = 5,
                     Category = 0,
@@ -100,11 +100,11 @@ public class ShopRequestSerializationTests
 
         Assert.Contains("\"present\":true", json);
         Assert.Contains("\"menu_type\":\"ShopMenu\"", json);
-        Assert.Contains("\"shop_id\":\"FlashShifter.StardewValleyExpandedCP_CamillaVendor\"", json);
+        Assert.Contains("\"shop_id\":\"ExampleMod.CustomVendor\"", json);
         Assert.Contains("\"currency\":0", json);
-        Assert.Contains("\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
-        Assert.Contains("\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
-        Assert.Contains("\"display_name\":\"Gravity Elixir\"", json);
+        Assert.Contains("\"item_id\":\"ExampleMod.CustomDrink\"", json);
+        Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CustomDrink\"", json);
+        Assert.Contains("\"display_name\":\"Custom Drink\"", json);
         Assert.Contains("\"price\":4000", json);
         Assert.Contains("\"stock\":5", json);
         Assert.Contains("\"runtime_type\":\"Object\"", json);

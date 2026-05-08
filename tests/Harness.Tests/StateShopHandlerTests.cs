@@ -30,14 +30,14 @@ public class StateShopHandlerTests
 
         Assert.True(state.Present);
         Assert.Equal("ShopMenu", state.MenuType);
-        Assert.Equal("FlashShifter.StardewValleyExpandedCP_CamillaVendor", state.ShopId);
+        Assert.Equal("ExampleMod.CustomVendor", state.ShopId);
         Assert.Equal(0, state.Currency);
         Assert.Collection(state.Items,
             item =>
             {
-                Assert.Equal("FlashShifter.StardewValleyExpandedCP_Gravity_Elixir", item.ItemId);
-                Assert.Equal("(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir", item.QualifiedId);
-                Assert.Equal("Gravity Elixir", item.DisplayName);
+                Assert.Equal("ExampleMod.CustomDrink", item.ItemId);
+                Assert.Equal("(O)ExampleMod.CustomDrink", item.QualifiedId);
+                Assert.Equal("Custom Drink", item.DisplayName);
                 Assert.Equal(4000, item.Price);
                 Assert.Equal(5, item.Stock);
                 Assert.Equal(0, item.Category);
@@ -54,14 +54,14 @@ public class StateShopHandlerTests
     private sealed class FakeShop : IShopMenuState
     {
         public string MenuType => "ShopMenu";
-        public string ShopId => "FlashShifter.StardewValleyExpandedCP_CamillaVendor";
+        public string ShopId => "ExampleMod.CustomVendor";
         public int Currency => 0;
         public IReadOnlyList<IShopItem> Items { get; } = new[]
         {
             new ShopItem(
-                "FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-                "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
-                "Gravity Elixir",
+                "ExampleMod.CustomDrink",
+                "(O)ExampleMod.CustomDrink",
+                "Custom Drink",
                 4000,
                 5,
                 0,
