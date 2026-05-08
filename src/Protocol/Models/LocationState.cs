@@ -97,6 +97,9 @@ public sealed class MonsterSummary
     public int? Health { get; set; }
     public int? MaxHealth { get; set; }
     public int? Damage { get; set; }
+
+    /// <summary>Runtime sprite texture asset path when Stardew or the mod exposes one.</summary>
+    public string? SpriteTexture { get; set; }
 }
 
 /// <summary>Minimal runtime warp descriptor for a location snapshot.</summary>

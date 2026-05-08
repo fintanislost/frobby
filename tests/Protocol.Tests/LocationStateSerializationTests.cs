@@ -60,11 +60,12 @@ public class LocationStateSerializationTests
                 new MonsterSummary
                 {
                     Tile = new TilePoint { X = 44, Y = 31 },
-                    Name = "Green Slime",
-                    Type = "GreenSlime",
-                    Health = 50,
-                    MaxHealth = 50,
-                    Damage = 10,
+                    Name = "Mummy",
+                    Type = "Mummy",
+                    Health = 2000,
+                    MaxHealth = 2000,
+                    Damage = 100,
+                    SpriteTexture = "Characters/Monsters/CorruptMummy",
                 },
             },
         };
@@ -81,6 +82,6 @@ public class LocationStateSerializationTests
         Assert.Contains("\"furniture\":[{\"tile\":{\"x\":7,\"y\":8},\"id\":\"(F)1302\",\"name\":\"Oak Chair\"}]", json);
         Assert.Contains("\"terrain\":[{\"tile\":{\"x\":12,\"y\":12},\"kind\":\"HoeDirt\"}]", json);
         Assert.Contains("\"resource_clumps\":[{\"tile\":{\"x\":21,\"y\":17},\"kind\":\"ResourceClump\",\"id\":\"602\",\"name\":\"Log\",\"width\":2,\"height\":2,\"health\":10}]", json);
-        Assert.Contains("\"monsters\":[{\"tile\":{\"x\":44,\"y\":31},\"name\":\"Green Slime\",\"type\":\"GreenSlime\",\"health\":50,\"max_health\":50,\"damage\":10}]", json);
+        Assert.Contains("\"monsters\":[{\"tile\":{\"x\":44,\"y\":31},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}]", json);
     }
 }
