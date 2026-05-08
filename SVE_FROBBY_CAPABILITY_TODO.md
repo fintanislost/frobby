@@ -40,11 +40,13 @@ Status key:
   - Implementation plan: `docs/superpowers/plans/2026-05-06-sve-slice-4-npc-schedules-dialogue-relationships.md`.
   - Done: `state.npcs`, expanded `state.npc`, `player.set_friendship`, `world.warp_npc`, parameterized `state.assert`, runner-side `wait.npc_location`, readable `state.menu` dialogue text, active-menu-safe next-frame screenshots, and SVE scenario 05 against Sophia.
 
-- [ ] Active: Slice 5, Farm Type Manager spawn and conditional world content.
+- [x] Done: Slice 5, Farm Type Manager spawn and conditional world content.
   - Design spec: `docs/superpowers/specs/2026-05-08-sve-slice-5-ftm-spawn-world-content-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-08-sve-slice-5-ftm-spawn-world-content.md`.
   - SVE pressure: FTM pack content, conditional forage/monster spawns, location-specific spawn rules, config/mail-gated difficulty variants.
   - Frobby goal: control spawn-relevant state, wait for spawns, inspect objects/monsters/critters in a location, and assert spawn counts/types deterministically.
+  - Done: `state.location.resource_clumps`, `state.location.monsters`, richer object metadata, runner-side `wait.location_content`, and SVE scenario 07 against Grandpa's Shed exterior logs.
+  - Pending Slice 5 follow-up: add an SVE monster-spawn scenario once a deterministic spawned-monster location/date is selected.
 
 - [ ] Pending: Slice 6, custom items, inventory, rewards, and shops.
   - SVE pressure: custom items, special rewards, secret-note/buried-item patches, shops and rewards that may reference modded qualified item ids.
