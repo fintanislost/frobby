@@ -161,6 +161,25 @@ works for vanilla villagers and Content Patcher-added NPCs. `wait.location` and
 return, which keeps follow-up assertions and screenshots out of black transition
 frames.
 
+For spawned world content, prefer `wait.location_content` over fixed sleeps:
+
+```json
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "Custom_GrandpasShedOutside",
+    "collection": "resource_clumps",
+    "name": "Log",
+    "min_count": 2,
+    "timeout_ms": 10000,
+    "poll_ms": 100
+  }
+}
+```
+
+This is mod-neutral: Frobby observes the runtime location state and does not call
+Farm Type Manager or parse its content packs.
+
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,
 so the assertion sees the result after Content Patcher patches and conditions,

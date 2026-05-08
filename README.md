@@ -121,6 +121,10 @@ Frobby tests should exercise the UI like a player whenever possible:
   `world.warp_npc`, and runner-side `wait.npc_location` for custom NPC
   relationship, schedule, and dialogue flows. These helpers are mod-neutral and
   work for vanilla or Content Patcher-added NPCs.
+- Use `state.location.resource_clumps`, `state.location.monsters`, and
+  runner-side `wait.location_content` when testing spawned world content such as
+  logs, boulders, forage-like objects, ore, or monsters. These helpers observe
+  runtime Stardew state and stay independent from specific spawn frameworks.
 - Use `content.asset` assertions when the test needs runtime truth for a named
   Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, or
   a texture that should exist before it is rendered.

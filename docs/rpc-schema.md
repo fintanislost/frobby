@@ -158,13 +158,21 @@ Response (success):
         { "source": { "x": 64, "y": 15 }, "target_location": "FarmHouse", "target": { "x": 8, "y": 10 } }
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
-      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds" }],
+      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0 }],
+      "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
+      "monsters": [{ "tile": { "x": 44, "y": 31 }, "name": "Green Slime", "type": "GreenSlime", "health": 50, "max_health": 50, "damage": 10 }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
       "terrain": [{ "tile": { "x": 12, "y": 12 }, "kind": "HoeDirt" }]
    } }
 ```
 
 If no location is loaded (e.g. on the title screen) or the requested name is unknown, the result contains an empty-string `name` with empty `npcs`/`objects`/`furniture`/`terrain` lists.
+
+`resource_clumps` contains large runtime world objects such as logs, stumps,
+boulders, meteorites, and mine rocks when Stardew exposes them for the location.
+`monsters` contains hostile creatures and is separate from `npcs`, which remains
+for social/non-hostile NPCs. Optional object metadata fields may be empty or null
+when Stardew or a mod does not expose them.
 
 **Preconditions:** world loaded. Same note as `state.player`.
 **Side effects:** none.
@@ -1244,6 +1252,7 @@ Runner scenario convenience:
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "Custom_TownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.npc_location", "args": { "name": "Sophia", "location": "Custom_BlueMoonVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.location_content", "args": { "location": "Custom_GrandpasShedOutside", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only. It polls `state.location` for the named location until the selected collection has enough matching entries. Supported collections are `objects`, `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and optional: `name`, `type`, `kind`, `id`, `qualified_id`, and `x`/`y` tile. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`, and reports the last matched/total counts on timeout.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "state.assert", "args": { "params": { "name": "Sophia" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
