@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Runner.Commands;
+using SdvTestFramework.Runner.Repo;
 using Xunit;
 
 namespace SdvTestFramework.Runner.Tests.Repo;
@@ -365,6 +366,160 @@ public sealed class RepoCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task RepoDepsImport_copies_source_mod_into_dependency_cache()
+    {
+        var source = CreateMod("SourceContentPatcher", "Pathoschild.ContentPatcher", "2.7.0");
+        var cacheRoot = Path.Combine(_repoRoot, ".cache", "deps");
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, cacheRoot);
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "deps", "import", "--from", source }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.True(File.Exists(Path.Combine(cacheRoot, "Pathoschild.ContentPatcher", "manifest.json")));
+        Assert.Contains("Pathoschild.ContentPatcher", output.ToString());
+        Assert.Contains("2.7.0", output.ToString());
+    }
+
+    [Fact]
+    public async Task RepoDepsDoctor_returns_zero_when_configured_deps_are_cached()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "core",
+                    "deps": [{ "id": "Pathoschild.ContentPatcher", "version": "2.7.0" }],
+                    "extraMods": ["mods/Frobby"]
+                  }
+                ]
+                """);
+        var cacheRoot = Path.Combine(_repoRoot, ".cache", "deps");
+        CreateCachedMod(cacheRoot, "Pathoschild.ContentPatcher", "2.7.0");
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, cacheRoot);
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "deps", "doctor", "--repo-root", _repoRoot, "--mod-set", "core" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.Contains("Pathoschild.ContentPatcher", output.ToString());
+        Assert.Contains("ok", output.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task RepoDepsDoctor_returns_one_for_missing_dependency()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "core",
+                    "deps": [{ "id": "Pathoschild.ContentPatcher" }],
+                    "extraMods": ["mods/Frobby"]
+                  }
+                ]
+                """);
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, Path.Combine(_repoRoot, ".cache", "deps"));
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "deps", "doctor", "--repo-root", _repoRoot }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(1, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.Contains("missing Pathoschild.ContentPatcher", error.ToString());
+        Assert.Contains("repo deps import --from", error.ToString());
+    }
+
+    [Fact]
+    public async Task RepoDepsDoctor_returns_one_for_version_mismatch()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "core",
+                    "deps": [{ "id": "Pathoschild.ContentPatcher", "version": "2.7.0" }],
+                    "extraMods": ["mods/Frobby"]
+                  }
+                ]
+                """);
+        var cacheRoot = Path.Combine(_repoRoot, ".cache", "deps");
+        CreateCachedMod(cacheRoot, "Pathoschild.ContentPatcher", "2.6.0");
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, cacheRoot);
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "deps", "doctor", "--repo-root", _repoRoot }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(1, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.Contains("version mismatch", error.ToString());
+        Assert.Contains("expected 2.7.0", error.ToString());
+        Assert.Contains("found 2.6.0", error.ToString());
+    }
+
+    [Fact]
     public async Task RepoInit_creates_scaffold()
     {
         var output = new StringWriter();
@@ -484,6 +639,26 @@ public sealed class RepoCommandTests : IDisposable
         }
 
         return count;
+    }
+
+    private string CreateMod(string folderName, string uniqueId, string version)
+    {
+        var path = Path.Combine(_repoRoot, folderName);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(
+            Path.Combine(path, "manifest.json"),
+            $$"""{"Name":"Test","UniqueID":"{{uniqueId}}","Version":"{{version}}","EntryDll":"Test.dll"}""");
+        File.WriteAllText(Path.Combine(path, "Test.dll"), "not a real dll");
+        return path;
+    }
+
+    private static void CreateCachedMod(string cacheRoot, string uniqueId, string version)
+    {
+        var path = Path.Combine(cacheRoot, uniqueId);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(
+            Path.Combine(path, "manifest.json"),
+            $$"""{"Name":"Test","UniqueID":"{{uniqueId}}","Version":"{{version}}","EntryDll":"Test.dll"}""");
     }
 
     private void WriteConfig(string defaultTarget, string? modSetsJson = null, string buildCommand = "dotnet")

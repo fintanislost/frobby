@@ -98,6 +98,10 @@ internal static class Program
         w.WriteLine("                    Run a repo-local Frobby scaffold from sdv-test.config.json.");
         w.WriteLine("  repo repeat [--count|-n <count>] [repo run options]");
         w.WriteLine("                    Repeat repo-local runs; first run may build, later runs skip build.");
+        w.WriteLine("  repo deps import --from <path>");
+        w.WriteLine("                    Copy a local SMAPI dependency mod into .cache/deps/<UniqueID>.");
+        w.WriteLine("  repo deps doctor [--repo-root <path>] [--mod-set <name>]");
+        w.WriteLine("                    Validate configured repo dependency mods against the local cache.");
         w.WriteLine("  repo init         Placeholder registered for the scaffold generator task.");
         w.WriteLine("  fixture create <name> --from <script>");
         w.WriteLine("                    Build a reproducible save-state fixture in tests/fixtures/.");

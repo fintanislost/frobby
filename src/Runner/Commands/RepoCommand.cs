@@ -21,7 +21,7 @@ public static class RepoCommand
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: sdv-test repo <run|repeat|init> [args...]");
+            Console.Error.WriteLine("usage: sdv-test repo <run|repeat|init|deps> [args...]");
             return 64;
         }
 
@@ -34,6 +34,7 @@ public static class RepoCommand
                 "run" => await RunRepoRunAsync(rest, ct),
                 "repeat" => await RunRepoRepeatAsync(rest, ct),
                 "init" => RepoScaffoldGenerator.RunInit(rest),
+                "deps" => RunRepoDeps(rest),
                 _ => Unknown(subcommand),
             };
         }
@@ -106,6 +107,118 @@ public static class RepoCommand
     {
         Console.Error.WriteLine($"unknown repo subcommand: {subcommand}");
         return 64;
+    }
+
+    private static int RunRepoDeps(ReadOnlyMemory<string> args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("usage: sdv-test repo deps <import|doctor> [args...]");
+            return 64;
+        }
+
+        return args.Span[0] switch
+        {
+            "import" => RunRepoDepsImport(args[1..]),
+            "doctor" => RunRepoDepsDoctor(args[1..]),
+            _ => Unknown("deps " + args.Span[0]),
+        };
+    }
+
+    private static int RunRepoDepsImport(ReadOnlyMemory<string> args)
+    {
+        string? source = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            var value = args.Span[i];
+            if (value == "--from")
+            {
+                source = ReadRequiredValue(args, ref i, value);
+                continue;
+            }
+
+            throw new InvalidOperationException($"unknown repo deps import option: {value}");
+        }
+
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            throw new InvalidOperationException("repo deps import requires --from <path>.");
+        }
+
+        var environment = BuildRepoEnvironment();
+        var manifest = RepoDependencyCache.Import(source, environment);
+        var cacheRoot = RepoDependencyCache.ResolveCacheRoot(environment);
+        Console.Out.WriteLine($"[repo deps] imported {manifest.UniqueId} {manifest.Version ?? "<unknown>"}");
+        Console.Out.WriteLine($"[repo deps] from {Path.GetFullPath(source)}");
+        Console.Out.WriteLine($"[repo deps] to {Path.Combine(cacheRoot, manifest.UniqueId)}");
+        return 0;
+    }
+
+    private static int RunRepoDepsDoctor(ReadOnlyMemory<string> args)
+    {
+        var repoRoot = Directory.GetCurrentDirectory();
+        string? modSetName = null;
+        for (var i = 0; i < args.Length; i++)
+        {
+            var value = args.Span[i];
+            switch (value)
+            {
+                case "--repo-root":
+                    repoRoot = ReadRequiredValue(args, ref i, value);
+                    continue;
+                case "--mod-set":
+                    modSetName = ReadRequiredValue(args, ref i, value);
+                    continue;
+                default:
+                    throw new InvalidOperationException($"unknown repo deps doctor option: {value}");
+            }
+        }
+
+        var config = RepoTestConfig.Load(repoRoot);
+        var modSet = SelectModSetForCommand(config, modSetName);
+        var environment = BuildRepoEnvironment();
+        var hadFailures = false;
+        foreach (var dependency in modSet.Deps)
+        {
+            var check = RepoDependencyCache.Check(dependency, environment);
+            if (check.Status == RepoDependencyStatus.Ok)
+            {
+                Console.Out.WriteLine(check.Message);
+            }
+            else
+            {
+                hadFailures = true;
+                Console.Error.WriteLine(check.Message);
+            }
+        }
+
+        foreach (var extraMod in modSet.ExtraMods.Where(value => value.Contains("SDV_GAME_MODS", StringComparison.Ordinal)))
+        {
+            Console.Error.WriteLine($"[repo deps] warning: extraMods entry '{extraMod}' still reads from SDV_GAME_MODS; move external dependencies to deps.");
+        }
+
+        if (modSet.Deps.Count == 0)
+        {
+            Console.Out.WriteLine($"[repo deps] mod set '{modSet.Name}' declares no deps.");
+        }
+
+        return hadFailures ? 1 : 0;
+    }
+
+    private static RepoModSetConfig SelectModSetForCommand(RepoTestConfig config, string? requestedName)
+    {
+        if (config.ModSets.Count == 0)
+        {
+            throw new InvalidOperationException("sdv-test config must define at least one mod set.");
+        }
+
+        if (string.IsNullOrWhiteSpace(requestedName))
+        {
+            return config.ModSets[0];
+        }
+
+        return config.ModSets.FirstOrDefault(modSet => modSet.Name == requestedName)
+            ?? throw new InvalidOperationException($"Unknown mod set '{requestedName}'.");
     }
 
     private static async Task<int> RunBuildIfNeededAsync(RepoRunPlan plan, CancellationToken ct)
