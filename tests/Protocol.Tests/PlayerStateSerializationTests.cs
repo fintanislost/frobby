@@ -20,13 +20,29 @@ public class PlayerStateSerializationTests
             Location = "Farm",
             Tile = new TilePoint { X = 64, Y = 15 },
         };
+        p.Items.Add(new PlayerItemSummary
+        {
+            Slot = 12,
+            Id = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
+            ItemId = "FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
+            QualifiedId = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
+            Name = "Gravity Elixir",
+            Stack = 1,
+            Category = 0,
+            Quality = 0,
+            RuntimeType = "Object",
+        });
 
         var json = JsonSerializer.Serialize(p, ProtocolJson.Options);
 
         Assert.Contains("\"name\":\"Tester\"", json);
         Assert.Contains("\"max_stamina\":270", json);
         Assert.Contains("\"tile\":{\"x\":64,\"y\":15}", json);
+        Assert.Contains("\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
+        Assert.Contains("\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
+        Assert.Contains("\"runtime_type\":\"Object\"", json);
         Assert.DoesNotContain("MaxStamina", json);
+        Assert.DoesNotContain("QualifiedId", json);
     }
 
     [Fact]

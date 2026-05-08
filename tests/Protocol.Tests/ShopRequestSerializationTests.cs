@@ -70,4 +70,43 @@ public class ShopRequestSerializationTests
         Assert.Contains("\"previous_money\":30000", json);
         Assert.Contains("\"money\":5000", json);
     }
+
+    [Fact]
+    public void ShopState_SerializesLiveShopInventory()
+    {
+        var state = new ShopState
+        {
+            Present = true,
+            MenuType = "ShopMenu",
+            ShopId = "FlashShifter.StardewValleyExpandedCP_CamillaVendor",
+            Currency = 0,
+            Items =
+            {
+                new ShopItemSummary
+                {
+                    ItemId = "FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
+                    QualifiedId = "(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir",
+                    DisplayName = "Gravity Elixir",
+                    Price = 4000,
+                    Stock = 5,
+                    Category = 0,
+                    Quality = 0,
+                    RuntimeType = "Object",
+                },
+            },
+        };
+
+        var json = JsonSerializer.Serialize(state, ProtocolJson.Options);
+
+        Assert.Contains("\"present\":true", json);
+        Assert.Contains("\"menu_type\":\"ShopMenu\"", json);
+        Assert.Contains("\"shop_id\":\"FlashShifter.StardewValleyExpandedCP_CamillaVendor\"", json);
+        Assert.Contains("\"currency\":0", json);
+        Assert.Contains("\"item_id\":\"FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
+        Assert.Contains("\"qualified_id\":\"(O)FlashShifter.StardewValleyExpandedCP_Gravity_Elixir\"", json);
+        Assert.Contains("\"display_name\":\"Gravity Elixir\"", json);
+        Assert.Contains("\"price\":4000", json);
+        Assert.Contains("\"stock\":5", json);
+        Assert.Contains("\"runtime_type\":\"Object\"", json);
+    }
 }
