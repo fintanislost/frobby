@@ -28,6 +28,7 @@ packages/
 .nuget/
 
 # Local run outputs
+.cache/
 *.log
 *.binlog
 *.tmp

@@ -326,6 +326,23 @@ public static class RepoScaffoldGenerator
 
             The wrappers use a source checkout from `FROBBY_ROOT` when available, defaulting to `$REPO_ROOT/../frobby/sdv-test-framework`, and otherwise fall back to an installed `sdv-test`.
 
+            ## Dependency mods
+
+            Use `modSets[].deps` for external SMAPI dependency mods such as Content Patcher,
+            Farm Type Manager, SpaceCore, or framework mods downloaded outside this repo.
+            Use `modSets[].extraMods` for mod folders built or owned by this repo.
+
+            Import dependencies into Frobby's local cache before running:
+
+            ```sh
+            sdv-test repo deps import --from /path/to/ContentPatcher
+            sdv-test repo deps doctor --repo-root .
+            ```
+
+            Normal `sdv-test repo run` reads cached dependency copies from `.cache/deps` or
+            `$SDV_TEST_MOD_CACHE`; it does not read your playable Stardew `Mods` folder
+            unless this repo explicitly keeps `${SDV_GAME_MODS}` paths in `extraMods`.
+
             Repo commands default to headless runs. Pass `--visible` when debugging locally.
             """;
 

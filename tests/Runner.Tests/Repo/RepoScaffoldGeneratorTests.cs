@@ -90,6 +90,10 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("sdv-test repo repeat", repeatText);
         Assert.Contains("sdv-test repo run", docsText);
         Assert.Contains("sdv-test repo repeat", docsText);
+        Assert.Contains("repo deps import", docsText);
+        Assert.Contains("repo deps doctor", docsText);
+        Assert.Contains("deps", docsText);
+        Assert.Contains("extraMods", docsText);
         Assert.Contains("FROBBY_ROOT", scriptText);
         Assert.Contains("../frobby/sdv-test-framework", scriptText);
         Assert.Contains("--visible", docsText);

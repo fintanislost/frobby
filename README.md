@@ -58,6 +58,25 @@ Each configured `extra_mod` must resolve to a SMAPI mod directory that contains
 `manifest.json`. If a project writes DLLs to one folder but packages the actual
 mod elsewhere during its build, point the scaffold at the packaged mod folder.
 
+### Repo Dependency Cache
+
+For repo-local test suites, keep external dependency mods in Frobby's local cache
+instead of pointing at your playable Stardew `Mods` folder:
+
+```bash
+sdv-test repo deps import --from "/path/to/ContentPatcher"
+sdv-test repo deps import --from "/path/to/FarmTypeManager"
+sdv-test repo deps doctor --repo-root .
+```
+
+The default cache lives at `sdv-test-framework/.cache/deps/` and is gitignored.
+Set `SDV_TEST_MOD_CACHE=/path/to/deps` when a repo needs a shared or CI-provided
+cache. Use `modSets[].deps` for external dependency mods keyed by SMAPI
+`UniqueID`; keep `modSets[].extraMods` for repo-owned mod folders and content
+packs. Normal `sdv-test repo run` stages cached copies into the isolated test
+mods directory and does not read the user's live game `Mods` folder unless the
+repo config still contains explicit `${SDV_GAME_MODS}` paths.
+
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.
