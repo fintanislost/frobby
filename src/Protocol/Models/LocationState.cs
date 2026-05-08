@@ -34,6 +34,12 @@ public sealed class LocationState
 
     /// <summary>Terrain features (tilled dirt, grass, trees) in this location.</summary>
     public List<TerrainSummary> Terrain { get; set; } = new();
+
+    /// <summary>Resource clumps and other large world objects in this location.</summary>
+    public List<ResourceClumpSummary> ResourceClumps { get; set; } = new();
+
+    /// <summary>Hostile monsters currently in this location, separated from social NPCs.</summary>
+    public List<MonsterSummary> Monsters { get; set; } = new();
 }
 
 /// <summary>Minimal NPC descriptor for a location snapshot.</summary>
@@ -48,6 +54,11 @@ public sealed class ObjectSummary
 {
     public TilePoint Tile { get; set; } = new();
     public string Name { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
+    public string QualifiedId { get; set; } = string.Empty;
+    public int? Category { get; set; }
+    public int? Stack { get; set; }
+    public int? Quality { get; set; }
 }
 
 /// <summary>Minimal furniture descriptor for a location snapshot.</summary>
@@ -63,6 +74,29 @@ public sealed class TerrainSummary
 {
     public TilePoint Tile { get; set; } = new();
     public string Kind { get; set; } = string.Empty;
+}
+
+/// <summary>Resource clump or large map object descriptor. <see cref="Kind"/> is the CLR type name.</summary>
+public sealed class ResourceClumpSummary
+{
+    public TilePoint Tile { get; set; } = new();
+    public string Kind { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int? Width { get; set; }
+    public int? Height { get; set; }
+    public int? Health { get; set; }
+}
+
+/// <summary>Hostile creature descriptor for a location snapshot. <see cref="Type"/> is the CLR type name.</summary>
+public sealed class MonsterSummary
+{
+    public TilePoint Tile { get; set; } = new();
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public int? Health { get; set; }
+    public int? MaxHealth { get; set; }
+    public int? Damage { get; set; }
 }
 
 /// <summary>Minimal runtime warp descriptor for a location snapshot.</summary>
