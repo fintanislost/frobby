@@ -582,6 +582,10 @@ public sealed class ScenarioRunner
             && StringFilterMatches(element, "kind", args.Kind)
             && StringFilterMatches(element, "id", args.Id)
             && StringFilterMatches(element, "qualified_id", args.QualifiedId)
+            && NumberFilterMatches(element, "health", args.Health)
+            && NumberFilterMatches(element, "max_health", args.MaxHealth)
+            && NumberFilterMatches(element, "damage", args.Damage)
+            && StringFilterMatches(element, "sprite_texture", args.SpriteTexture)
             && TileFilterMatches(element, args.X, args.Y);
     }
 
@@ -594,6 +598,17 @@ public sealed class ScenarioRunner
             && element.TryGetProperty(property, out var value)
             && value.ValueKind == JsonValueKind.String
             && string.Equals(value.GetString(), expected, StringComparison.Ordinal);
+    }
+
+    private static bool NumberFilterMatches(JsonElement element, string property, int? expected)
+    {
+        if (expected is null)
+            return true;
+
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var value)
+            && value.TryGetInt32(out var actual)
+            && actual == expected.Value;
     }
 
     private static bool TileFilterMatches(JsonElement element, int? x, int? y)
@@ -627,6 +642,10 @@ public sealed class ScenarioRunner
         if (args.Kind is not null) filters.Add($"kind={args.Kind}");
         if (args.Id is not null) filters.Add($"id={args.Id}");
         if (args.QualifiedId is not null) filters.Add($"qualified_id={args.QualifiedId}");
+        if (args.Health is not null) filters.Add($"health={args.Health}");
+        if (args.MaxHealth is not null) filters.Add($"max_health={args.MaxHealth}");
+        if (args.Damage is not null) filters.Add($"damage={args.Damage}");
+        if (args.SpriteTexture is not null) filters.Add($"sprite_texture={args.SpriteTexture}");
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
@@ -1485,6 +1504,10 @@ public sealed class ScenarioRunner
         public string? Kind { get; set; }
         public string? Id { get; set; }
         public string? QualifiedId { get; set; }
+        public int? Health { get; set; }
+        public int? MaxHealth { get; set; }
+        public int? Damage { get; set; }
+        public string? SpriteTexture { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
         public int MinCount { get; set; } = 1;

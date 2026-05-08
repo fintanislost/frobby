@@ -897,6 +897,113 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitLocationContent_FiltersByMonsterNumericAndSpriteFields()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"Custom_CrimsonBadlands\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":20,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"},{\"tile\":{\"x\":21,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":240,\"max_health\":240,\"damage\":60,\"sprite_texture\":\"Characters/Monsters/Mummy\"}]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_monster_metadata",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_CrimsonBadlands\",\"collection\":\"monsters\",\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitLocationContent_TimeoutIncludesMonsterMetadataFilters()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"Custom_CrimsonBadlands\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":21,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":240,\"max_health\":240,\"damage\":60,\"sprite_texture\":\"Characters/Monsters/Mummy\"}]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_monster_timeout",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_CrimsonBadlands\",\"collection\":\"monsters\",\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"min_count\":1,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("matching name=Mummy, type=Mummy, health=2000, max_health=2000, damage=100, sprite_texture=Characters/Monsters/CorruptMummy", failure);
+        Assert.Contains("last observed 0 matched out of 1 monsters", failure);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitLocationContent_TimeoutIncludesLastObservedCounts()
     {
         var socket = SocketPath();
