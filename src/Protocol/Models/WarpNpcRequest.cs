@@ -3,7 +3,7 @@ namespace SdvTestFramework.Protocol.Models;
 /// <summary>Request shape for <c>world.warp_npc</c>.</summary>
 public sealed class WarpNpcRequest
 {
-    /// <summary>NPC name, e.g. <c>"Sophia"</c> or <c>"Abigail"</c>.</summary>
+    /// <summary>NPC name, e.g. <c>"Riley"</c> or <c>"Abigail"</c>.</summary>
     public string Name { get; set; } = string.Empty;
 
     /// <summary>Target location name, e.g. <c>Town</c> or a custom location.</summary>
