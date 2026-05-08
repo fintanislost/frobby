@@ -231,6 +231,89 @@ public sealed class RepoCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task RepoRun_dry_run_returns_exit_2_when_dependency_is_missing()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "core",
+                    "deps": [{ "id": "Pathoschild.ContentPatcher" }],
+                    "extraMods": ["mods/Frobby"]
+                  }
+                ]
+                """);
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, Path.Combine(_repoRoot, ".cache", "deps"));
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.Contains("missing Pathoschild.ContentPatcher", error.ToString());
+        Assert.Contains("repo deps import --from", error.ToString());
+    }
+
+    [Fact]
+    public async Task RepoRun_dry_run_returns_exit_2_when_dependency_version_mismatches()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        WriteConfig(
+            defaultTarget: "tests/scenarios",
+            modSetsJson:
+                """
+                [
+                  {
+                    "name": "core",
+                    "deps": [{ "id": "Pathoschild.ContentPatcher", "version": "2.7.0" }],
+                    "extraMods": ["mods/Frobby"]
+                  }
+                ]
+                """);
+        var cacheRoot = Path.Combine(_repoRoot, ".cache", "deps");
+        CreateCachedMod(cacheRoot, "Pathoschild.ContentPatcher", "2.6.0");
+        var previousCache = Environment.GetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable);
+        Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, cacheRoot);
+        var error = new StringWriter();
+        var previousError = Console.Error;
+        Console.SetError(error);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(previousError);
+            Environment.SetEnvironmentVariable(RepoDependencyCache.CacheEnvironmentVariable, previousCache);
+        }
+
+        Assert.Contains("version mismatch", error.ToString());
+        Assert.Contains("expected 2.7.0", error.ToString());
+        Assert.Contains("found 2.6.0", error.ToString());
+    }
+
+    [Fact]
     public async Task RepoRun_dry_run_defaults_sdv_game_mods_from_sdv_install_path_mods_dir()
     {
         Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));

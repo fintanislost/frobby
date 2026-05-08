@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using SdvTestFramework.Runner.Repo;
 using Xunit;
@@ -131,6 +132,45 @@ public sealed class RepoRunPlannerTests : IDisposable
         Assert.Contains(envMod, plan.FrobbyArgs);
     }
 
+    [Fact]
+    public void BuildRunPlan_prepends_cached_deps_before_repo_extra_mods()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var cacheRoot = Path.Combine(_repoRoot, ".cache", "deps");
+        var contentPatcher = CreateCachedMod(cacheRoot, "Pathoschild.ContentPatcher", "2.7.0");
+        var frobbyMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Frobby")).FullName;
+        var config = Config(
+            defaultTarget: "tests/scenarios",
+            modSets:
+            [
+                new RepoModSetConfig
+                {
+                    Name = "core",
+                    Deps =
+                    [
+                        new RepoModDependencyConfig { Id = "Pathoschild.ContentPatcher", Version = "2.7.0" },
+                    ],
+                    ExtraMods = ["mods/Frobby"],
+                },
+            ]);
+        var environment = new Dictionary<string, string?>
+        {
+            [RepoDependencyCache.CacheEnvironmentVariable] = cacheRoot,
+        };
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, false, false, false, "core", null, Array.Empty<string>()),
+            environment);
+
+        Assert.Equal(new[] { contentPatcher, frobbyMod }, plan.ExtraMods);
+        var firstExtraFlag = plan.FrobbyArgs.IndexOf("--extra-mod");
+        Assert.Equal(contentPatcher, plan.FrobbyArgs[firstExtraFlag + 1]);
+        var secondExtraFlag = plan.FrobbyArgs.IndexOf("--extra-mod", firstExtraFlag + 1);
+        Assert.Equal(frobbyMod, plan.FrobbyArgs[secondExtraFlag + 1]);
+    }
+
     public void Dispose()
     {
         Directory.Delete(_repoRoot, recursive: true);
@@ -159,6 +199,16 @@ public sealed class RepoRunPlannerTests : IDisposable
             Name = name,
             ExtraMods = extraMods,
         };
+
+    private static string CreateCachedMod(string cacheRoot, string uniqueId, string version)
+    {
+        var path = Path.Combine(cacheRoot, uniqueId);
+        Directory.CreateDirectory(path);
+        File.WriteAllText(
+            Path.Combine(path, "manifest.json"),
+            $$"""{"Name":"Test","UniqueID":"{{uniqueId}}","Version":"{{version}}","EntryDll":"Test.dll"}""");
+        return path;
+    }
 
     private static string CreateTempDirectory()
     {
