@@ -121,6 +121,16 @@ public static class State
         return Deserialize<ShopState>(resp, "state.shop");
     }
 
+    public static async Task<VisualEffectsState> VisualEffects(string? location = null, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        JsonElement? p = location is null
+            ? null
+            : JsonSerializer.SerializeToElement(new VisualEffectsRequest { Location = location }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("state.visual_effects", p, ct);
+        return Deserialize<VisualEffectsState>(resp, "state.visual_effects");
+    }
+
     public static async Task<EventState> Event(CancellationToken ct = default)
     {
         var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
