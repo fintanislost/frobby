@@ -911,7 +911,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"Custom_CrimsonBadlands\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":20,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"},{\"tile\":{\"x\":21,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":240,\"max_health\":240,\"damage\":60,\"sprite_texture\":\"Characters/Monsters/Mummy\"}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":180,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"},{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":90,\"max_health\":90,\"damage\":18,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -937,7 +937,7 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "wait.location_content",
-                    Args = JsonDocument.Parse("{\"location\":\"Custom_CrimsonBadlands\",\"collection\":\"monsters\",\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":180,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\",\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);
@@ -963,7 +963,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"Custom_CrimsonBadlands\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":21,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":240,\"max_health\":240,\"damage\":60,\"sprite_texture\":\"Characters/Monsters/Mummy\"}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":90,\"max_health\":90,\"damage\":18,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -989,14 +989,14 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "wait.location_content",
-                    Args = JsonDocument.Parse("{\"location\":\"Custom_CrimsonBadlands\",\"collection\":\"monsters\",\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"min_count\":1,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":180,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\",\"min_count\":1,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);
 
         Assert.False(report.Passed);
         var failure = Assert.Single(report.Failures);
-        Assert.Contains("matching name=Mummy, type=Mummy, health=2000, max_health=2000, damage=100, sprite_texture=Characters/Monsters/CorruptMummy", failure);
+        Assert.Contains("matching name=Crystal Bat, type=Bat, health=180, max_health=180, damage=32, sprite_texture=ExampleMod/Monsters/CrystalBat", failure);
         Assert.Contains("last observed 0 matched out of 1 monsters", failure);
 
         cts.Cancel();
@@ -1018,7 +1018,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"Custom_CrimsonBadlands\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":20,\"y\":144},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":\"unknown\",\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":\"unknown\",\"max_health\":180,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -1044,14 +1044,14 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "wait.location_content",
-                    Args = JsonDocument.Parse("{\"location\":\"Custom_CrimsonBadlands\",\"collection\":\"monsters\",\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);
 
         Assert.False(report.Passed);
         var failure = Assert.Single(report.Failures);
-        Assert.Contains("wait.location_content timed out after 20ms waiting for at least 1 monsters in Custom_CrimsonBadlands matching name=Mummy, type=Mummy, health=2000", failure);
+        Assert.Contains("wait.location_content timed out after 20ms waiting for at least 1 monsters in ExampleDeepCave matching name=Crystal Bat, type=Bat, health=180", failure);
         Assert.Contains("last observed 0 matched out of 1 monsters", failure);
         Assert.DoesNotContain("InvalidOperationException", failure);
 
