@@ -110,6 +110,8 @@ Returns the local farmer's current state, including a compact inventory snapshot
       "health": 100,
       "location": "Farm",
       "tile": { "x": 64, "y": 15 },
+      "mail_received": ["button_tut_1"],
+      "events_seen": ["5532011"],
       "items": [
         {
           "slot": 5,
@@ -130,6 +132,8 @@ Inventory `id` remains the backwards-compatible stable identifier. New tests sho
 prefer `qualified_id` for exact Stardew 1.6 item matching and `item_id` when a
 scenario intentionally wants the raw unqualified id. Metadata fields are omitted
 when Stardew or a mod does not expose them.
+`mail_received` and `events_seen` expose the local farmer's save-state flags for
+relationship, event, and mail-gated scenario setup/verification.
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`). No request-time check yet; result fields will reflect title/loading-screen defaults if invoked too early.
 **Side effects:** none.
@@ -526,9 +530,14 @@ Request:
 Response (menu active):
 ```json
 ← { "jsonrpc": "2.0", "id": 6, "result": {
-      "type": "ShopMenu",
+      "type": "DialogueBox",
       "present": true,
-      "extra": { "currency": "0", "item_count": "42" }
+      "bounds": { "x": 32, "y": 492, "width": 1216, "height": 192 },
+      "choices": [
+        { "key": "0", "text": "Pet Dusty" },
+        { "key": "1", "text": "Don't pet Dusty" }
+      ],
+      "extra": { "choice_count": "2" }
    } }
 ```
 
@@ -540,8 +549,20 @@ Response (no menu active):
 `type` is the CLR class name of the menu (`ShopMenu`, `DialogueBox`, `GameMenu`, etc.). `extra` carries a small, menu-type-specific payload:
 
 - `ShopMenu`: `currency` (int as string; 0 = gold, 1 = star tokens, 2 = Qi coins), `item_count` (count of `forSale`).
-- `DialogueBox`: `character` (name of the speaker, or empty if narration-only), plus best-effort `dialogue_text` when readable from runtime menu fields.
+- `DialogueBox`: `character` (name of the speaker, or empty if narration-only),
+  plus best-effort `dialogue_text` when readable from runtime menu fields.
+  Dialogue progress extras include `dialogue_character_index`,
+  `dialogue_text_length`, `dialogue_ready`, and `dialogue_safety_timer` when
+  Stardew exposes them.
+- Dialogue/question menus can expose structured `choices` with reflected
+  `key`/`text` pairs. These are best-effort and work even when Stardew renders a
+  choice menu with blank dialogue text.
 - Other menu types currently emit `extra: {}`; extend per scenario need.
+
+When `SDV_TEST_DIAGNOSTIC_MENU_MEMBERS=1` is set, `extra` may also contain
+`diagnostic_*` fields with reflected menu members, response sources, and
+clickable component details. This is a debug aid for new menu types and should
+not be used as stable test data.
 
 Nested menus (e.g. inventory inside a shop) are not exposed here — `Game1.activeClickableMenu` is the top-level only, per `.claude/rules/sdv-conventions.md`.
 
@@ -643,12 +664,29 @@ Active response:
           "current_frame": 0
         }
       ],
-      "dialogue": null,
+      "dialogue": {
+        "menu_type": "DialogueBox",
+        "speaker": "",
+        "text": "",
+        "choices": [
+          { "key": "0", "text": "Pet Dusty" },
+          { "key": "1", "text": "Don't pet Dusty" }
+        ]
+      },
+      "choices": [
+        { "key": "0", "text": "Pet Dusty" },
+        { "key": "1", "text": "Don't pet Dusty" }
+      ],
       "viewport": { "x": 896, "y": 1472, "width": 1280, "height": 720 }
    } }
 ```
 
-`id`, `is_festival`, `is_skippable`, actor list, and dialogue are best-effort fields read from runtime state through stable public fields when possible and reflection when needed. Missing Stardew fields are omitted or returned as default values rather than failing the RPC.
+`id`, `is_festival`, `is_skippable`, actor list, dialogue, and choices are
+best-effort fields read from runtime state through stable public fields when
+possible and reflection when needed. Missing Stardew fields are omitted or
+returned as default values rather than failing the RPC. `choices` mirrors
+`dialogue.choices` for convenient assertions such as
+`state.event.choices contains text 'Pet Dusty'`.
 
 **Preconditions:** none beyond the harness running. Safe outside a save; inactive responses use empty/default fields.
 **Side effects:** none.
@@ -830,9 +868,9 @@ Response (success):
 ← { "jsonrpc": "2.0", "id": 13, "result": { "ok": true, "tick": 84204 } }
 ```
 
-Response (missing `params` or blank `id` — InvalidParams):
+Response (missing `params` or non-numeric `id` — InvalidParams):
 ```json
-← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.id must be non-empty" } }
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.id must be a numeric event id" } }
 ```
 
 `tick` is `Game1.ticks` at the moment the mail flag was added.
@@ -841,6 +879,37 @@ Response (missing `params` or blank `id` — InvalidParams):
 **Side effects:** trims `params.id` and adds it to `Game1.MasterPlayer.mailReceived`.
 **Implemented in:** `src/Harness/Handlers/PlayerAddMailHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerAddMailHandlerTests.cs` (error-path unit tests) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL shape).
+
+### player.add_event_seen
+
+Adds an event id to the master farmer and local farmer `eventsSeen` lists. This
+is a neutral save-state mutator for scenarios that need to set up or verify
+relationship/event-gated content without adding mod-specific hooks.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 13, "method": "player.add_event_seen", "params": { "id": "5532011" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 13, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing `params` or blank `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.id must be non-empty" } }
+```
+
+`tick` is `Game1.ticks` at the moment the event flag was added. The handler
+normalizes numeric string ids and rejects ids that cannot be parsed as Stardew
+event ids.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** trims/parses `params.id` and adds it to both
+`Game1.MasterPlayer.eventsSeen` and `Game1.player.eventsSeen`.
+**Implemented in:** `src/Harness/Handlers/PlayerAddEventSeenHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerAddEventSeenHandlerTests.cs`.
 
 ### player.set_friendship
 
@@ -1354,6 +1423,84 @@ Response (no button match - GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/InputClickMenuButtonHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickMenuButtonHandlerTests.cs` (validation, id/label matching, repeat, right-click dispatch, and menu dispatch).
 
+### input.click_menu_choice
+
+Clicks a structured Stardew menu choice by reflected response key or visible
+response text. This is intended for `DialogueBox` question menus and similar
+Stardew-native menus where `state.menu.choices` exposes `key`/`text` entries.
+The handler hovers the matched response component before clicking so menus that
+track selected response via hover behave like a player click.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "input.click_menu_choice", "params": { "text_equals": "Pet Dusty" } }
+```
+
+Request by key:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "input.click_menu_choice", "params": { "key": "0" } }
+```
+
+Request with regex text matching:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "input.click_menu_choice", "params": { "text_matches": "^Pet " } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing target — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32602, "message": "params.key, params.text, params.text_equals, or params.text_matches required" } }
+```
+
+Response (no matching choice — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32003, "message": "input.click_menu_choice could not find menu choice: Pet Dusty" } }
+```
+
+**Preconditions:** an active menu must expose a response collection (`responses`,
+`answers`, or `questionChoices`) and matching clickable response components
+(`responseCC`, `choices`, or equivalent reflected collection).
+**Side effects:** calls `performHoverAction(centerX, centerY)` and then
+`receiveLeftClick` or `receiveRightClick` on the active menu.
+**Implemented in:** `src/Harness/Handlers/InputClickMenuChoiceHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickMenuChoiceHandlerTests.cs`.
+
+### input.click_menu_advance
+
+Acknowledges the active menu without relying on text capture. This is useful for
+generic event/dialogue advancement where the menu has a next/OK/done button or
+where a bottom-right dialogue click is the standard player action.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 20, "method": "input.click_menu_advance", "params": {} }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 20, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (no active menu — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 20, "error": { "code": -32003, "message": "input.click_menu_advance requires an active menu" } }
+```
+
+The handler first looks for known reflected advance buttons such as
+`nextDialogueButton`, `nextButton`, `okButton`, or `doneButton`. If none exist,
+it clicks the menu/dialogue bottom-right fallback and also sends common
+acknowledgement keys (`X`, `Enter`, and `Space`) to support Stardew-native
+dialogue boxes.
+
+**Preconditions:** an active menu must be open.
+**Side effects:** calls hover/click or key acknowledgement on the active menu.
+**Implemented in:** `src/Harness/Handlers/InputClickMenuAdvanceHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickMenuAdvanceHandlerTests.cs`.
+
 ### input.hover_text
 
 Hovers the center of a captured `SpriteBatch.DrawString` text event in the currently active top-level menu. Supply `params.text` for `draw.text_find`'s `text_contains` behavior, `params.text_equals` for an exact text match, or `params.text_matches` for a regular expression match. `params.case_sensitive` defaults to `true`, and `params.occurrence` is one-based for choosing among multiple matches.
@@ -1408,6 +1555,8 @@ Runner scenario convenience:
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
+- `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
+- `{ "action": "event.advance", "args": { "choice_text": "Pet Dusty" } }` waits for the matching menu choice and then calls `input.click_menu_choice`. Without a choice/text target it waits for an active menu and calls `input.click_menu_advance`; `repeat` and `interval_ms` can advance multi-page dialogue. `ui.acknowledge` uses the same menu-advance path.
 - `{ "action": "state.assert", "args": { "params": { "name": "Riley" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
@@ -1419,6 +1568,10 @@ The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `timeout_ms`, and `poll_ms`. Active-event screenshots should use live or
 next-frame capture because `freeze.begin` rejects cutscenes while `Game1.eventUp`
 is true.
+
+`wait.menu` accepts `present`, `type`, `text`, `text_equals`, `text_matches`,
+`choice_key`, `choice_text`, `choice_text_contains`, `choice_text_matches`,
+`ready`, `button`, `case_sensitive`, `timeout_ms`, and `poll_ms`.
 
 ### shop.open
 

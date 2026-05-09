@@ -90,4 +90,73 @@ public class EventStateProjectorTests
         Assert.Equal(3, actor.FacingDirection);
         Assert.Equal(0, actor.CurrentFrame);
     }
+
+    [Fact]
+    public void ToState_ActiveEvent_ProjectsDialogueChoices()
+    {
+        var state = EventStateProjector.ToState(new EventProjectionSource
+        {
+            CurrentEvent = new FakeEvent(),
+            EventUp = true,
+            LocationName = "Town",
+            Viewport = new Rectangle(0, 0, 1280, 720),
+            ActiveMenu = new FakeQuestionMenu(),
+        });
+
+        Assert.NotNull(state.Dialogue);
+        Assert.Equal("What should I do?", state.Dialogue!.Text);
+        Assert.Equal(2, state.Choices.Count);
+        Assert.Equal("pet", state.Choices[0].Key);
+        Assert.Equal("Pet Dusty", state.Choices[0].Text);
+    }
+
+    [Fact]
+    public void ToState_ActiveEvent_ProjectsChoicesWhenDialogueTextIsBlank()
+    {
+        var state = EventStateProjector.ToState(new EventProjectionSource
+        {
+            CurrentEvent = new FakeEvent(),
+            EventUp = true,
+            LocationName = "Town",
+            Viewport = new Rectangle(0, 0, 1280, 720),
+            ActiveMenu = new FakeBlankQuestionMenu(),
+        });
+
+        Assert.NotNull(state.Dialogue);
+        Assert.Equal("", state.Dialogue!.Text);
+        Assert.Equal(2, state.Choices.Count);
+        Assert.Equal("0", state.Choices[0].Key);
+        Assert.Equal("Pet Dusty", state.Choices[0].Text);
+    }
+
+    private sealed class FakeQuestionMenu
+    {
+        public string question = "What should I do?";
+        public FakeResponse[] responses =
+        {
+            new("pet", "Pet Dusty"),
+            new("leave", "Don't pet Dusty"),
+        };
+    }
+
+    private sealed class FakeBlankQuestionMenu
+    {
+        public FakeResponse[] responses =
+        {
+            new("0", "Pet Dusty"),
+            new("1", "Don't pet Dusty"),
+        };
+    }
+
+    private sealed class FakeResponse
+    {
+        public FakeResponse(string key, string text)
+        {
+            responseKey = key;
+            responseText = text;
+        }
+
+        public string responseKey;
+        public string responseText;
+    }
 }

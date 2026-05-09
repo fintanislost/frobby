@@ -100,7 +100,10 @@ should normally be captured under `freeze.begin` for deterministic output.
 Frobby tests should exercise the UI like a player whenever possible:
 
 - Prefer `ui.click_text`, `input.click_text`, `ui.hover_text`, `input.hover_text`,
-  `input.click`, and `input.hover` for menu flows.
+  `input.click`, and `input.hover` for menu flows. For Stardew dialogue
+  choices, prefer `wait.menu` with `choice_text`/`choice_key` and
+  `event.advance` with the same choice target so the runner uses
+  `input.click_menu_choice` against reflected menu response bounds.
 - Keep keyboard input for scenarios that explicitly validate keyboard behavior.
 - Use semantic text assertions for Stardew UI: `draw.text_contains`,
   `draw.text_not_contains`, `text_equals`, `text_matches`, bounds filters,
@@ -108,8 +111,9 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use `draw.text_all_within` as the standard guardrail for fixed panes, tables,
   terminal bodies, button bars, and any UI where text overflow is a regression.
 - Use player/world setup helpers such as `player.set_money`, `player.give_item`,
-  `player.add_mail`, `time.set`, `time.advance`, `time.next_day`, and fixture
-  loading to create deterministic test state before exercising the mod.
+  `player.add_mail`, `player.add_event_seen`, `time.set`, `time.advance`,
+  `time.next_day`, and fixture loading to create deterministic test state before
+  exercising the mod.
 - Use `state.locations`, expanded `state.location`, `state.map_tile`,
   `state.tile_actions`, `world.interact_tile_action`, and runner-side
   `wait.location` when testing custom mod locations, maps, direct warp flows, and
@@ -140,9 +144,10 @@ Frobby tests should exercise the UI like a player whenever possible:
   Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, or
   a texture that should exist before it is rendered.
 - Use `event.start`, `event.skip`, `state.event`, `wait.event_active`, and
-  `wait.event_complete` for cutscenes or other Stardew events. Active-event
-  screenshots should use `screenshot.capture_next_frame`; `freeze.begin` still
-  rejects cutscenes.
+  `wait.event_complete` for cutscenes or other Stardew events. Use
+  `wait.menu` plus `event.advance` for click-based dialogue acknowledgement and
+  question choices inside events. Active-event screenshots should use
+  `screenshot.capture_next_frame`; `freeze.begin` still rejects cutscenes.
 
 See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
 assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the

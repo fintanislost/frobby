@@ -13,6 +13,7 @@ public sealed class EventState
     public bool IsSkippable { get; set; }
     public bool PlayerControlLocked { get; set; }
     public List<EventActorState> Actors { get; set; } = new();
+    public List<MenuChoiceState> Choices { get; set; } = new();
     public EventDialogueState? Dialogue { get; set; }
     public EventViewportState? Viewport { get; set; }
 }
@@ -31,6 +32,7 @@ public sealed class EventDialogueState
     public string MenuType { get; set; } = string.Empty;
     public string Speaker { get; set; } = string.Empty;
     public string Text { get; set; } = string.Empty;
+    public List<MenuChoiceState> Choices { get; set; } = new();
 }
 
 public sealed class EventViewportState

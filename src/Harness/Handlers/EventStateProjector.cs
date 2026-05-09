@@ -45,6 +45,8 @@ internal static class EventStateProjector
                 : null,
             Dialogue = StateMenuHandler.TryProjectDialogue(source.ActiveMenu),
         };
+        if (state.Dialogue is not null)
+            state.Choices = state.Dialogue.Choices;
 
         if (!active)
             return state;

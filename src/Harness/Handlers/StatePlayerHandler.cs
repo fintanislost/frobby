@@ -27,6 +27,8 @@ public static class StatePlayerHandler
             Health = world.Health,
             Location = world.Location,
             Tile = world.Tile,
+            MailReceived = world.MailReceived.ToList(),
+            EventsSeen = world.EventsSeen.ToList(),
             Items = world.Items
                 .Select(i => new PlayerItemSummary
                 {
@@ -55,6 +57,8 @@ internal interface IPlayerStateWorld
     int Health { get; }
     string Location { get; }
     TilePoint Tile { get; }
+    IReadOnlyList<string> MailReceived { get; }
+    IReadOnlyList<string> EventsSeen { get; }
     IReadOnlyList<IPlayerInventoryItem> Items { get; }
 }
 
@@ -93,6 +97,8 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
     public int Health => Player.health;
     public string Location => Game1.currentLocation?.Name ?? string.Empty;
     public TilePoint Tile => new() { X = Player.TilePoint.X, Y = Player.TilePoint.Y };
+    public IReadOnlyList<string> MailReceived => Player.mailReceived.Select(m => m ?? string.Empty).ToList();
+    public IReadOnlyList<string> EventsSeen => Player.eventsSeen.Select(e => e.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
 
     public IReadOnlyList<IPlayerInventoryItem> Items
     {

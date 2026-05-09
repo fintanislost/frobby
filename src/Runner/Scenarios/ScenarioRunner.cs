@@ -211,6 +211,10 @@ public sealed class ScenarioRunner
                     {
                         await WaitForUiTextAsync(step, ct);
                     }
+                    else if (step.Action == "wait.menu")
+                    {
+                        await InvokeWaitMenuAsync(step, ct);
+                    }
                     else if (step.Action == "ui.click_text")
                     {
                         var uiText = await WaitForUiTextAsync(step, ct);
@@ -247,6 +251,10 @@ public sealed class ScenarioRunner
                         var resp = await _session.InvokeAsync("input.hover_text", hoverParams, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+                    }
+                    else if (step.Action == "ui.acknowledge" || step.Action == "event.advance")
+                    {
+                        await InvokeMenuAdvanceAsync(step, ct);
                     }
                     else if (step.Action == "time.next_day")
                     {
@@ -1163,6 +1171,277 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException($"step 'state.assert' failed: {message ?? detail ?? expr}");
     }
 
+    private async Task InvokeMenuAdvanceAsync(ScenarioStep step, CancellationToken ct)
+    {
+        if (HasMenuChoiceTarget(step.Args))
+        {
+            var choiceArgs = ParseWaitMenuArgs(step);
+            await WaitForMenuAsync(step.Action, choiceArgs, ct);
+            var choiceParams = ProtocolJson.ToElement(new InputClickMenuChoiceRequest
+            {
+                Key = choiceArgs.ChoiceKey,
+                Text = choiceArgs.ChoiceTextContains,
+                TextEquals = choiceArgs.ChoiceText,
+                TextMatches = choiceArgs.ChoiceTextMatches,
+                Button = choiceArgs.Button,
+                CaseSensitive = choiceArgs.CaseSensitive,
+            });
+            var choiceResp = await _session.InvokeAsync("input.click_menu_choice", choiceParams, ct);
+            if (choiceResp.Error is { } choiceError)
+                throw new InvalidOperationException($"step '{step.Action}' failed during input.click_menu_choice: {choiceError.Message}");
+            return;
+        }
+
+        if (HasUiTextTarget(step.Args))
+        {
+            var uiText = await WaitForUiTextAsync(step, ct);
+            var clickParams = ProtocolJson.ToElement(new InputClickTextRequest
+            {
+                Text = uiText.Text,
+                TextEquals = uiText.TextEquals,
+                TextMatches = uiText.TextMatches,
+                Button = uiText.Button,
+                CaseSensitive = uiText.CaseSensitive,
+                Occurrence = uiText.Occurrence,
+                InRect = uiText.InRect,
+                BoundsWithinRect = uiText.BoundsWithinRect,
+                BoundsIntersectsRect = uiText.BoundsIntersectsRect,
+            });
+            var resp = await _session.InvokeAsync("input.click_text", clickParams, ct);
+            if (resp.Error is { } textClickError)
+                throw new InvalidOperationException($"step '{step.Action}' failed: {textClickError.Message}");
+            return;
+        }
+
+        var args = ParseMenuAdvanceArgs(step);
+        var elapsed = Stopwatch.StartNew();
+        MenuState? lastObserved = null;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var menuResp = await _session.InvokeAsync("state.menu", params_: null, ct);
+            if (menuResp.Error is { } menuError)
+                throw new InvalidOperationException($"step '{step.Action}' failed during state.menu: {menuError.Message}");
+
+            if (menuResp.Result is { } menuRoot)
+                lastObserved = JsonSerializer.Deserialize<MenuState>(menuRoot.GetRawText(), ProtocolJson.Options);
+
+            if (lastObserved?.Present == true && lastObserved.Bounds is { Width: > 0, Height: > 0 } bounds)
+            {
+                var clickParams = ProtocolJson.ToElement(new InputClickMenuAdvanceRequest
+                {
+                    Button = args.Button,
+                });
+                for (var i = 0; i < args.Repeat; i++)
+                {
+                    var clickResp = await _session.InvokeAsync("input.click_menu_advance", clickParams, ct);
+                    if (clickResp.Error is { } clickError)
+                        throw new InvalidOperationException($"step '{step.Action}' failed during input.click_menu_advance: {clickError.Message}");
+                    if (i + 1 < args.Repeat)
+                        await Task.Delay(args.IntervalMs, ct);
+                }
+                return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        var last = lastObserved is null
+            ? "nothing"
+            : $"present={lastObserved.Present}, type='{lastObserved.Type}', bounds={(lastObserved.Bounds is null ? "none" : $"{lastObserved.Bounds.Width}x{lastObserved.Bounds.Height}")}";
+        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms waiting for an active menu with bounds; last observed {last}");
+    }
+
+    private async Task InvokeWaitMenuAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = ParseWaitMenuArgs(step);
+        await WaitForMenuAsync(step.Action, args, ct);
+    }
+
+    private async Task<MenuState> WaitForMenuAsync(string action, WaitMenuStepArgs args, CancellationToken ct)
+    {
+        var elapsed = Stopwatch.StartNew();
+        MenuState? lastObserved = null;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var menuResp = await _session.InvokeAsync("state.menu", params_: null, ct);
+            if (menuResp.Error is { } menuError)
+                throw new InvalidOperationException($"{action} failed during state.menu: {menuError.Message}");
+
+            if (menuResp.Result is { } menuRoot)
+                lastObserved = JsonSerializer.Deserialize<MenuState>(menuRoot.GetRawText(), ProtocolJson.Options);
+
+            if (lastObserved is not null && MenuMatches(lastObserved, args))
+                return lastObserved;
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"{action} timed out after {args.TimeoutMs}ms waiting for {FormatMenuExpectation(args)}; " +
+            $"last observed {FormatMenuState(lastObserved)}");
+    }
+
+    private static WaitMenuStepArgs ParseWaitMenuArgs(ScenarioStep step)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitMenuStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new WaitMenuStepArgs()
+            : new WaitMenuStepArgs();
+
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+
+        var button = string.IsNullOrWhiteSpace(args.Button) ? "left" : args.Button.Trim().ToLowerInvariant();
+        if (button != "left" && button != "right")
+            throw new InvalidOperationException($"{step.Action} requires args.button to be left or right");
+        args.Button = button;
+        return args;
+    }
+
+    private static bool MenuMatches(MenuState state, WaitMenuStepArgs args)
+    {
+        var expectedPresent = args.Present ?? true;
+        if (state.Present != expectedPresent)
+            return false;
+        if (!expectedPresent)
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(args.Type)
+            && !string.Equals(state.Type, args.Type, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (HasMenuTextTarget(args) && !MenuTextMatches(state, args))
+            return false;
+
+        if (args.Ready is not null && !MenuReadyMatches(state, args.Ready.Value))
+            return false;
+
+        if (HasMenuChoiceTarget(args) && !MenuChoiceMatches(state, args))
+            return false;
+
+        return true;
+    }
+
+    private static bool MenuTextMatches(MenuState state, WaitMenuStepArgs args)
+    {
+        foreach (var value in state.Extra.Values)
+        {
+            if (TextMatches(value, args.Text, args.TextEquals, args.TextMatches, args.CaseSensitive))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool MenuReadyMatches(MenuState state, bool expected)
+        => state.Extra.TryGetValue("dialogue_ready", out var value)
+            && bool.TryParse(value, out var actual)
+            && actual == expected;
+
+    private static bool MenuChoiceMatches(MenuState state, WaitMenuStepArgs args)
+    {
+        foreach (var choice in state.Choices)
+        {
+            if (!string.IsNullOrWhiteSpace(args.ChoiceKey)
+                && string.Equals(choice.Key, args.ChoiceKey, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (TextMatches(choice.Text, args.ChoiceTextContains, args.ChoiceText, args.ChoiceTextMatches, args.CaseSensitive))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool TextMatches(string actual, string? contains, string? equals, string? matches, bool caseSensitive)
+    {
+        var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        if (!string.IsNullOrWhiteSpace(equals))
+            return string.Equals(actual, equals, comparison);
+        if (!string.IsNullOrWhiteSpace(contains))
+            return actual.Contains(contains, comparison);
+        if (!string.IsNullOrWhiteSpace(matches))
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                actual,
+                matches,
+                caseSensitive ? System.Text.RegularExpressions.RegexOptions.None : System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return false;
+    }
+
+    private static bool HasMenuTextTarget(WaitMenuStepArgs args)
+        => !string.IsNullOrWhiteSpace(args.Text)
+            || !string.IsNullOrWhiteSpace(args.TextEquals)
+            || !string.IsNullOrWhiteSpace(args.TextMatches);
+
+    private static bool HasMenuChoiceTarget(WaitMenuStepArgs args)
+        => !string.IsNullOrWhiteSpace(args.ChoiceKey)
+            || !string.IsNullOrWhiteSpace(args.ChoiceText)
+            || !string.IsNullOrWhiteSpace(args.ChoiceTextContains)
+            || !string.IsNullOrWhiteSpace(args.ChoiceTextMatches);
+
+    private static string FormatMenuExpectation(WaitMenuStepArgs args)
+    {
+        if (args.Present == false)
+            return "no active menu";
+        if (!string.IsNullOrWhiteSpace(args.ChoiceKey))
+            return $"menu choice key \"{args.ChoiceKey}\"";
+        var choiceLabel = args.ChoiceText ?? args.ChoiceTextContains ?? args.ChoiceTextMatches;
+        if (!string.IsNullOrWhiteSpace(choiceLabel))
+            return $"menu choice \"{choiceLabel}\"";
+        var textLabel = args.TextEquals ?? args.Text ?? args.TextMatches;
+        if (!string.IsNullOrWhiteSpace(textLabel))
+            return args.Ready is null
+                ? $"menu text \"{textLabel}\""
+                : $"menu text \"{textLabel}\" ready={args.Ready.Value.ToString().ToLowerInvariant()}";
+        if (args.Ready is not null)
+            return $"menu ready={args.Ready.Value.ToString().ToLowerInvariant()}";
+        if (!string.IsNullOrWhiteSpace(args.Type))
+            return $"menu type \"{args.Type}\"";
+        return "an active menu";
+    }
+
+    private static string FormatMenuState(MenuState? state)
+        => state is null
+            ? "nothing"
+            : $"present={state.Present}, type='{state.Type}', choices={state.Choices.Count}, extra_keys={state.Extra.Count}, extra={FormatMenuExtra(state.Extra)}";
+
+    private static string FormatMenuExtra(IReadOnlyDictionary<string, string> extra)
+        => extra.Count == 0
+            ? "{}"
+            : "{" + string.Join(", ", extra.Take(8).Select(kvp => $"{kvp.Key}='{Truncate(kvp.Value, 4000)}'")) + "}";
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength] + "...";
+
+    private static MenuAdvanceStepArgs ParseMenuAdvanceArgs(ScenarioStep step)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<MenuAdvanceStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new MenuAdvanceStepArgs()
+            : new MenuAdvanceStepArgs();
+
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+        if (args.Repeat < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.repeat >= 1");
+        if (args.IntervalMs < 0)
+            throw new InvalidOperationException($"{step.Action} requires args.interval_ms >= 0");
+
+        var button = string.IsNullOrWhiteSpace(args.Button) ? "left" : args.Button.Trim().ToLowerInvariant();
+        if (button != "left" && button != "right")
+            throw new InvalidOperationException($"{step.Action} requires args.button to be left or right");
+        args.Button = button;
+        return args;
+    }
+
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
     {
         var args = ParseUiTextArgs(step);
@@ -1276,8 +1555,19 @@ public sealed class ScenarioRunner
             "input.hover" => $"Hover at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.hover_text" => $"Hover text \"{GetUiTextLabel(step.Args)}\"",
             "ui.wait_text" => $"Wait for text \"{GetUiTextLabel(step.Args)}\"",
+            "wait.menu" => $"Wait for menu {GetMenuLabel(step.Args)}",
             "ui.click_text" => $"Wait and click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "ui.hover_text" => $"Wait and hover text \"{GetUiTextLabel(step.Args)}\"",
+            "ui.acknowledge" => HasMenuChoiceTarget(step.Args)
+                ? $"Acknowledge choice \"{GetMenuChoiceLabel(step.Args)}\""
+                : HasUiTextTarget(step.Args)
+                ? $"Acknowledge text \"{GetUiTextLabel(step.Args)}\""
+                : "Acknowledge active menu",
+            "event.advance" => HasMenuChoiceTarget(step.Args)
+                ? $"Advance event through choice \"{GetMenuChoiceLabel(step.Args)}\""
+                : HasUiTextTarget(step.Args)
+                ? $"Advance event through text \"{GetUiTextLabel(step.Args)}\""
+                : "Advance active event/menu",
             "draw.arm" => $"Capture draw events for {GetIntArg(step.Args, "ticks") ?? 0} ticks",
             "freeze.begin" => "Freeze deterministic frame",
             "freeze.end" => "Resume live frame",
@@ -1353,6 +1643,7 @@ public sealed class ScenarioRunner
             "wait.visual_effects" => false,
             "wait.event_active" => false,
             "wait.event_complete" => false,
+            "wait.menu" => false,
             "draw.arm" => false,
             "draw.disarm" => false,
             "state.assert" => false,
@@ -1389,6 +1680,35 @@ public sealed class ScenarioRunner
             ?? GetStringArg(args, "text")
             ?? GetStringArg(args, "text_matches")
             ?? string.Empty;
+
+    private static bool HasUiTextTarget(JsonElement? args)
+        => !string.IsNullOrWhiteSpace(GetStringArg(args, "text"))
+            || !string.IsNullOrWhiteSpace(GetStringArg(args, "text_equals"))
+            || !string.IsNullOrWhiteSpace(GetStringArg(args, "text_matches"));
+
+    private static bool HasMenuChoiceTarget(JsonElement? args)
+        => !string.IsNullOrWhiteSpace(GetStringArg(args, "choice_key"))
+            || !string.IsNullOrWhiteSpace(GetStringArg(args, "choice_text"))
+            || !string.IsNullOrWhiteSpace(GetStringArg(args, "choice_text_contains"))
+            || !string.IsNullOrWhiteSpace(GetStringArg(args, "choice_text_matches"));
+
+    private static string GetMenuChoiceLabel(JsonElement? args)
+        => GetStringArg(args, "choice_key")
+            ?? GetStringArg(args, "choice_text")
+            ?? GetStringArg(args, "choice_text_contains")
+            ?? GetStringArg(args, "choice_text_matches")
+            ?? string.Empty;
+
+    private static string GetMenuLabel(JsonElement? args)
+    {
+        foreach (var label in new[] { GetMenuChoiceLabel(args), GetUiTextLabel(args), GetStringArg(args, "type") })
+        {
+            if (!string.IsNullOrWhiteSpace(label))
+                return label;
+        }
+
+        return "active";
+    }
 
     private static string GetMenuButtonLabel(JsonElement? args)
         => GetStringArg(args, "label") ?? GetStringArg(args, "text_equals") ?? GetStringArg(args, "id") ?? string.Empty;
@@ -1467,6 +1787,33 @@ public sealed class ScenarioRunner
 
         public string TextLabel
             => TextEquals ?? Text ?? TextMatches ?? string.Empty;
+    }
+
+    private sealed class MenuAdvanceStepArgs
+    {
+        public string Button { get; set; } = "left";
+        public int TimeoutMs { get; set; } = 1500;
+        public int PollMs { get; set; } = 50;
+        public int Repeat { get; set; } = 1;
+        public int IntervalMs { get; set; } = 100;
+    }
+
+    private sealed class WaitMenuStepArgs
+    {
+        public bool? Present { get; set; }
+        public string? Type { get; set; }
+        public string? Text { get; set; }
+        public string? TextEquals { get; set; }
+        public string? TextMatches { get; set; }
+        public string? ChoiceKey { get; set; }
+        public string? ChoiceText { get; set; }
+        public string? ChoiceTextContains { get; set; }
+        public string? ChoiceTextMatches { get; set; }
+        public bool? Ready { get; set; }
+        public string Button { get; set; } = "left";
+        public bool CaseSensitive { get; set; } = true;
+        public int TimeoutMs { get; set; } = 1500;
+        public int PollMs { get; set; } = 50;
     }
 
     private sealed class WaitLocationStepArgs

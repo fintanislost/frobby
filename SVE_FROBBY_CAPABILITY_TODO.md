@@ -23,7 +23,7 @@ Status key:
   - Design spec: `docs/superpowers/specs/2026-05-05-sve-slice-2-event-observability-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-05-sve-slice-2-event-observability.md`.
   - Done: `state.event`, `event.start`, `event.skip`, runner-side `wait.event_active` / `wait.event_complete`, readable dialogue/menu text extras, and SVE scenario 03 (`sve_event_observability_krobus`).
-  - Pending Slice 2 follow-up: event dialogue choice selection, reliable generic menu/global-overlay acknowledgement, script step advancement without full skip, and event-seen/mail mutation helpers for relationship-gated scenes.
+  - Done Slice 2 follow-up: structured menu choices on `state.menu` / `state.event`, runner-side `wait.menu`, `input.click_menu_choice`, `input.click_menu_advance`, generic `event.advance` / `ui.acknowledge` menu advancement, `player.add_event_seen`, `state.player.events_seen`, and SVE scenario 11 (`sve_event_dialogue_choice_dusty`).
 
 - [x] Done: Slice 3, Content Patcher asset coverage.
   - SVE pressure: CP `Load` and `Edit*` actions for maps, strings, data assets, portraits, sprites, recolors, and config-gated patches.

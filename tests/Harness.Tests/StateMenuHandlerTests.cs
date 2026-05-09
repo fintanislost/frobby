@@ -31,6 +31,59 @@ public class StateMenuHandlerTests
     }
 
     [Fact]
+    public void AddReadableTextExtras_AddsDialogueChoiceSummaries()
+    {
+        var state = new MenuState { Type = "DialogueBox", Present = true };
+
+        StateMenuHandler.AddReadableTextExtras(state, new FakeQuestionMenu());
+
+        Assert.Equal(2, state.Choices.Count);
+        Assert.Equal("pet", state.Choices[0].Key);
+        Assert.Equal("Pet Dusty", state.Choices[0].Text);
+        Assert.Equal("leave", state.Choices[1].Key);
+        Assert.Equal("Don't pet Dusty", state.Choices[1].Text);
+        Assert.Equal("2", state.Extra["choice_count"]);
+    }
+
+    [Fact]
+    public void AddReadableTextExtras_ReadsQuestionChoicesMember()
+    {
+        var state = new MenuState { Type = "DialogueBox", Present = true };
+
+        StateMenuHandler.AddReadableTextExtras(state, new FakeQuestionChoicesMenu());
+
+        Assert.Equal(2, state.Choices.Count);
+        Assert.Equal("Pet Dusty", state.Choices[0].Text);
+        Assert.Equal("Don't pet Dusty", state.Choices[1].Text);
+    }
+
+    [Fact]
+    public void AddReadableTextExtras_AddsChoicesWhenDialogueTextIsBlank()
+    {
+        var state = new MenuState { Type = "DialogueBox", Present = true };
+
+        StateMenuHandler.AddReadableTextExtras(state, new FakeBlankQuestionMenu());
+
+        Assert.Equal(2, state.Choices.Count);
+        Assert.Equal("0", state.Choices[0].Key);
+        Assert.Equal("Pet Dusty", state.Choices[0].Text);
+        Assert.Equal("1", state.Choices[1].Key);
+        Assert.Equal("Don't pet Dusty", state.Choices[1].Text);
+    }
+
+    [Fact]
+    public void AddReadableTextExtras_AddsDialogueReadyTelemetry()
+    {
+        var state = new MenuState { Type = "DialogueBox", Present = true };
+
+        StateMenuHandler.AddReadableTextExtras(state, new FakeReadyDialogueMenu());
+
+        Assert.Equal("2", state.Extra["dialogue_character_index"]);
+        Assert.Equal("3", state.Extra["dialogue_text_length"]);
+        Assert.Equal("true", state.Extra["dialogue_ready"]);
+    }
+
+    [Fact]
     public void TryProjectDialogue_ReturnsNullWhenMenuIsNull()
     {
         Assert.Null(StateMenuHandler.TryProjectDialogue(null));
@@ -85,6 +138,54 @@ public class StateMenuHandlerTests
     {
         public object characterDialogue = new FakeCharacterDialogue();
         public string dialogue = "Welcome to the grove.";
+    }
+
+    private sealed class FakeReadyDialogueMenu
+    {
+        public string dialogue = "!!!";
+        public int characterIndexInDialogue = 2;
+        public int safetyTimer = 0;
+    }
+
+    private sealed class FakeQuestionMenu
+    {
+        public string question = "What should I do?";
+        public FakeResponse[] responses =
+        {
+            new("pet", "Pet Dusty"),
+            new("leave", "Don't pet Dusty"),
+        };
+    }
+
+    private sealed class FakeQuestionChoicesMenu
+    {
+        public string question = "What should I do?";
+        public string[] questionChoices =
+        {
+            "Pet Dusty",
+            "Don't pet Dusty",
+        };
+    }
+
+    private sealed class FakeBlankQuestionMenu
+    {
+        public FakeResponse[] responses =
+        {
+            new("0", "Pet Dusty"),
+            new("1", "Don't pet Dusty"),
+        };
+    }
+
+    private sealed class FakeResponse
+    {
+        public FakeResponse(string key, string text)
+        {
+            responseKey = key;
+            responseText = text;
+        }
+
+        public string responseKey;
+        public string responseText;
     }
 
     private sealed class FakeStardewDialogueMenu

@@ -75,7 +75,7 @@ Environment knobs:
 
 ## Facet reference
 
-- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `GiveItem(id, count)`
+- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
 - `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
@@ -148,6 +148,21 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 
 Use `screenshot.capture_next_frame` for active events because `freeze.begin`
 intentionally rejects cutscenes while `Game1.eventUp` is true.
+
+For Stardew-native dialogue choices, use `wait.menu` and choice-targeted
+`event.advance` instead of coordinates:
+
+```json
+{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty", "timeout_ms": 45000 } },
+{ "action": "state.assert", "args": { "expr": "state.event.choices contains text 'Pet Dusty'" } },
+{ "action": "event.advance", "args": { "choice_text": "Pet Dusty", "timeout_ms": 10000 } },
+{ "action": "wait.menu", "args": { "text": "!!!", "ready": true, "timeout_ms": 45000 } },
+{ "action": "event.advance", "args": { "repeat": 2, "interval_ms": 150 } },
+{ "action": "wait.event_complete", "args": { "id": "5532011", "timeout_ms": 30000 } }
+```
+
+`wait.menu.ready` uses dialogue progress telemetry when Stardew exposes it, which
+keeps event advancement from clicking before the current line finishes typing.
 
 JSON runner scenarios can assert custom NPC relationship and schedule state with
 parameterized `state.assert` calls and runner-side NPC waits:

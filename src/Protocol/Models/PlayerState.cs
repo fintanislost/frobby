@@ -12,6 +12,8 @@ public sealed class PlayerState
     public int Health { get; set; }
     public string Location { get; set; } = string.Empty;
     public TilePoint Tile { get; set; } = new();
+    public List<string> MailReceived { get; set; } = new();
+    public List<string> EventsSeen { get; set; } = new();
     public List<PlayerItemSummary> Items { get; set; } = new();
 }
 
