@@ -548,10 +548,10 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("wait.location_content requires args.collection");
         if (!AllowedLocationContentCollections.Contains(args.Collection))
             throw new InvalidOperationException("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters");
-        if (args.MinCount < 1)
-            throw new InvalidOperationException("wait.location_content requires args.min_count >= 1");
-        if (args.MaxCount is not null && args.MaxCount < 1)
-            throw new InvalidOperationException("wait.location_content requires args.max_count >= 1");
+        if (args.MinCount < 0)
+            throw new InvalidOperationException("wait.location_content requires args.min_count >= 0");
+        if (args.MaxCount is not null && args.MaxCount < 0)
+            throw new InvalidOperationException("wait.location_content requires args.max_count >= 0");
         if (args.MaxCount is not null && args.MaxCount < args.MinCount)
             throw new InvalidOperationException("wait.location_content requires args.max_count >= args.min_count");
         if (args.TimeoutMs < 1)
@@ -590,9 +590,9 @@ public sealed class ScenarioRunner
             && StringFilterMatches(element, "kind", args.Kind)
             && StringFilterMatches(element, "id", args.Id)
             && StringFilterMatches(element, "qualified_id", args.QualifiedId)
-            && NumberFilterMatches(element, "health", args.Health)
-            && NumberFilterMatches(element, "max_health", args.MaxHealth)
-            && NumberFilterMatches(element, "damage", args.Damage)
+            && NumberFilterMatches(element, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
+            && NumberFilterMatches(element, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte)
+            && NumberFilterMatches(element, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte)
             && StringFilterMatches(element, "sprite_texture", args.SpriteTexture)
             && TileFilterMatches(element, args.X, args.Y);
     }
@@ -608,16 +608,35 @@ public sealed class ScenarioRunner
             && string.Equals(value.GetString(), expected, StringComparison.Ordinal);
     }
 
-    private static bool NumberFilterMatches(JsonElement element, string property, int? expected)
+    private static bool NumberFilterMatches(
+        JsonElement element,
+        string property,
+        int? expected,
+        int? lessThan,
+        int? lessThanOrEqual,
+        int? greaterThan,
+        int? greaterThanOrEqual)
     {
-        if (expected is null)
+        if (expected is null
+            && lessThan is null
+            && lessThanOrEqual is null
+            && greaterThan is null
+            && greaterThanOrEqual is null)
             return true;
 
-        return element.ValueKind == JsonValueKind.Object
-            && element.TryGetProperty(property, out var value)
-            && value.ValueKind == JsonValueKind.Number
-            && value.TryGetInt32(out var actual)
-            && actual == expected.Value;
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty(property, out var value)
+            || value.ValueKind != JsonValueKind.Number
+            || !value.TryGetInt32(out var actual))
+        {
+            return false;
+        }
+
+        return (expected is null || actual == expected.Value)
+            && (lessThan is null || actual < lessThan.Value)
+            && (lessThanOrEqual is null || actual <= lessThanOrEqual.Value)
+            && (greaterThan is null || actual > greaterThan.Value)
+            && (greaterThanOrEqual is null || actual >= greaterThanOrEqual.Value);
     }
 
     private static bool TileFilterMatches(JsonElement element, int? x, int? y)
@@ -651,12 +670,28 @@ public sealed class ScenarioRunner
         if (args.Kind is not null) filters.Add($"kind={args.Kind}");
         if (args.Id is not null) filters.Add($"id={args.Id}");
         if (args.QualifiedId is not null) filters.Add($"qualified_id={args.QualifiedId}");
-        if (args.Health is not null) filters.Add($"health={args.Health}");
-        if (args.MaxHealth is not null) filters.Add($"max_health={args.MaxHealth}");
-        if (args.Damage is not null) filters.Add($"damage={args.Damage}");
+        AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
+        AddNumberFilters(filters, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte);
+        AddNumberFilters(filters, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte);
         if (args.SpriteTexture is not null) filters.Add($"sprite_texture={args.SpriteTexture}");
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
+    }
+
+    private static void AddNumberFilters(
+        List<string> filters,
+        string name,
+        int? expected,
+        int? lessThan,
+        int? lessThanOrEqual,
+        int? greaterThan,
+        int? greaterThanOrEqual)
+    {
+        if (expected is not null) filters.Add($"{name}={expected}");
+        if (lessThan is not null) filters.Add($"{name}_lt={lessThan}");
+        if (lessThanOrEqual is not null) filters.Add($"{name}_lte={lessThanOrEqual}");
+        if (greaterThan is not null) filters.Add($"{name}_gt={greaterThan}");
+        if (greaterThanOrEqual is not null) filters.Add($"{name}_gte={greaterThanOrEqual}");
     }
 
     private async Task InvokeWaitVisualEffectsAsync(ScenarioStep step, CancellationToken ct)
@@ -1853,8 +1888,20 @@ public sealed class ScenarioRunner
         public string? Id { get; set; }
         public string? QualifiedId { get; set; }
         public int? Health { get; set; }
+        public int? HealthLt { get; set; }
+        public int? HealthLte { get; set; }
+        public int? HealthGt { get; set; }
+        public int? HealthGte { get; set; }
         public int? MaxHealth { get; set; }
+        public int? MaxHealthLt { get; set; }
+        public int? MaxHealthLte { get; set; }
+        public int? MaxHealthGt { get; set; }
+        public int? MaxHealthGte { get; set; }
         public int? Damage { get; set; }
+        public int? DamageLt { get; set; }
+        public int? DamageLte { get; set; }
+        public int? DamageGt { get; set; }
+        public int? DamageGte { get; set; }
         public string? SpriteTexture { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
