@@ -224,8 +224,23 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 This is mod-neutral: Frobby observes the runtime location state and does not call
 Farm Type Manager or parse its content packs.
 
-For combat checks, trigger a player-like attack and wait for observed monster
-state to change:
+For combat checks, establish the monster baseline, trigger a player-like attack,
+and wait for observed monster state to change:
+
+```json
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "ExampleDeepCave",
+    "collection": "monsters",
+    "x": 20,
+    "y": 144,
+    "health": 2000,
+    "max_health": 2000,
+    "min_count": 1
+  }
+}
+```
 
 ```json
 {
@@ -248,6 +263,7 @@ Then wait for damage instead of sleeping:
     "collection": "monsters",
     "x": 20,
     "y": 144,
+    "max_health": 2000,
     "health_lt": 2000,
     "min_count": 1
   }

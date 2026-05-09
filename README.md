@@ -137,8 +137,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   state and stay independent from specific spawn frameworks.
 - Use `combat.attack` with `state.location.monsters` and
   `wait.location_content` numeric filters for player-like combat checks. Prefer
-  health-delta waits such as `health_lt` over fixed sleeps, and keep mod-specific
-  monster coordinates in repo scenarios rather than in Frobby code.
+  baseline-then-attack waits, such as first proving `health` and `max_health`
+  and then waiting for `health_lt`, over fixed sleeps. Keep mod-specific monster
+  coordinates in repo scenarios rather than in Frobby code.
 - Use `state.visual_effects` and runner-side `wait.visual_effects` when testing
   temporary sprites, light sources, ambient light, or weather debris. For example:
   `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 }, "timeout_ms": 10000 } }`.

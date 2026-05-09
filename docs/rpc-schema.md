@@ -1184,9 +1184,10 @@ follow-up `wait.location` or `wait.ms` step should observe asynchronous effects.
 
 ### combat.attack
 
-Performs one player-like melee attack in the loaded world. Supply either a target
-tile (`x` and `y`) or a cardinal `direction`. If both are supplied, `direction`
-wins. Supported directions are `up`, `right`, `down`, and `left`.
+Performs one player-like melee attack in the loaded world. Supply either a
+complete target tile (`x` and `y`) or a cardinal `direction`. If both a complete
+target tile and `direction` are supplied, `direction` wins. Supported directions
+are `up`, `right`, `down`, and `left`.
 
 The harness RPC is intentionally single-shot: it faces the farmer, selects the
 requested melee weapon when `qualified_item_id` is provided, and invokes
@@ -1210,7 +1211,8 @@ Response (no matching melee weapon — GameStateInvalid):
 ```
 
 **Preconditions:** world loaded; the farmer must have a melee weapon selected or
-available in inventory when `qualified_item_id` is supplied.
+available in inventory. When `qualified_item_id` is supplied, the available
+weapon must match it.
 **Side effects:** faces the farmer and calls the selected weapon's Stardew use
 path once. Follow with `wait.location_content` and monster health comparisons to
 observe damage instead of sleeping.
