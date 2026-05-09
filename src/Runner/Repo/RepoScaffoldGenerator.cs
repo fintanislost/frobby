@@ -253,6 +253,7 @@ public static class RepoScaffoldGenerator
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               cd "$FROBBY_SOURCE_ROOT"
+              unset FROBBY_ROOT
               exec dotnet run --project src/Runner/Runner.csproj -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
@@ -271,6 +272,7 @@ public static class RepoScaffoldGenerator
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               cd "$FROBBY_SOURCE_ROOT"
+              unset FROBBY_ROOT
               exec dotnet run --project src/Runner/Runner.csproj -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
