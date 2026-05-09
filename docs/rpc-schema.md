@@ -1182,6 +1182,44 @@ follow-up `wait.location` or `wait.ms` step should observe asynchronous effects.
 **Implemented in:** `src/Harness/Handlers/WorldInteractTileActionHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InteractTileActionRequestSerializationTests.cs`, `tests/Harness.Tests/WorldInteractTileActionHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
+### combat.attack
+
+Performs one player-like melee attack in the loaded world. Supply either a target
+tile (`x` and `y`) or a cardinal `direction`. If both are supplied, `direction`
+wins. Supported directions are `up`, `right`, `down`, and `left`.
+
+The harness RPC is intentionally single-shot: it faces the farmer, selects the
+requested melee weapon when `qualified_item_id` is provided, and invokes
+Stardew's weapon-use path once. Runner scenarios may pass `repeat` and
+`delay_ticks`; the runner owns those fields and spaces repeated single-shot RPC
+calls outside the game thread.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "combat.attack", "params": { "x": 20, "y": 144, "qualified_item_id": "(W)4" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 15, "result": { "ok": true, "tick": 84205, "tile": { "x": 20, "y": 145 }, "direction": "up", "selected_item_qualified_id": "(W)4", "selected_item_runtime_type": "MeleeWeapon" } }
+```
+
+Response (no matching melee weapon — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32003, "message": "combat.attack could not find melee weapon (W)4 in the farmer inventory" } }
+```
+
+**Preconditions:** world loaded; the farmer must have a melee weapon selected or
+available in inventory when `qualified_item_id` is supplied.
+**Side effects:** faces the farmer and calls the selected weapon's Stardew use
+path once. Follow with `wait.location_content` and monster health comparisons to
+observe damage instead of sleeping.
+**Implemented in:** `src/Harness/Handlers/CombatAttackHandler.cs`
+**Tested in:** `tests/Protocol.Tests/CombatAttackSerializationTests.cs`,
+`tests/Harness.Tests/CombatAttackHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/CombatTests.cs`.
+
 ### input.key
 
 Sends a MonoGame key press to the currently active top-level menu (`Game1.activeClickableMenu`). `params.key` is required and is parsed case-insensitively as `Microsoft.Xna.Framework.Input.Keys`.
@@ -1550,8 +1588,12 @@ Runner scenario convenience:
   `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
   `max_health`, `damage`, `sprite_texture`, and `x`/`y` tile. It accepts
-  `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. On timeout,
-  it reports the last matched and total counts for the selected collection.
+  `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
+  numeric comparisons are supported with `health_lt`, `health_lte`,
+  `health_gt`, `health_gte`, matching `max_health_*` filters, and matching
+  `damage_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
+  matching content. On timeout, it reports the last matched and total counts for
+  the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
 - `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.

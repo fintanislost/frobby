@@ -62,6 +62,12 @@ Status key:
   - Frobby goal: expose enough render/state metadata to assert animated sprites and lighting effects without brittle whole-screen diffs.
   - Done: `state.visual_effects`, runner-side `wait.visual_effects`, DSL access, and SVE scenario 09 against Crimson Badlands sandstorm temporary sprites (`Custom_CrimsonBadlands` / `SandstormEffect`).
 
+- [ ] Active: Slice 8, combat, monster lifecycle, drops, and hazards.
+  - Design spec: `docs/superpowers/specs/2026-05-09-sve-slice-8-combat-monster-lifecycle-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-09-sve-slice-8-combat-monster-lifecycle.md`.
+  - SVE pressure: deterministic custom-location monster spawns plus combat/damage state.
+  - Frobby goal: player-like attack action, health-delta waits, zero-match waits, and a path toward later death/drop/hazard checks.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
