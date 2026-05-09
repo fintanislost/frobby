@@ -128,9 +128,9 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use `state.location.resource_clumps`, `state.location.monsters`, and
   runner-side `wait.location_content` when testing spawned world content such as
   logs, boulders, forage-like objects, ore, or monsters. Monster summaries can
-  expose runtime HP, max HP, damage, and sprite texture, and the wait helper can
-  filter on those fields. These helpers observe runtime Stardew state and stay
-  independent from specific spawn frameworks.
+  expose runtime `health`, `max_health`, `damage`, and `sprite_texture`, and the
+  wait helper can filter on those fields. These helpers observe runtime Stardew
+  state and stay independent from specific spawn frameworks.
 - Use `state.visual_effects` and runner-side `wait.visual_effects` when testing
   temporary sprites, light sources, ambient light, or weather debris. For example:
   `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 }, "timeout_ms": 10000 } }`.

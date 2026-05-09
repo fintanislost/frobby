@@ -46,7 +46,7 @@ Status key:
   - SVE pressure: FTM pack content, conditional forage/monster spawns, location-specific spawn rules, config/mail-gated difficulty variants.
   - Frobby goal: control spawn-relevant state, wait for spawns, inspect objects/monsters/critters in a location, and assert spawn counts/types deterministically.
   - Done: `state.location.resource_clumps`, `state.location.monsters`, richer object metadata, runner-side `wait.location_content`, and SVE scenario 07 against Grandpa's Shed exterior logs.
-  - Active Slice 5 follow-up: add deterministic SVE monster-spawn coverage using neutral monster metadata (`sprite_texture`, HP, max HP, damage) and `wait.location_content` filters.
+  - Active Slice 5 follow-up: add deterministic SVE monster-spawn coverage using neutral monster metadata (`sprite_texture`, `health`, `max_health`, `damage`) and `wait.location_content` filters.
 
 - [x] Done: Slice 6, custom items, inventory, rewards, and shops.
   - Design spec: `docs/superpowers/specs/2026-05-08-sve-slice-6-shop-inventory-items-design.md`.

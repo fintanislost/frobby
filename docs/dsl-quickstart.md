@@ -217,12 +217,12 @@ The same runner wait can target hostile monsters with exact metadata filters:
   "args": {
     "location": "ExampleCombatMap",
     "collection": "monsters",
-    "name": "Mummy",
-    "type": "Mummy",
-    "health": 2000,
-    "max_health": 2000,
-    "damage": 100,
-    "sprite_texture": "Characters/Monsters/CorruptMummy",
+    "name": "Crystal Bat",
+    "type": "CrystalBat",
+    "health": 180,
+    "max_health": 180,
+    "damage": 32,
+    "sprite_texture": "ExampleMod/Monsters/CrystalBat",
     "min_count": 1,
     "timeout_ms": 10000,
     "poll_ms": 100
