@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using SdvTestFramework.Protocol;
@@ -271,6 +272,10 @@ public sealed class ScenarioRunner
                     else if (step.Action == "state.assert")
                     {
                         await InvokeStateAssertAsync(step, ct);
+                    }
+                    else if (step.Action == "combat.attack")
+                    {
+                        await InvokeCombatAttackAsync(step, ct);
                     }
                     else
                     {
@@ -1477,6 +1482,39 @@ public sealed class ScenarioRunner
         return args;
     }
 
+    private async Task InvokeCombatAttackAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<CombatAttackRequest>(obj.GetRawText(), ProtocolJson.Options) ?? new CombatAttackRequest()
+            : new CombatAttackRequest();
+
+        if (args.Repeat < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.repeat >= 1");
+        if (args.DelayTicks < 0)
+            throw new InvalidOperationException($"{step.Action} requires args.delay_ticks >= 0");
+
+        var singleAttack = new JsonObject();
+        if (args.X is { } x)
+            singleAttack["x"] = x;
+        if (args.Y is { } y)
+            singleAttack["y"] = y;
+        if (!string.IsNullOrWhiteSpace(args.Direction))
+            singleAttack["direction"] = args.Direction;
+        if (!string.IsNullOrWhiteSpace(args.QualifiedItemId))
+            singleAttack["qualified_item_id"] = args.QualifiedItemId;
+
+        var singleAttackElement = JsonDocument.Parse(singleAttack.ToJsonString()).RootElement.Clone();
+        for (int i = 0; i < args.Repeat; i++)
+        {
+            var resp = await _session.InvokeAsync("combat.attack", singleAttackElement, ct);
+            if (resp.Error is { } ex)
+                throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+
+            if (i + 1 < args.Repeat && args.DelayTicks > 0)
+                await Task.Delay(TimeSpan.FromMilliseconds(args.DelayTicks * 17.0), ct);
+        }
+    }
+
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
     {
         var args = ParseUiTextArgs(step);
@@ -1608,6 +1646,7 @@ public sealed class ScenarioRunner
             "freeze.end" => "Resume live frame",
             "state.assert" => $"Assert {GetStringArg(step.Args, "expr") ?? "state"}",
             "fixture.save_reload" => $"Save and reload fixture \"{GetStringArg(step.Args, "name") ?? "current"}\"",
+            "combat.attack" => DescribeCombatAttack(step.Args),
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
@@ -1747,6 +1786,15 @@ public sealed class ScenarioRunner
 
     private static string GetMenuButtonLabel(JsonElement? args)
         => GetStringArg(args, "label") ?? GetStringArg(args, "text_equals") ?? GetStringArg(args, "id") ?? string.Empty;
+
+    private static string DescribeCombatAttack(JsonElement? args)
+    {
+        var direction = GetStringArg(args, "direction");
+        if (!string.IsNullOrWhiteSpace(direction))
+            return $"Attack {direction}{GetRepeatSuffix(args)}";
+
+        return $"Attack tile ({GetIntArg(args, "x") ?? 0},{GetIntArg(args, "y") ?? 0}){GetRepeatSuffix(args)}";
+    }
 
     private static string GetRepeatSuffix(JsonElement? args)
     {

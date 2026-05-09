@@ -116,6 +116,74 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task CombatAttack_RepeatsAndStripsRunnerOnlyDelay()
+    {
+        var socket = SocketPath();
+        var attackParams = new List<JsonElement>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    if (req.Method == "combat.attack" && req.Params is { } p)
+                        attackParams.Add(p.Clone());
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "combat.attack" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "combat_attack_repeat",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "combat.attack",
+                    Args = JsonDocument.Parse(
+                        "{\"x\":20,\"y\":144,\"repeat\":2,\"delay_ticks\":1,\"qualified_item_id\":\"(W)4\"}")
+                        .RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, attackParams.Count);
+        foreach (var p in attackParams)
+        {
+            Assert.Equal(20, p.GetProperty("x").GetInt32());
+            Assert.Equal(144, p.GetProperty("y").GetInt32());
+            Assert.Equal("(W)4", p.GetProperty("qualified_item_id").GetString());
+            Assert.False(p.TryGetProperty("repeat", out _));
+            Assert.False(p.TryGetProperty("delay_ticks", out _));
+        }
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
