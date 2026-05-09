@@ -68,15 +68,25 @@ public class CombatAttackHandlerTests
     }
 
     [Fact]
-    public void Handle_DirectionLeftWithRepeatThreeAttacksThreeTimes()
+    public void Handle_RepeatGreaterThanOne_ThrowsInvalidParams()
     {
-        var world = new FakeCombatWorld();
         var p = JsonDocument.Parse("{\"direction\":\"left\",\"repeat\":3}").RootElement;
 
-        CombatAttackHandler.Handle(p, world);
+        var ex = Assert.Throws<JsonRpcException>(() => CombatAttackHandler.Handle(p, new FakeCombatWorld()));
 
-        Assert.Equal("left", world.FacedDirection);
-        Assert.Equal(3, world.AttackCount);
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("repeat is runner-only", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_DelayTicksGreaterThanZero_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse("{\"direction\":\"left\",\"delay_ticks\":1}").RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() => CombatAttackHandler.Handle(p, new FakeCombatWorld()));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("delay_ticks is runner-only", ex.Message);
     }
 
     private sealed class FakeCombatWorld : ICombatAttackWorld

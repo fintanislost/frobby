@@ -29,11 +29,8 @@ public static class CombatAttackHandler
 
         var direction = ResolveDirection(req, world.TileX, world.TileY);
         var selected = world.SelectWeapon(req.QualifiedItemId);
-        for (var i = 0; i < req.Repeat; i++)
-        {
-            world.FaceDirection(direction);
-            world.AttackOnce();
-        }
+        world.FaceDirection(direction);
+        world.AttackOnce();
 
         return ProtocolJson.ToElement(new CombatAttackResult
         {
@@ -56,12 +53,12 @@ public static class CombatAttackHandler
         if (req.X is null && string.IsNullOrWhiteSpace(req.Direction))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 "combat.attack requires a direction or target tile");
-        if (req.Repeat < 1)
+        if (req.Repeat != 1)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                "combat.attack requires repeat >= 1");
-        if (req.DelayTicks < 0)
+                "combat.attack repeat is runner-only");
+        if (req.DelayTicks != 0)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                "combat.attack requires delay_ticks >= 0");
+                "combat.attack delay_ticks is runner-only");
         if (!string.IsNullOrWhiteSpace(req.Direction) && !IsKnownDirection(req.Direction))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 $"unknown direction: {req.Direction}");
