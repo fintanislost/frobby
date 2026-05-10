@@ -1017,6 +1017,58 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitLocationContent_FiltersDebrisByIdentityTileAndStack()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[],\"critters\":[],\"debris\":[{\"tile\":{\"x\":15,\"y\":16},\"pixel\":{\"x\":960,\"y\":1024},\"kind\":\"ItemDebris\",\"id\":\"769\",\"qualified_id\":\"(O)769\",\"name\":\"Void Essence\",\"stack\":2,\"quality\":0,\"category\":-2,\"runtime_type\":\"Debris\"}]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_debris",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"debris\",\"qualified_id\":\"(O)769\",\"runtime_type\":\"Debris\",\"x\":15,\"y\":16,\"stack_gte\":2,\"quality\":0,\"category\":-2,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitLocationContent_MatchesMonsterNumericComparisons()
     {
         var socket = SocketPath();
@@ -1332,7 +1384,7 @@ public class ScenarioRunnerTests
         }, cts.Token);
 
         Assert.False(report.Passed);
-        Assert.Contains("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters", Assert.Single(report.Failures));
+        Assert.Contains("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters, debris", Assert.Single(report.Failures));
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }

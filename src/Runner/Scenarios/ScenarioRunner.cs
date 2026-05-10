@@ -552,7 +552,7 @@ public sealed class ScenarioRunner
         if (string.IsNullOrWhiteSpace(args.Collection))
             throw new InvalidOperationException("wait.location_content requires args.collection");
         if (!AllowedLocationContentCollections.Contains(args.Collection))
-            throw new InvalidOperationException("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters");
+            throw new InvalidOperationException("wait.location_content requires args.collection to be one of objects, resource_clumps, monsters, critters, debris");
         if (args.MinCount < 0)
             throw new InvalidOperationException("wait.location_content requires args.min_count >= 0");
         if (args.MaxCount is not null && args.MaxCount < 0)
@@ -598,6 +598,10 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(element, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && NumberFilterMatches(element, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte)
             && NumberFilterMatches(element, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte)
+            && StringFilterMatches(element, "runtime_type", args.RuntimeType)
+            && NumberFilterMatches(element, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte)
+            && NumberFilterMatches(element, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte)
+            && NumberFilterMatches(element, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte)
             && StringFilterMatches(element, "sprite_texture", args.SpriteTexture)
             && TileFilterMatches(element, args.X, args.Y);
     }
@@ -678,6 +682,10 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         AddNumberFilters(filters, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte);
         AddNumberFilters(filters, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte);
+        if (args.RuntimeType is not null) filters.Add($"runtime_type={args.RuntimeType}");
+        AddNumberFilters(filters, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte);
+        AddNumberFilters(filters, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte);
+        AddNumberFilters(filters, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte);
         if (args.SpriteTexture is not null) filters.Add($"sprite_texture={args.SpriteTexture}");
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
@@ -1924,6 +1932,7 @@ public sealed class ScenarioRunner
         "resource_clumps",
         "monsters",
         "critters",
+        "debris",
     };
 
     private sealed class WaitLocationContentStepArgs
@@ -1950,6 +1959,22 @@ public sealed class ScenarioRunner
         public int? DamageLte { get; set; }
         public int? DamageGt { get; set; }
         public int? DamageGte { get; set; }
+        public string? RuntimeType { get; set; }
+        public int? Stack { get; set; }
+        public int? StackLt { get; set; }
+        public int? StackLte { get; set; }
+        public int? StackGt { get; set; }
+        public int? StackGte { get; set; }
+        public int? Quality { get; set; }
+        public int? QualityLt { get; set; }
+        public int? QualityLte { get; set; }
+        public int? QualityGt { get; set; }
+        public int? QualityGte { get; set; }
+        public int? Category { get; set; }
+        public int? CategoryLt { get; set; }
+        public int? CategoryLte { get; set; }
+        public int? CategoryGt { get; set; }
+        public int? CategoryGte { get; set; }
         public string? SpriteTexture { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
