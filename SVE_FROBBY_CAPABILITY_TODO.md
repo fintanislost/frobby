@@ -62,11 +62,12 @@ Status key:
   - Frobby goal: expose enough render/state metadata to assert animated sprites and lighting effects without brittle whole-screen diffs.
   - Done: `state.visual_effects`, runner-side `wait.visual_effects`, DSL access, and SVE scenario 09 against Crimson Badlands sandstorm temporary sprites (`Custom_CrimsonBadlands` / `SandstormEffect`).
 
-- [ ] Active: Slice 8, combat, monster lifecycle, drops, and hazards.
+- [x] Done: Slice 8, combat, monster lifecycle, drops, and hazards.
   - Design spec: `docs/superpowers/specs/2026-05-09-sve-slice-8-combat-monster-lifecycle-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-09-sve-slice-8-combat-monster-lifecycle.md`.
   - SVE pressure: deterministic custom-location monster spawns plus combat/damage state.
   - Frobby goal: player-like attack action, health-delta waits, zero-match waits, and a path toward later death/drop/hazard checks.
+  - Done: `combat.attack` selects/faces a melee weapon through Stardew's native begin-use swing path, runner-side repeats stay outside the harness RPC, `wait.location_content` supports numeric health comparisons, and SVE scenario 12 (`sve_combat_monster_damage`) proves a deterministic corrupt mummy guard takes player-like melee damage.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 

@@ -150,12 +150,12 @@ internal sealed class SdvCombatAttackWorld : ICombatAttackWorld
         if (Game1.currentLocation is null)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "combat.attack requires a current location");
-        if (Game1.player.CurrentTool is not MeleeWeapon weapon)
+        if (Game1.player.CurrentTool is not MeleeWeapon)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "combat.attack requires a selected melee weapon");
 
-        var toolLocation = Game1.player.GetToolLocation();
-        weapon.DoFunction(Game1.currentLocation, (int)toolLocation.X, (int)toolLocation.Y, 0, Game1.player);
+        // MeleeWeapon damage is applied by Stardew's begin-use swing path, not by direct Tool.DoFunction.
+        Game1.player.BeginUsingTool();
     }
 
     private static CombatAttackSelectedItem SummarizeWeapon(MeleeWeapon weapon)
