@@ -70,6 +70,93 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectDebris_ReadsItemDebrisFields()
+    {
+        var debris = new FakeDebris
+        {
+            position = new Vector2(960, 1024),
+            item = new FakeDebrisItem
+            {
+                ItemId = "769",
+                QualifiedItemId = "(O)769",
+                DisplayName = "Void Essence",
+                Stack = 2,
+                Quality = 0,
+                Category = -2,
+            },
+        };
+
+        var summary = LocationContentProjector.ProjectDebrisForTests(debris);
+
+        Assert.Equal(15, summary.Tile.X);
+        Assert.Equal(16, summary.Tile.Y);
+        Assert.NotNull(summary.Pixel);
+        Assert.Equal(960, summary.Pixel!.X);
+        Assert.Equal(1024, summary.Pixel.Y);
+        Assert.Equal("ItemDebris", summary.Kind);
+        Assert.Equal("769", summary.Id);
+        Assert.Equal("(O)769", summary.QualifiedId);
+        Assert.Equal("Void Essence", summary.Name);
+        Assert.Equal(2, summary.Stack);
+        Assert.Equal(0, summary.Quality);
+        Assert.Equal(-2, summary.Category);
+        Assert.Equal("FakeDebris", summary.RuntimeType);
+    }
+
+    [Fact]
+    public void ProjectDebris_UnwrapsValueWrappedItemFields()
+    {
+        var debris = new FakeWrappedDebris
+        {
+            position = new Vector2(128, 192),
+            item = new FakeValueWrapper<FakeDebrisItem>
+            {
+                Value = new FakeDebrisItem
+                {
+                    ItemId = "766",
+                    QualifiedItemId = "(O)766",
+                    DisplayName = "Slime",
+                    Stack = 3,
+                    Quality = 1,
+                    Category = -2,
+                },
+            },
+        };
+
+        var summary = LocationContentProjector.ProjectDebrisForTests(debris);
+
+        Assert.Equal(2, summary.Tile.X);
+        Assert.Equal(3, summary.Tile.Y);
+        Assert.Equal("ItemDebris", summary.Kind);
+        Assert.Equal("766", summary.Id);
+        Assert.Equal("(O)766", summary.QualifiedId);
+        Assert.Equal("Slime", summary.Name);
+        Assert.Equal(3, summary.Stack);
+        Assert.Equal(1, summary.Quality);
+        Assert.Equal(-2, summary.Category);
+    }
+
+    [Fact]
+    public void ProjectDebris_ToleratesNonItemDebris()
+    {
+        var debris = new FakeVisualDebris
+        {
+            position = new Vector2(64, 128),
+            debrisType = "spark",
+        };
+
+        var summary = LocationContentProjector.ProjectDebrisForTests(debris);
+
+        Assert.Equal(1, summary.Tile.X);
+        Assert.Equal(2, summary.Tile.Y);
+        Assert.Equal("VisualDebris", summary.Kind);
+        Assert.Equal("spark", summary.Name);
+        Assert.Equal(string.Empty, summary.Id);
+        Assert.Equal(string.Empty, summary.QualifiedId);
+        Assert.Equal("FakeVisualDebris", summary.RuntimeType);
+    }
+
+    [Fact]
     public void IsMonster_ReturnsFalseForSocialNpc()
     {
         var npc = (NPC)FormatterServices.GetUninitializedObject(typeof(NPC));
@@ -107,5 +194,38 @@ public class LocationContentProjectorTests
     private sealed class FakeAnimatedSprite
     {
         public string textureName = string.Empty;
+    }
+
+    private sealed class FakeDebris
+    {
+        public Vector2 position;
+        public FakeDebrisItem? item;
+    }
+
+    private sealed class FakeVisualDebris
+    {
+        public Vector2 position;
+        public string debrisType = string.Empty;
+    }
+
+    private sealed class FakeWrappedDebris
+    {
+        public Vector2 position;
+        public FakeValueWrapper<FakeDebrisItem>? item;
+    }
+
+    private sealed class FakeDebrisItem
+    {
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
+        public string DisplayName = string.Empty;
+        public int Stack;
+        public int Quality;
+        public int Category;
+    }
+
+    private sealed class FakeValueWrapper<T>
+    {
+        public T? Value { get; set; }
     }
 }

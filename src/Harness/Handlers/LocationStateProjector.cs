@@ -62,6 +62,8 @@ internal static class LocationStateProjector
             });
         }
 
+        state.Debris.AddRange(LocationContentProjector.ProjectDebris(loc));
+
         foreach (var furniture in loc.furniture)
         {
             state.Furniture.Add(new FurnitureSummary
