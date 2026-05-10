@@ -12,4 +12,19 @@ public sealed class CombatAttackRequest
     public int Repeat { get; set; } = 1;
     public int DelayTicks { get; set; }
     public string? QualifiedItemId { get; set; }
+    public CombatTargetCriteria? Target { get; set; }
+}
+
+public sealed class CombatTargetCriteria
+{
+    public string? Location { get; set; }
+    public string? Name { get; set; }
+    public string? Type { get; set; }
+    public string? SpriteTexture { get; set; }
+    public int? X { get; set; }
+    public int? Y { get; set; }
+    public int? HealthGt { get; set; }
+    public int? HealthGte { get; set; }
+    public int? HealthLt { get; set; }
+    public int? HealthLte { get; set; }
 }

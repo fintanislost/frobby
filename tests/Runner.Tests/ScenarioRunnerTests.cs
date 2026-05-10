@@ -184,6 +184,74 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task CombatAttack_TargetSelectorRetargetsNearestMonsterEachRepeat()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var locationPolls = 0;
+        var attackTargets = new List<string>();
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    if (req.Method == "combat.attack" && req.Params is { } p)
+                    {
+                        attackTargets.Add(p.GetRawText());
+                    }
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse(locationPolls++ == 0
+                            ? "{\"name\":\"ExampleDeepCave\",\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"type\":\"Serpent\",\"health\":245,\"max_health\":245,\"sprite_texture\":\"ExampleMod/Serpent\"}]}"
+                            : "{\"name\":\"ExampleDeepCave\",\"monsters\":[{\"tile\":{\"x\":11,\"y\":8},\"type\":\"Serpent\",\"health\":100,\"max_health\":245,\"sprite_texture\":\"ExampleMod/Serpent\"}]}").RootElement,
+                        "combat.attack" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "combat_attack_retargeting",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "combat.attack",
+                    Args = JsonDocument.Parse("{\"qualified_item_id\":\"(W)4\",\"repeat\":2,\"delay_ticks\":0,\"target\":{\"location\":\"ExampleDeepCave\",\"type\":\"Serpent\",\"sprite_texture\":\"ExampleMod/Serpent\"}}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(2, attackTargets.Count);
+        Assert.Contains("\"x\":12", attackTargets[0]);
+        Assert.Contains("\"y\":8", attackTargets[0]);
+        Assert.Contains("\"x\":11", attackTargets[1]);
+        Assert.Contains("\"y\":8", attackTargets[1]);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();

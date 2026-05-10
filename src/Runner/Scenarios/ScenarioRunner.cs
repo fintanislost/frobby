@@ -1590,6 +1590,23 @@ public sealed class ScenarioRunner
         if (args.DelayTicks < 0)
             throw new InvalidOperationException($"{step.Action} requires args.delay_ticks >= 0");
 
+        for (int i = 0; i < args.Repeat; i++)
+        {
+            var singleAttackElement = args.Target is null
+                ? BuildCombatAttackElement(args)
+                : await BuildRetargetedCombatAttackElementAsync(args, ct);
+
+            var resp = await _session.InvokeAsync("combat.attack", singleAttackElement, ct);
+            if (resp.Error is { } ex)
+                throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+
+            if (i + 1 < args.Repeat && args.DelayTicks > 0)
+                await Task.Delay(TimeSpan.FromMilliseconds(args.DelayTicks * 17.0), ct);
+        }
+    }
+
+    private static JsonElement BuildCombatAttackElement(CombatAttackRequest args)
+    {
         var singleAttack = new JsonObject();
         if (args.X is { } x)
             singleAttack["x"] = x;
@@ -1599,17 +1616,64 @@ public sealed class ScenarioRunner
             singleAttack["direction"] = args.Direction;
         if (!string.IsNullOrWhiteSpace(args.QualifiedItemId))
             singleAttack["qualified_item_id"] = args.QualifiedItemId;
+        return JsonDocument.Parse(singleAttack.ToJsonString()).RootElement.Clone();
+    }
 
-        var singleAttackElement = JsonDocument.Parse(singleAttack.ToJsonString()).RootElement.Clone();
-        for (int i = 0; i < args.Repeat; i++)
+    private async Task<JsonElement> BuildRetargetedCombatAttackElementAsync(CombatAttackRequest args, CancellationToken ct)
+    {
+        var target = args.Target ?? throw new InvalidOperationException("combat.attack target missing");
+        var location = target.Location;
+        JsonElement? request = string.IsNullOrWhiteSpace(location)
+            ? null
+            : ProtocolJson.ToElement(new { name = location });
+        var resp = await _session.InvokeAsync("state.location", request, ct);
+        if (resp.Error is { } error)
+            throw new InvalidOperationException($"combat.attack failed during target state.location: {error.Message}");
+        if (resp.Result is not { } root
+            || !root.TryGetProperty("monsters", out var monsters)
+            || monsters.ValueKind != JsonValueKind.Array)
         {
-            var resp = await _session.InvokeAsync("combat.attack", singleAttackElement, ct);
-            if (resp.Error is { } ex)
-                throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
-
-            if (i + 1 < args.Repeat && args.DelayTicks > 0)
-                await Task.Delay(TimeSpan.FromMilliseconds(args.DelayTicks * 17.0), ct);
+            throw new InvalidOperationException("combat.attack target found no monster collection");
         }
+
+        JsonElement? best = null;
+        foreach (var monster in monsters.EnumerateArray())
+        {
+            if (!CombatTargetMatches(monster, target))
+                continue;
+
+            best = monster.Clone();
+            break;
+        }
+
+        if (best is null)
+            throw new InvalidOperationException("combat.attack target matched no monsters");
+        if (!best.Value.TryGetProperty("tile", out var tile)
+            || !tile.TryGetProperty("x", out var x)
+            || !tile.TryGetProperty("y", out var y)
+            || !x.TryGetInt32(out var xv)
+            || !y.TryGetInt32(out var yv))
+        {
+            throw new InvalidOperationException("combat.attack target monster has no tile");
+        }
+
+        var selected = new CombatAttackRequest
+        {
+            X = xv,
+            Y = yv,
+            Direction = args.Direction,
+            QualifiedItemId = args.QualifiedItemId,
+        };
+        return BuildCombatAttackElement(selected);
+    }
+
+    private static bool CombatTargetMatches(JsonElement monster, CombatTargetCriteria target)
+    {
+        return StringFilterMatches(monster, "name", target.Name)
+            && StringFilterMatches(monster, "type", target.Type)
+            && StringFilterMatches(monster, "sprite_texture", target.SpriteTexture)
+            && NumberFilterMatches(monster, "health", null, target.HealthLt, target.HealthLte, target.HealthGt, target.HealthGte)
+            && TileFilterMatches(monster, target.X, target.Y);
     }
 
     private async Task<UiTextStepArgs> WaitForUiTextAsync(ScenarioStep step, CancellationToken ct)
