@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -169,6 +170,10 @@ public sealed class ScenarioRunner
                     else if (step.Action == "wait.location")
                     {
                         await InvokeWaitLocationAsync(step, ct);
+                    }
+                    else if (step.Action == "wait.player")
+                    {
+                        await InvokeWaitPlayerAsync(step, ct);
                     }
                     else if (step.Action == "wait.npc_location")
                     {
@@ -457,6 +462,90 @@ public sealed class ScenarioRunner
         throw new TimeoutException(
             $"wait.location timed out after {args.TimeoutMs}ms waiting for location {args.Location}{expectedTile}; " +
             $"last observed {last}");
+    }
+
+    private async Task InvokeWaitPlayerAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitPlayerStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitPlayerStepArgs()
+            : new WaitPlayerStepArgs();
+
+        ValidateWaitPlayerArgs(args);
+
+        var elapsed = Stopwatch.StartNew();
+        JsonElement? last = null;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.player", params_: null, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.player failed during state.player: {error.Message}");
+
+            if (resp.Result is { } root)
+            {
+                last = root.Clone();
+                if (PlayerStateMatches(root, args))
+                    return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"wait.player timed out after {args.TimeoutMs}ms waiting for player{FormatWaitPlayerFilters(args)}; " +
+            $"last observed {FormatObservedPlayer(last)}");
+    }
+
+    private static void ValidateWaitPlayerArgs(WaitPlayerStepArgs args)
+    {
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.player requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.player requires args.poll_ms >= 1");
+        if ((args.X is null) != (args.Y is null))
+            throw new InvalidOperationException("wait.player requires both args.x and args.y when filtering by tile");
+    }
+
+    private static bool PlayerStateMatches(JsonElement root, WaitPlayerStepArgs args)
+    {
+        return StringFilterMatches(root, "location", args.Location)
+            && NumberFilterMatches(root, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
+            && TileFilterMatches(root, args.X, args.Y);
+    }
+
+    private static string FormatWaitPlayerFilters(WaitPlayerStepArgs args)
+    {
+        var filters = new List<string>();
+        if (args.Location is not null) filters.Add($"location={args.Location}");
+        AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
+        if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
+        return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
+    }
+
+    private static string FormatObservedPlayer(JsonElement? root)
+    {
+        if (root is null || root.Value.ValueKind != JsonValueKind.Object)
+            return "nothing";
+
+        var health = root.Value.TryGetProperty("health", out var h) && h.TryGetInt32(out var hv)
+            ? hv.ToString(CultureInfo.InvariantCulture)
+            : "?";
+        var location = root.Value.TryGetProperty("location", out var l) && l.ValueKind == JsonValueKind.String
+            ? l.GetString() ?? string.Empty
+            : "?";
+        var tile = "?";
+        if (root.Value.TryGetProperty("tile", out var t)
+            && t.ValueKind == JsonValueKind.Object
+            && t.TryGetProperty("x", out var x)
+            && t.TryGetProperty("y", out var y)
+            && x.TryGetInt32(out var xv)
+            && y.TryGetInt32(out var yv))
+        {
+            tile = $"{xv},{yv}";
+        }
+
+        return $"health={health} location={location} tile={tile}";
     }
 
     private async Task InvokeWaitNpcLocationAsync(ScenarioStep step, CancellationToken ct)
@@ -1619,6 +1708,7 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
+            "wait.player" => "Wait for player state",
             "wait.npc_location" => $"Wait for NPC {GetStringArg(step.Args, "name") ?? "unknown"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.location_content" => $"Wait for {GetStringArg(step.Args, "collection") ?? "content"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.visual_effects" => $"Wait for visual effects in {GetStringArg(step.Args, "location") ?? "current location"}",
@@ -1720,6 +1810,7 @@ public sealed class ScenarioRunner
         {
             "wait.ms" => false,
             "wait.location" => false,
+            "wait.player" => false,
             "wait.npc_location" => false,
             "wait.location_content" => false,
             "wait.visual_effects" => false,
@@ -1913,6 +2004,20 @@ public sealed class ScenarioRunner
         public int? X { get; set; }
         public int? Y { get; set; }
         public int TimeoutMs { get; set; } = 5000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class WaitPlayerStepArgs
+    {
+        public string? Location { get; set; }
+        public int? X { get; set; }
+        public int? Y { get; set; }
+        public int? Health { get; set; }
+        public int? HealthLt { get; set; }
+        public int? HealthLte { get; set; }
+        public int? HealthGt { get; set; }
+        public int? HealthGte { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
 
