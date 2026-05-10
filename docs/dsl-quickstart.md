@@ -224,6 +224,21 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 This is mod-neutral: Frobby observes the runtime location state and does not call
 Farm Type Manager or parse its content packs.
 
+Transient debris and combat drops are exposed through the same wait:
+
+```json
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "ExampleDeepCave",
+    "collection": "debris",
+    "qualified_id": "(O)769",
+    "min_count": 1,
+    "timeout_ms": 10000
+  }
+}
+```
+
 For combat checks, establish the monster baseline, trigger a player-like attack,
 and wait for observed monster state to change:
 
@@ -253,6 +268,26 @@ and wait for observed monster state to change:
 }
 ```
 
+For moving targets, the runner can retarget each repeated attack from current
+monster state before sending the single-shot harness RPC:
+
+```json
+{
+  "action": "combat.attack",
+  "args": {
+    "qualified_item_id": "(W)4",
+    "repeat": 3,
+    "delay_ticks": 10,
+    "target": {
+      "location": "ExampleDeepCave",
+      "type": "Serpent",
+      "sprite_texture": "ExampleMod/Serpent",
+      "health_gt": 0
+    }
+  }
+}
+```
+
 Then wait for damage instead of sleeping:
 
 ```json
@@ -267,6 +302,15 @@ Then wait for damage instead of sleeping:
     "health_lt": 2000,
     "min_count": 1
   }
+}
+```
+
+Player health waits are also runner-side polling over `state.player`:
+
+```json
+{
+  "action": "wait.player",
+  "args": { "health_lt": 100, "timeout_ms": 10000, "poll_ms": 100 }
 }
 ```
 

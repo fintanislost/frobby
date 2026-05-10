@@ -129,17 +129,25 @@ Frobby tests should exercise the UI like a player whenever possible:
   custom shop and inventory flows. Prefer `qualified_id` when asserting Stardew
   1.6 custom items, and use raw `item_id` only when the scenario intentionally
   works from unqualified mod data.
-- Use `state.location.resource_clumps`, `state.location.monsters`, and
+- Use `state.location.resource_clumps`, `state.location.monsters`,
+  `state.location.debris`, and
   runner-side `wait.location_content` when testing spawned world content such as
-  logs, boulders, forage-like objects, ore, or monsters. Monster summaries can
-  expose runtime `health`, `max_health`, `damage`, and `sprite_texture`, and the
-  wait helper can filter on those fields. These helpers observe runtime Stardew
-  state and stay independent from specific spawn frameworks.
+  logs, boulders, forage-like objects, ore, monsters, dropped combat loot, or
+  transient item debris. Monster summaries can expose runtime `health`,
+  `max_health`, `damage`, and `sprite_texture`, and debris summaries can expose
+  runtime type, item identity, stack, quality, and category when Stardew provides
+  those fields. These helpers observe runtime Stardew state and stay independent
+  from specific spawn frameworks.
 - Use `combat.attack` with `state.location.monsters` and
   `wait.location_content` numeric filters for player-like combat checks. Prefer
   baseline-then-attack waits, such as first proving `health` and `max_health`
   and then waiting for `health_lt`, over fixed sleeps. Keep mod-specific monster
-  coordinates in repo scenarios rather than in Frobby code.
+  coordinates in repo scenarios rather than in Frobby code. For moving monsters,
+  runner scenarios may pass a `target` selector so each repeated attack retargets
+  from current `state.location.monsters` metadata.
+- Use `wait.player` when a scenario needs to wait for player health changes after
+  contact damage, hazards, or defensive effects. Prefer health comparison waits
+  such as `health_lt` or `health_gte` over fixed sleeps.
 - Use `state.visual_effects` and runner-side `wait.visual_effects` when testing
   temporary sprites, light sources, ambient light, or weather debris. For example:
   `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 }, "timeout_ms": 10000 } }`.

@@ -69,14 +69,15 @@ Status key:
   - Frobby goal: player-like attack action, health-delta waits, zero-match waits, and a path toward later death/drop/hazard checks.
   - Done: `combat.attack` selects/faces a melee weapon through Stardew's native begin-use swing path, runner-side repeats stay outside the harness RPC, `wait.location_content` supports numeric health comparisons, and SVE scenario 12 (`sve_combat_monster_damage`) proves a deterministic corrupt mummy guard takes player-like melee damage.
 
-## Next Capability Backlog
-
-- [ ] Planning: Slice 9, combat lifecycle, drops, and player hazards.
+- [x] Done: Slice 9, combat lifecycle, drops, and player hazards.
   - Design spec: `docs/superpowers/specs/2026-05-10-sve-slice-9-combat-lifecycle-drops-hazards-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-10-sve-slice-9-combat-lifecycle-drops-hazards.md`.
   - SVE pressure: custom monster packs, disabled/high-health attack patches, custom dungeon areas, and combat outcomes that should be observable beyond a single health delta.
   - Frobby goal: prove monster death/removal, dropped debris or loot, player health/hazard deltas, and disabled-contact behavior through neutral world-state tools.
-  - Candidate SVE proof: extend the deterministic Crimson Badlands or Highlands combat coverage from Slice 8 into kill/removal, drop/debris, or no-damage-after-event behavior.
+  - Done: `state.location.debris`, debris-aware `wait.location_content`, runner-side `wait.player`, selector-based combat retargeting, and SVE Slice 9 scenarios (`sve_combat_lifecycle_debris`, `sve_passive_shadow_combat_state`) verify combat lifecycle outcomes beyond a single health delta.
+  - Follow-up candidate: add neutral monster instance identity or binding so JSON scenarios can prove a specific moving monster was removed, and add stronger debris attribution when the location has pre-existing debris.
+
+## Next Capability Backlog
 
 - [ ] Pending: Slice 10, special orders, quest state, and drop boxes.
   - SVE pressure: many event-gated special orders, map drop boxes, and long-running collection objectives.

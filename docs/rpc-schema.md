@@ -189,6 +189,7 @@ Response (success):
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
       "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0 }],
+      "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
       "monsters": [{ "tile": { "x": 44, "y": 31 }, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
@@ -203,8 +204,11 @@ boulders, meteorites, and mine rocks when Stardew exposes them for the location.
 `monsters` contains hostile creatures and is separate from `npcs`, which remains
 for social/non-hostile NPCs. Monster summaries include runtime `health`,
 `max_health`, `damage`, and `sprite_texture` when Stardew or the mod exposes
-those values. Optional object and monster metadata fields may be empty or null
-when the runtime type does not expose them.
+those values. `debris` contains transient runtime debris such as item drops and
+visual debris. Fields are best-effort because Stardew debris can be item-backed,
+animated, or purely visual. Tests should filter only on fields relevant to the
+scenario. Optional object, monster, and debris metadata fields may be empty or
+null when the runtime type does not expose them.
 
 **Preconditions:** world loaded. Same note as `state.player`.
 **Side effects:** none.
@@ -1193,7 +1197,11 @@ The harness RPC is intentionally single-shot: it faces the farmer, selects the
 requested melee weapon when `qualified_item_id` is provided, and invokes
 Stardew's weapon-use path once. Runner scenarios may pass `repeat` and
 `delay_ticks`; the runner owns those fields and spaces repeated single-shot RPC
-calls outside the game thread.
+calls outside the game thread. Runner scenarios may also pass `target` with
+`location`, `name`, `type`, `sprite_texture`, optional `x`/`y`, and health
+comparison filters; the runner resolves that selector through
+`state.location.monsters` before each repeat and sends the harness a normal
+single-shot tile attack.
 
 Request:
 ```json
@@ -1583,17 +1591,20 @@ Runner scenario convenience:
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, and `health_gte`; timeout details include the last observed health, location, and tile.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
   It polls `state.location` for the named location until the selected collection
   has enough matching entries. Supported collections are `objects`,
-  `resource_clumps`, `monsters`, and `critters`. Filters are exact-match and
+  `resource_clumps`, `monsters`, `critters`, and `debris`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
-  `max_health`, `damage`, `sprite_texture`, and `x`/`y` tile. It accepts
+  `max_health`, `damage`, `runtime_type`, `stack`, `quality`, `category`,
+  `sprite_texture`, and `x`/`y` tile. It accepts
   `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
   numeric comparisons are supported with `health_lt`, `health_lte`,
   `health_gt`, `health_gte`, matching `max_health_*` filters, and matching
-  `damage_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
+  `damage_*` filters. Debris and object numeric comparisons are supported with
+  `stack_*`, `quality_*`, and `category_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
@@ -1602,6 +1613,23 @@ Runner scenario convenience:
 - `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
 - `{ "action": "event.advance", "args": { "choice_text": "Pet Dusty" } }` waits for the matching menu choice and then calls `input.click_menu_choice`. Without a choice/text target it waits for an active menu and calls `input.click_menu_advance`; `repeat` and `interval_ms` can advance multi-page dialogue. `ui.acknowledge` uses the same menu-advance path.
 - `{ "action": "state.assert", "args": { "params": { "name": "Riley" }, "expr": "state.npc.hearts == 4" } }` can pass `args.params` through to the state RPC named in the expression before evaluating it.
+
+### wait.player runner action
+
+`wait.player` is a runner-only scenario action; it is not a harness RPC. It
+polls `state.player` until the supplied player-state filters match, then
+continues to the next step.
+
+Request shape:
+```json
+{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }
+```
+
+Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
+`health_lte`, `health_gt`, and `health_gte`. Tile filters must be supplied as a
+complete `x`/`y` pair. Timeout diagnostics include the last observed health,
+location, and tile so combat or hazard scenarios can report what state was last
+seen.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,
