@@ -69,6 +69,49 @@ Status key:
   - Frobby goal: player-like attack action, health-delta waits, zero-match waits, and a path toward later death/drop/hazard checks.
   - Done: `combat.attack` selects/faces a melee weapon through Stardew's native begin-use swing path, runner-side repeats stay outside the harness RPC, `wait.location_content` supports numeric health comparisons, and SVE scenario 12 (`sve_combat_monster_damage`) proves a deterministic corrupt mummy guard takes player-like melee damage.
 
+## Next Capability Backlog
+
+- [ ] Planning: Slice 9, combat lifecycle, drops, and player hazards.
+  - Design spec: `docs/superpowers/specs/2026-05-10-sve-slice-9-combat-lifecycle-drops-hazards-design.md`.
+  - SVE pressure: custom monster packs, disabled/high-health attack patches, custom dungeon areas, and combat outcomes that should be observable beyond a single health delta.
+  - Frobby goal: prove monster death/removal, dropped debris or loot, player health/hazard deltas, and disabled-contact behavior through neutral world-state tools.
+  - Candidate SVE proof: extend the deterministic Crimson Badlands or Highlands combat coverage from Slice 8 into kill/removal, drop/debris, or no-damage-after-event behavior.
+
+- [ ] Pending: Slice 10, special orders, quest state, and drop boxes.
+  - SVE pressure: many event-gated special orders, map drop boxes, and long-running collection objectives.
+  - Frobby goal: inspect active special orders, objective progress, drop box state, deposit flows, and completion/reward flags without encoding SVE order IDs in Frobby.
+  - Candidate SVE proof: unlock a custom order with event/mail state, validate it appears, deposit required items into a drop box, and assert objective progress.
+
+- [ ] Pending: Slice 11, fishing tables and deterministic catch sampling.
+  - SVE pressure: custom fish, custom fish areas, alternate farm fishing tables, and patched desert fishing rewards.
+  - Frobby goal: query effective fish tables for a location/tile/time/weather context and sample deterministic catch outcomes without requiring the full fishing minigame.
+  - Candidate SVE proof: assert a custom farm or desert fishing area exposes expected modded fish or patched rewards under controlled state.
+
+- [ ] Pending: Slice 12, buffs, swimming, and timed player state.
+  - SVE pressure: custom hot spring and swimming areas that apply timed buffs based on save/day state.
+  - Frobby goal: inspect active player buffs/effects, swimming or bathing state, and wait for timed state changes.
+  - Candidate SVE proof: enter a custom spring/swimming area, advance time/frames, and assert the expected active buff metadata.
+
+- [ ] Pending: Slice 13, object, chest, and buried reward interactions.
+  - SVE pressure: piggy bank behavior, secret-note buried rewards, relocated festival chests, and patched object interactions.
+  - Frobby goal: place or inspect objects, big craftables, chests, item debris, mail flags, and interaction side effects.
+  - Candidate SVE proof: validate a patched object interaction changes money/mail/debris state, or assert a festival chest's runtime contents.
+
+- [ ] Pending: Slice 14, festivals, movie theater, and special map variants.
+  - SVE pressure: custom festival maps, grange judging patches, Spirit's Eve chest edits, and movie theater NPC behavior.
+  - Frobby goal: set up festival/theater contexts, inspect event or festival state, interact with festival shops/chests/NPCs, and assert variant-specific content.
+  - Candidate SVE proof: start a festival or theater context and validate one SVE runtime variant using state assertions plus screenshots.
+
+- [ ] Pending: Slice 15, config packs and alternate farm variants.
+  - SVE pressure: Grandpa's Farm, Immersive Farm 2 Remastered, Frontier Farm, low-memory options, and config-gated map/content changes.
+  - Frobby goal: run tests against isolated mod/config sets, cache shared dependencies, and assert alternate farm registration and runtime map/content differences.
+  - Candidate SVE proof: execute the same neutral location/content assertions against a selected alternate farm pack in an isolated dependency cache.
+
+- [ ] Pending: Slice 16, late-game unlocks and trigger actions.
+  - SVE pressure: event/mail-gated regions, minecart or bridge unlocks, trigger actions, shrines, and map mutations over progression.
+  - Frobby goal: seed progression state, observe trigger-action effects, assert map/action changes, and verify unlocks across day/event boundaries.
+  - Candidate SVE proof: set progression prerequisites, run a trigger/unlock flow, and assert the resulting warp/map/action state.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
