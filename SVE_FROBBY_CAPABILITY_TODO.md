@@ -73,6 +73,7 @@ Status key:
 
 - [ ] Planning: Slice 9, combat lifecycle, drops, and player hazards.
   - Design spec: `docs/superpowers/specs/2026-05-10-sve-slice-9-combat-lifecycle-drops-hazards-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-10-sve-slice-9-combat-lifecycle-drops-hazards.md`.
   - SVE pressure: custom monster packs, disabled/high-health attack patches, custom dungeon areas, and combat outcomes that should be observable beyond a single health delta.
   - Frobby goal: prove monster death/removal, dropped debris or loot, player health/hazard deltas, and disabled-contact behavior through neutral world-state tools.
   - Candidate SVE proof: extend the deterministic Crimson Badlands or Highlands combat coverage from Slice 8 into kill/removal, drop/debris, or no-damage-after-event behavior.
