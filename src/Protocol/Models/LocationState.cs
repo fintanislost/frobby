@@ -26,8 +26,11 @@ public sealed class LocationState
     /// <summary>NPCs currently in this location.</summary>
     public List<NpcSummary> Npcs { get; set; } = new();
 
-    /// <summary>Placeable objects (crops, crafted items, debris) in this location.</summary>
+    /// <summary>Placeable objects such as crops and crafted items in this location.</summary>
     public List<ObjectSummary> Objects { get; set; } = new();
+
+    /// <summary>Transient world debris such as dropped item chunks and combat loot.</summary>
+    public List<DebrisSummary> Debris { get; set; } = new();
 
     /// <summary>Furniture placed in this location.</summary>
     public List<FurnitureSummary> Furniture { get; set; } = new();
@@ -59,6 +62,21 @@ public sealed class ObjectSummary
     public int? Category { get; set; }
     public int? Stack { get; set; }
     public int? Quality { get; set; }
+}
+
+/// <summary>Transient debris descriptor. Some fields are best-effort because Stardew debris can be non-item visual debris.</summary>
+public sealed class DebrisSummary
+{
+    public TilePoint Tile { get; set; } = new();
+    public PixelPoint? Pixel { get; set; }
+    public string Kind { get; set; } = string.Empty;
+    public string Id { get; set; } = string.Empty;
+    public string QualifiedId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int? Stack { get; set; }
+    public int? Quality { get; set; }
+    public int? Category { get; set; }
+    public string RuntimeType { get; set; } = string.Empty;
 }
 
 /// <summary>Minimal furniture descriptor for a location snapshot.</summary>
