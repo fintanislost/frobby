@@ -175,6 +175,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeWaitPlayerAsync(step, ct);
                     }
+                    else if (step.Action == "wait.special_order")
+                    {
+                        await InvokeWaitSpecialOrderAsync(step, ct);
+                    }
                     else if (step.Action == "wait.npc_location")
                     {
                         await InvokeWaitNpcLocationAsync(step, ct);
@@ -546,6 +550,215 @@ public sealed class ScenarioRunner
         }
 
         return $"health={health} location={location} tile={tile}";
+    }
+
+    private async Task InvokeWaitSpecialOrderAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<WaitSpecialOrderStepArgs>(obj.GetRawText(), ProtocolJson.Options)
+                ?? new WaitSpecialOrderStepArgs()
+            : new WaitSpecialOrderStepArgs();
+
+        ValidateWaitSpecialOrderArgs(args);
+
+        var elapsed = Stopwatch.StartNew();
+        JsonElement? last = null;
+        int lastMatched = 0;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var resp = await _session.InvokeAsync("state.special_orders", params_: null, ct);
+            if (resp.Error is { } error)
+                throw new InvalidOperationException($"wait.special_order failed during state.special_orders: {error.Message}");
+
+            if (resp.Result is { } root)
+            {
+                last = root.Clone();
+                lastMatched = CountSpecialOrderMatches(root, args);
+                if (lastMatched >= args.MinCount && (args.MaxCount is null || lastMatched <= args.MaxCount.Value))
+                    return;
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"wait.special_order timed out after {args.TimeoutMs}ms waiting for {FormatSpecialOrderExpectation(args)}; " +
+            $"last observed {lastMatched} matched; {FormatObservedSpecialOrderKeys(last)}");
+    }
+
+    private static void ValidateWaitSpecialOrderArgs(WaitSpecialOrderStepArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.Collection))
+            throw new InvalidOperationException("wait.special_order requires args.collection");
+        if (!AllowedSpecialOrderCollections.Contains(args.Collection))
+            throw new InvalidOperationException("wait.special_order requires args.collection to be one of active, available, completed");
+        if (args.MinCount < 0)
+            throw new InvalidOperationException("wait.special_order requires args.min_count >= 0");
+        if (args.MaxCount is not null && args.MaxCount < 0)
+            throw new InvalidOperationException("wait.special_order requires args.max_count >= 0");
+        if (args.MaxCount is not null && args.MaxCount < args.MinCount)
+            throw new InvalidOperationException("wait.special_order requires args.max_count >= args.min_count");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("wait.special_order requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("wait.special_order requires args.poll_ms >= 1");
+    }
+
+    private static int CountSpecialOrderMatches(JsonElement root, WaitSpecialOrderStepArgs args)
+    {
+        if (!root.TryGetProperty(args.Collection, out var collection) || collection.ValueKind != JsonValueKind.Array)
+            return 0;
+
+        if (args.Collection == "completed")
+        {
+            return collection.EnumerateArray().Count(item =>
+                item.ValueKind == JsonValueKind.String && StringEquals(item.GetString(), args.Key));
+        }
+
+        return collection.EnumerateArray().Count(order => SpecialOrderMatches(order, args));
+    }
+
+    private static bool SpecialOrderMatches(JsonElement order, WaitSpecialOrderStepArgs args)
+    {
+        return StringFilterMatches(order, "key", args.Key)
+            && StringFilterMatches(order, "name", args.Name)
+            && StringFilterMatches(order, "requester", args.Requester)
+            && StringFilterMatches(order, "order_type", args.OrderType)
+            && StringFilterMatches(order, "special_rule", args.SpecialRule)
+            && StringFilterMatches(order, "state", args.State)
+            && BoolFilterMatches(order, "is_timed", args.IsTimed)
+            && BoolFilterMatches(order, "ready_for_removal", args.ReadyForRemoval)
+            && ObjectiveCriteriaMatches(order, args);
+    }
+
+    private static bool ObjectiveCriteriaMatches(JsonElement order, WaitSpecialOrderStepArgs args)
+    {
+        if (!HasObjectiveCriteria(args))
+            return true;
+
+        if (order.ValueKind != JsonValueKind.Object
+            || !order.TryGetProperty("objectives", out var objectives)
+            || objectives.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        return objectives.EnumerateArray().Any(objective =>
+            StringFilterMatches(objective, "type", args.ObjectiveType)
+            && StringFilterMatches(objective, "runtime_type", args.ObjectiveRuntimeType)
+            && StringFilterMatches(objective, "drop_box", args.DropBox)
+            && StringFilterMatches(objective, "drop_box_location", args.DropBoxLocation)
+            && StringFilterMatches(objective, "target_name", args.TargetName)
+            && StringArrayContains(objective, "accepted_context_tags", args.AcceptedContextTag)
+            && NumberFilterMatches(objective, "current_count", args.CurrentCount, null, null, null, args.CurrentCountGte)
+            && NumberFilterMatches(objective, "max_count", args.ObjectiveMaxCount, null, null, null, null)
+            && BoolFilterMatches(objective, "complete", args.Complete));
+    }
+
+    private static bool HasObjectiveCriteria(WaitSpecialOrderStepArgs args)
+        => args.ObjectiveType is not null
+            || args.ObjectiveRuntimeType is not null
+            || args.DropBox is not null
+            || args.DropBoxLocation is not null
+            || args.TargetName is not null
+            || args.AcceptedContextTag is not null
+            || args.CurrentCount is not null
+            || args.CurrentCountGte is not null
+            || args.ObjectiveMaxCount is not null
+            || args.Complete is not null;
+
+    private static bool BoolFilterMatches(JsonElement element, string property, bool? expected)
+    {
+        if (expected is null)
+            return true;
+
+        return element.ValueKind == JsonValueKind.Object
+            && element.TryGetProperty(property, out var value)
+            && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
+            && value.GetBoolean() == expected.Value;
+    }
+
+    private static bool StringArrayContains(JsonElement element, string property, string? expected)
+    {
+        if (expected is null)
+            return true;
+
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty(property, out var value))
+        {
+            return false;
+        }
+
+        if (value.ValueKind == JsonValueKind.String)
+            return string.Equals(value.GetString(), expected, StringComparison.Ordinal);
+
+        return value.ValueKind == JsonValueKind.Array
+            && value.EnumerateArray().Any(item =>
+                item.ValueKind == JsonValueKind.String
+                && string.Equals(item.GetString(), expected, StringComparison.Ordinal));
+    }
+
+    private static string FormatSpecialOrderExpectation(WaitSpecialOrderStepArgs args)
+    {
+        var filters = new List<string>();
+        if (args.Key is not null) filters.Add($"key={args.Key}");
+        if (args.Name is not null) filters.Add($"name={args.Name}");
+        if (args.Requester is not null) filters.Add($"requester={args.Requester}");
+        if (args.OrderType is not null) filters.Add($"order_type={args.OrderType}");
+        if (args.SpecialRule is not null) filters.Add($"special_rule={args.SpecialRule}");
+        if (args.State is not null) filters.Add($"state={args.State}");
+        if (args.IsTimed is not null) filters.Add($"is_timed={args.IsTimed.Value}");
+        if (args.ReadyForRemoval is not null) filters.Add($"ready_for_removal={args.ReadyForRemoval.Value}");
+        if (args.ObjectiveType is not null) filters.Add($"objective_type={args.ObjectiveType}");
+        if (args.ObjectiveRuntimeType is not null) filters.Add($"objective_runtime_type={args.ObjectiveRuntimeType}");
+        if (args.DropBox is not null) filters.Add($"drop_box={args.DropBox}");
+        if (args.DropBoxLocation is not null) filters.Add($"drop_box_location={args.DropBoxLocation}");
+        if (args.TargetName is not null) filters.Add($"target_name={args.TargetName}");
+        if (args.AcceptedContextTag is not null) filters.Add($"accepted_context_tag={args.AcceptedContextTag}");
+        AddNumberFilters(filters, "current_count", args.CurrentCount, null, null, null, args.CurrentCountGte);
+        if (args.ObjectiveMaxCount is not null) filters.Add($"objective_max_count={args.ObjectiveMaxCount}");
+        if (args.Complete is not null) filters.Add($"complete={args.Complete.Value}");
+
+        return $"{FormatExpectedVisualEffectCount(args.MinCount, args.MaxCount)} {args.Collection} special orders" +
+            (filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}");
+    }
+
+    private static string FormatObservedSpecialOrderKeys(JsonElement? root)
+    {
+        if (root is null || root.Value.ValueKind != JsonValueKind.Object)
+            return "active=[] available=[] completed=[]";
+
+        return string.Join(
+            " ",
+            FormatSpecialOrderKeyCollection(root.Value, "active"),
+            FormatSpecialOrderKeyCollection(root.Value, "available"),
+            FormatSpecialOrderKeyCollection(root.Value, "completed"));
+    }
+
+    private static string FormatSpecialOrderKeyCollection(JsonElement root, string collectionName)
+    {
+        if (!root.TryGetProperty(collectionName, out var collection) || collection.ValueKind != JsonValueKind.Array)
+            return $"{collectionName}=[]";
+
+        var keys = new List<string>();
+        foreach (var item in collection.EnumerateArray())
+        {
+            if (collectionName == "completed" && item.ValueKind == JsonValueKind.String)
+            {
+                keys.Add(item.GetString() ?? string.Empty);
+                continue;
+            }
+
+            if (item.ValueKind == JsonValueKind.Object
+                && item.TryGetProperty("key", out var key)
+                && key.ValueKind == JsonValueKind.String)
+            {
+                keys.Add(key.GetString() ?? string.Empty);
+            }
+        }
+
+        return $"{collectionName}=[{string.Join(",", keys)}]";
     }
 
     private async Task InvokeWaitNpcLocationAsync(ScenarioStep step, CancellationToken ct)
@@ -1773,6 +1986,7 @@ public sealed class ScenarioRunner
             "wait.ms" => $"Wait {GetIntArg(step.Args, "ms") ?? 0}ms",
             "wait.location" => $"Wait for location {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.player" => "Wait for player state",
+            "wait.special_order" => $"Wait for special order {GetStringArg(step.Args, "key") ?? "match"}",
             "wait.npc_location" => $"Wait for NPC {GetStringArg(step.Args, "name") ?? "unknown"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.location_content" => $"Wait for {GetStringArg(step.Args, "collection") ?? "content"} in {GetStringArg(step.Args, "location") ?? "unknown"}",
             "wait.visual_effects" => $"Wait for visual effects in {GetStringArg(step.Args, "location") ?? "current location"}",
@@ -1875,6 +2089,7 @@ public sealed class ScenarioRunner
             "wait.ms" => false,
             "wait.location" => false,
             "wait.player" => false,
+            "wait.special_order" => false,
             "wait.npc_location" => false,
             "wait.location_content" => false,
             "wait.visual_effects" => false,
@@ -2081,6 +2296,40 @@ public sealed class ScenarioRunner
         public int? HealthLte { get; set; }
         public int? HealthGt { get; set; }
         public int? HealthGte { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
+        public int PollMs { get; set; } = 100;
+    }
+
+    private static readonly HashSet<string> AllowedSpecialOrderCollections = new(StringComparer.Ordinal)
+    {
+        "active",
+        "available",
+        "completed",
+    };
+
+    private sealed class WaitSpecialOrderStepArgs
+    {
+        public string Collection { get; set; } = "active";
+        public string? Key { get; set; }
+        public string? Name { get; set; }
+        public string? Requester { get; set; }
+        public string? OrderType { get; set; }
+        public string? SpecialRule { get; set; }
+        public string? State { get; set; }
+        public bool? IsTimed { get; set; }
+        public bool? ReadyForRemoval { get; set; }
+        public string? ObjectiveType { get; set; }
+        public string? ObjectiveRuntimeType { get; set; }
+        public string? DropBox { get; set; }
+        public string? DropBoxLocation { get; set; }
+        public string? TargetName { get; set; }
+        public string? AcceptedContextTag { get; set; }
+        public int? CurrentCount { get; set; }
+        public int? CurrentCountGte { get; set; }
+        public int? ObjectiveMaxCount { get; set; }
+        public bool? Complete { get; set; }
+        public int MinCount { get; set; } = 1;
+        public int? MaxCount { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }

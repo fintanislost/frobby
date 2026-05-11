@@ -346,6 +346,117 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitSpecialOrder_PollsUntilActiveOrderObjectiveMatches()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var polls = 0;
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.special_orders" => JsonDocument.Parse(polls++ == 0
+                            ? "{\"active\":[],\"available\":[],\"completed\":[],\"accepted_types\":[],\"returned_donations\":[]}"
+                            : "{\"active\":[{\"key\":\"Andy\",\"requester\":\"Andy\",\"order_type\":\"StardewValleyExpanded\",\"state\":\"InProgress\",\"objectives\":[{\"index\":0,\"type\":\"Donate\",\"runtime_type\":\"DonateObjective\",\"drop_box\":\"AndyChest\",\"drop_box_location\":\"Custom_AndyHouse\",\"accepted_context_tags\":[\"item_wood\"],\"current_count\":25,\"max_count\":500,\"complete\":false}],\"rewards\":[],\"donated_items\":[]}],\"available\":[],\"completed\":[],\"accepted_types\":[],\"returned_donations\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_special_order",
+            Steps =
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.special_order",
+                    Args = JsonDocument.Parse("{\"collection\":\"active\",\"key\":\"Andy\",\"requester\":\"Andy\",\"objective_type\":\"Donate\",\"drop_box\":\"AndyChest\",\"accepted_context_tag\":\"item_wood\",\"current_count_gte\":25,\"timeout_ms\":1000,\"poll_ms\":10}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.True(polls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitSpecialOrder_TimeoutReportsObservedKeys()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.special_orders" => JsonDocument.Parse("{\"active\":[{\"key\":\"MarlonFay2\",\"objectives\":[],\"rewards\":[],\"donated_items\":[]}],\"available\":[{\"key\":\"Andy\",\"objectives\":[],\"rewards\":[],\"donated_items\":[]}],\"completed\":[\"Emily\"],\"accepted_types\":[],\"returned_donations\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_special_order_timeout",
+            Steps =
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.special_order",
+                    Args = JsonDocument.Parse("{\"collection\":\"active\",\"key\":\"Missing\",\"timeout_ms\":50,\"poll_ms\":10}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        Assert.Contains("active=[MarlonFay2]", report.Failures[0]);
+        Assert.Contains("available=[Andy]", report.Failures[0]);
+        Assert.Contains("completed=[Emily]", report.Failures[0]);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task UiWaitText_PollsTextCaptureUntilMatch()
     {
         var socket = SocketPath();
