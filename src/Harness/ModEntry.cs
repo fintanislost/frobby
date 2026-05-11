@@ -47,6 +47,7 @@ public sealed class ModEntry : Mod
         _rpc.Register(StateNpcsHandler.Method, p => StateNpcsHandler.Handle(p));
         _rpc.Register(StateMenuHandler.Method, p => StateMenuHandler.Handle(p));
         _rpc.Register(StateShopHandler.Method, p => StateShopHandler.Handle(p));
+        _rpc.Register(StateSpecialOrdersHandler.Method, p => StateSpecialOrdersHandler.Handle(p));
         _rpc.Register(StateVisualEffectsHandler.Method, p => StateVisualEffectsHandler.Handle(p));
         _rpc.Register(StateEventHandler.Method, p => StateEventHandler.Handle(p));
         _rpc.Register(EventStartHandler.Method, p => EventStartHandler.Handle(p));
