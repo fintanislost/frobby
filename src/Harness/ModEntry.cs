@@ -71,6 +71,7 @@ public sealed class ModEntry : Mod
         _rpc.Register(WorldPlaceInventoryFurnitureHandler.Method, p => WorldPlaceInventoryFurnitureHandler.Handle(p));
         _rpc.Register(WorldInteractTileHandler.Method, p => WorldInteractTileHandler.Handle(p));
         _rpc.Register(WorldInteractTileActionHandler.Method, p => WorldInteractTileActionHandler.Handle(p));
+        _rpc.Register(DropBoxDepositHandler.Method, p => DropBoxDepositHandler.Handle(p));
         _rpc.Register(CombatAttackHandler.Method, p => CombatAttackHandler.Handle(p));
         _rpc.Register(InputKeyHandler.Method, p => InputKeyHandler.Handle(p));
         _rpc.Register(InputTextHandler.Method, p => InputTextHandler.Handle(p));
