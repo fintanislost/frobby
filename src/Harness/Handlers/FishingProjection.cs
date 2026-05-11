@@ -340,7 +340,7 @@ internal static class FishingProjection
     }
 }
 
-internal sealed class SdvFishingWorld : IFishingWorld
+internal sealed class SdvFishingWorld : IFishingSamplerWorld
 {
     public string Season => Game1.currentSeason ?? string.Empty;
 
@@ -401,6 +401,553 @@ internal sealed class SdvFishingWorld : IFishingWorld
         }
 
         return new TilePoint { X = x ?? tile.Value.X, Y = y ?? tile.Value.Y };
+    }
+
+    public IFishingSampleState Snapshot(FishingSampleCatchRequest request)
+    {
+        RpcPreconditions.RequireWorldReady();
+        var targetLocation = ResolveGameLocation(request.Location);
+        return SdvFishingSampleState.CaptureAndApply(request, targetLocation);
+    }
+
+    public FishingCatchResult SampleCatch(FishingSampleCatchRequest request, TilePoint tile, int attempt)
+    {
+        RpcPreconditions.RequireWorldReady();
+        var location = ResolveGameLocation(request.Location);
+        var bait = ResolveBaitId(request);
+        var waterDepth = EstimateWaterDepth(location, tile);
+        var item = location.getFish(
+            millisecondsAfterNibble: 0f,
+            bait: bait ?? string.Empty,
+            waterDepth: waterDepth,
+            who: Game1.player,
+            baitPotency: 0d,
+            bobberTile: new Vector2(tile.X, tile.Y),
+            locationName: location.NameOrUniqueName);
+
+        return ProjectCatch(item, attempt);
+    }
+
+    private static GameLocation ResolveGameLocation(string? locationName)
+    {
+        var location = string.IsNullOrWhiteSpace(locationName)
+            ? Game1.currentLocation
+            : Game1.getLocationFromName(locationName);
+
+        return location
+            ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid, $"No location named '{locationName}' is loaded");
+    }
+
+    private static int EstimateWaterDepth(GameLocation location, TilePoint tile)
+    {
+        for (var radius = 1; radius <= 5; radius++)
+        {
+            for (var x = tile.X - radius; x <= tile.X + radius; x++)
+            {
+                for (var y = tile.Y - radius; y <= tile.Y + radius; y++)
+                {
+                    if (Math.Abs(x - tile.X) != radius && Math.Abs(y - tile.Y) != radius)
+                    {
+                        continue;
+                    }
+
+                    if (!IsOpenWater(location, x, y))
+                    {
+                        return radius;
+                    }
+                }
+            }
+        }
+
+        return 5;
+    }
+
+    private static bool IsOpenWater(GameLocation location, int x, int y)
+    {
+        if (ReflectionValue.TryInvokeBool(location, "isOpenWater", [x, y], out var openWater))
+        {
+            return openWater;
+        }
+
+        try
+        {
+            return location.isWaterTile(x, y);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string? ResolveBaitId(FishingSampleCatchRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.BaitId))
+        {
+            return NormalizeQualifiedObjectId(request.BaitId);
+        }
+
+        var bait = TryInvokeNoArg(Game1.player?.CurrentTool, "GetBait") as Item;
+        return bait?.QualifiedItemId ?? bait?.ItemId;
+    }
+
+    private static object? TryInvokeNoArg(object? source, string methodName)
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return source.GetType()
+                .GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, Type.EmptyTypes)
+                ?.Invoke(source, []);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static FishingCatchResult ProjectCatch(Item? item, int attempt)
+    {
+        if (item is null)
+        {
+            return new FishingCatchResult
+            {
+                Attempt = attempt,
+                Type = "null",
+                RuntimeType = "null",
+                IsNull = true,
+                Source = "runtime",
+            };
+        }
+
+        var qualifiedId = item.QualifiedItemId ?? item.ItemId ?? string.Empty;
+        var itemId = item.ItemId ?? StripQualifiedPrefix(qualifiedId);
+        return new FishingCatchResult
+        {
+            Attempt = attempt,
+            ItemId = itemId,
+            QualifiedId = qualifiedId,
+            DisplayName = item.DisplayName ?? item.Name ?? string.Empty,
+            Type = ClassifyCatch(item),
+            Stack = item.Stack,
+            Quality = item.Quality,
+            Category = item.Category,
+            RuntimeType = item.GetType().Name,
+            IsNull = false,
+            Source = "runtime",
+            RawId = itemId,
+        };
+    }
+
+    private static string ClassifyCatch(Item item)
+    {
+        var runtimeType = item.GetType().Name;
+        var qualifiedId = item.QualifiedItemId ?? string.Empty;
+        if (qualifiedId.StartsWith("(F)", StringComparison.Ordinal) || runtimeType.Contains("Furniture", StringComparison.Ordinal))
+        {
+            return "furniture";
+        }
+
+        if (item.Category == -4)
+        {
+            return "fish";
+        }
+
+        return runtimeType == "Object" ? "object" : "unknown";
+    }
+
+    private static string NormalizeQualifiedObjectId(string raw)
+    {
+        return string.IsNullOrWhiteSpace(raw) || raw.StartsWith("(", StringComparison.Ordinal)
+            ? raw
+            : $"(O){raw}";
+    }
+
+    private static string StripQualifiedPrefix(string value)
+    {
+        if (value.Length > 0 && value[0] == '(')
+        {
+            var close = value.IndexOf(')', StringComparison.Ordinal);
+            if (close >= 0 && close + 1 < value.Length)
+            {
+                return value[(close + 1)..];
+            }
+        }
+
+        return value;
+    }
+}
+
+internal sealed class SdvFishingSampleState : IFishingSampleState
+{
+    private static readonly FieldInfo? GameRandomField = typeof(Game1).GetField(
+        "random",
+        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
+    private readonly GameLocation? _currentLocation;
+    private readonly int _timeOfDay;
+    private readonly Season _season;
+    private readonly string _weatherContextId;
+    private readonly string _weather;
+    private readonly Random? _random;
+    private readonly int _currentToolIndex;
+    private readonly MemberValueSnapshot? _dailyLuck;
+    private readonly MemberValueSnapshot? _fishingLevel;
+    private readonly AttachmentSnapshot? _attachments;
+
+    private SdvFishingSampleState(
+        GameLocation? currentLocation,
+        int timeOfDay,
+        Season season,
+        string weatherContextId,
+        string weather,
+        Random? random,
+        int currentToolIndex,
+        MemberValueSnapshot? dailyLuck,
+        MemberValueSnapshot? fishingLevel,
+        AttachmentSnapshot? attachments)
+    {
+        _currentLocation = currentLocation;
+        _timeOfDay = timeOfDay;
+        _season = season;
+        _weatherContextId = weatherContextId;
+        _weather = weather;
+        _random = random;
+        _currentToolIndex = currentToolIndex;
+        _dailyLuck = dailyLuck;
+        _fishingLevel = fishingLevel;
+        _attachments = attachments;
+    }
+
+    public static SdvFishingSampleState CaptureAndApply(FishingSampleCatchRequest request, GameLocation targetLocation)
+    {
+        var contextId = targetLocation.GetLocationContextId() ?? "Default";
+        var snapshot = new SdvFishingSampleState(
+            Game1.currentLocation,
+            Game1.timeOfDay,
+            Game1.season,
+            contextId,
+            ReadWeather(contextId),
+            GameRandomField?.GetValue(null) as Random,
+            Game1.player.CurrentToolIndex,
+            MemberValueSnapshot.Capture(Game1.player, "DailyLuck", "dailyLuck"),
+            MemberValueSnapshot.Capture(Game1.player, "FishingLevel", "fishingLevel"),
+            AttachmentSnapshot.Capture(Game1.player.CurrentTool));
+
+        Game1.currentLocation = targetLocation;
+        if (request.TimeOfDay.HasValue)
+        {
+            Game1.timeOfDay = request.TimeOfDay.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Season))
+        {
+            Game1.season = ParseSeason(request.Season);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Weather))
+        {
+            ApplyWeather(contextId, request.Weather);
+        }
+
+        if (request.Seed.HasValue && GameRandomField is not null)
+        {
+            GameRandomField.SetValue(null, new Random(request.Seed.Value));
+        }
+
+        if (request.Luck.HasValue)
+        {
+            snapshot._dailyLuck?.Set(request.Luck.Value);
+        }
+
+        if (request.PlayerFishingLevel.HasValue)
+        {
+            snapshot._fishingLevel?.Set(request.PlayerFishingLevel.Value);
+        }
+
+        ApplyRod(Game1.player, request.RodId);
+        ApplyAttachments(Game1.player.CurrentTool, request.BaitId, request.TackleId);
+
+        return snapshot;
+    }
+
+    public void Restore()
+    {
+        Game1.currentLocation = _currentLocation;
+        Game1.timeOfDay = _timeOfDay;
+        Game1.season = _season;
+        ApplyWeather(_weatherContextId, _weather);
+        if (GameRandomField is not null)
+        {
+            GameRandomField.SetValue(null, _random);
+        }
+
+        Game1.player.CurrentToolIndex = _currentToolIndex;
+        _dailyLuck?.Restore();
+        _fishingLevel?.Restore();
+        _attachments?.Restore();
+    }
+
+    private static void ApplyRod(Farmer player, string? rodId)
+    {
+        if (string.IsNullOrWhiteSpace(rodId))
+        {
+            return;
+        }
+
+        var normalizedRodId = NormalizeQualifiedObjectId(rodId);
+        for (var slot = 0; slot < player.Items.Count; slot++)
+        {
+            var item = player.Items[slot];
+            if (item is null || !item.GetType().Name.Contains("FishingRod", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (string.Equals(item.QualifiedItemId, normalizedRodId, StringComparison.Ordinal)
+                || string.Equals(item.ItemId, rodId, StringComparison.Ordinal)
+                || string.Equals(item.ItemId, StripQualifiedPrefix(normalizedRodId), StringComparison.Ordinal))
+            {
+                player.CurrentToolIndex = slot;
+                return;
+            }
+        }
+    }
+
+    private static void ApplyAttachments(Tool? tool, string? baitId, string? tackleId)
+    {
+        if (tool is null || !tool.GetType().Name.Contains("FishingRod", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var attachments = ReflectionValue.ReadRaw(tool, "attachments");
+        if (attachments is null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(baitId) && TryCreateObject(baitId, out var bait))
+        {
+            SetIndexedValue(attachments, 0, bait);
+        }
+
+        if (!string.IsNullOrWhiteSpace(tackleId) && TryCreateObject(tackleId, out var tackle))
+        {
+            SetIndexedValue(attachments, 1, tackle);
+        }
+    }
+
+    private static bool TryCreateObject(string itemId, out StardewValley.Object? item)
+    {
+        item = null;
+        var qualifiedId = NormalizeQualifiedObjectId(itemId);
+        try
+        {
+            if (!ItemRegistry.Exists(qualifiedId))
+            {
+                return false;
+            }
+
+            item = ItemRegistry.Create(qualifiedId) as StardewValley.Object;
+            return item is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string ReadWeather(string contextId)
+    {
+        try
+        {
+            return Game1.netWorldState.Value.GetWeatherForLocation(contextId).Weather ?? "Sun";
+        }
+        catch
+        {
+            return "Sun";
+        }
+    }
+
+    private static void ApplyWeather(string contextId, string weather)
+    {
+        var weatherId = weather.ToLowerInvariant() switch
+        {
+            "sunny" or "sun" => "Sun",
+            "rain" => "Rain",
+            "storm" => "Storm",
+            "snow" => "Snow",
+            "wind" => "Wind",
+            "festival" => "Festival",
+            _ => weather,
+        };
+
+        try
+        {
+            Game1.netWorldState.Value.GetWeatherForLocation(contextId).Weather = weatherId;
+            if (Game1.currentGameTime is not null)
+            {
+                Game1.updateWeather(Game1.currentGameTime);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static Season ParseSeason(string season)
+    {
+        return season.ToLowerInvariant() switch
+        {
+            "spring" => Season.Spring,
+            "summer" => Season.Summer,
+            "fall" => Season.Fall,
+            "winter" => Season.Winter,
+            _ => Game1.season,
+        };
+    }
+
+    private static object? GetIndexedValue(object source, int index)
+    {
+        try
+        {
+            return source.GetType().GetProperty("Item")?.GetValue(source, [index]);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void SetIndexedValue(object source, int index, object? value)
+    {
+        try
+        {
+            source.GetType().GetProperty("Item")?.SetValue(source, value, [index]);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string NormalizeQualifiedObjectId(string raw)
+    {
+        return string.IsNullOrWhiteSpace(raw) || raw.StartsWith("(", StringComparison.Ordinal)
+            ? raw
+            : $"(O){raw}";
+    }
+
+    private static string StripQualifiedPrefix(string value)
+    {
+        if (value.Length > 0 && value[0] == '(')
+        {
+            var close = value.IndexOf(')', StringComparison.Ordinal);
+            if (close >= 0 && close + 1 < value.Length)
+            {
+                return value[(close + 1)..];
+            }
+        }
+
+        return value;
+    }
+
+    private sealed class MemberValueSnapshot
+    {
+        private readonly object _target;
+        private readonly PropertyInfo? _property;
+        private readonly FieldInfo? _field;
+        private readonly object? _original;
+
+        private MemberValueSnapshot(object target, PropertyInfo? property, FieldInfo? field, object? original)
+        {
+            _target = target;
+            _property = property;
+            _field = field;
+            _original = original;
+        }
+
+        public static MemberValueSnapshot? Capture(object target, params string[] names)
+        {
+            var type = target.GetType();
+            foreach (var name in names)
+            {
+                var property = type.GetProperty(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (property is { CanRead: true, CanWrite: true } && property.GetIndexParameters().Length == 0)
+                {
+                    return new MemberValueSnapshot(target, property, null, property.GetValue(target));
+                }
+
+                var field = type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                if (field is not null && !field.IsInitOnly)
+                {
+                    return new MemberValueSnapshot(target, null, field, field.GetValue(target));
+                }
+            }
+
+            return null;
+        }
+
+        public void Set(object value)
+        {
+            try
+            {
+                if (_property is not null)
+                {
+                    _property.SetValue(_target, Convert.ChangeType(value, _property.PropertyType, CultureInfo.InvariantCulture));
+                }
+                else if (_field is not null)
+                {
+                    _field.SetValue(_target, Convert.ChangeType(value, _field.FieldType, CultureInfo.InvariantCulture));
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        public void Restore()
+        {
+            try
+            {
+                _property?.SetValue(_target, _original);
+                _field?.SetValue(_target, _original);
+            }
+            catch
+            {
+            }
+        }
+    }
+
+    private sealed class AttachmentSnapshot
+    {
+        private readonly object _attachments;
+        private readonly object? _bait;
+        private readonly object? _tackle;
+
+        private AttachmentSnapshot(object attachments, object? bait, object? tackle)
+        {
+            _attachments = attachments;
+            _bait = bait;
+            _tackle = tackle;
+        }
+
+        public static AttachmentSnapshot? Capture(Tool? tool)
+        {
+            var attachments = ReflectionValue.ReadRaw(tool, "attachments");
+            return attachments is null
+                ? null
+                : new AttachmentSnapshot(attachments, GetIndexedValue(attachments, 0), GetIndexedValue(attachments, 1));
+        }
+
+        public void Restore()
+        {
+            SetIndexedValue(_attachments, 0, _bait);
+            SetIndexedValue(_attachments, 1, _tackle);
+        }
     }
 }
 
