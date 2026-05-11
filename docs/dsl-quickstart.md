@@ -205,6 +205,42 @@ items by qualified id:
 Use `State.Shop()` in C# DSL tests when a test needs to inspect the active shop
 snapshot directly after a click flow or setup helper.
 
+Special-order scenarios should prove the active order and donation objective
+before mutating it:
+
+```json
+{
+  "action": "wait.special_order",
+  "args": {
+    "collection": "active",
+    "key": "ExampleOrder",
+    "objective_type": "Donate",
+    "drop_box": "ExampleDropBox",
+    "current_count": 0,
+    "timeout_ms": 15000
+  }
+}
+```
+
+Then use `drop_box.deposit` to deposit from player inventory into the matching
+runtime objective:
+
+```json
+{
+  "action": "drop_box.deposit",
+  "args": {
+    "order_key": "ExampleOrder",
+    "drop_box": "ExampleDropBox",
+    "qualified_id": "(O)388",
+    "count": 5
+  }
+}
+```
+
+Follow with another `wait.special_order` using `current_count_gte` to prove
+progress. Keep order keys, event prerequisites, and item ids in the mod repo
+scenario, not in reusable Frobby code.
+
 For spawned world content, prefer `wait.location_content` over fixed sleeps:
 
 ```json

@@ -140,6 +140,63 @@ relationship, event, and mail-gated scenario setup/verification.
 **Implemented in:** `src/Harness/Handlers/StatePlayerHandler.cs`
 **Tested in:** `tests/Harness.Tests/StatePlayerHandlerTests.cs` + `tests/Runner.Tests/ProbeCommandTests.cs` (end-to-end runner → harness round-trip over a real Unix socket, with a faked harness response).
 
+### state.special_orders
+
+Returns the local team's active, available, and completed Stardew special-order
+state. This is runtime state, not content-pack source data, so it works for
+vanilla orders and modded orders after the game has registered them.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 12, "method": "state.special_orders" }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 12, "result": {
+      "active": [
+        {
+          "key": "ExampleOrder",
+          "name": "Example Order",
+          "requester": "Riley",
+          "order_type": "ExampleMod",
+          "state": "InProgress",
+          "objectives": [
+            {
+              "index": 0,
+              "type": "Donate",
+              "runtime_type": "DonateObjective",
+              "drop_box": "ExampleDropBox",
+              "drop_box_location": "ExampleTown",
+              "accepted_context_tags": ["item_wood"],
+              "current_count": 5,
+              "max_count": 100,
+              "complete": false
+            }
+          ],
+          "rewards": [],
+          "donated_items": [
+            { "id": "(O)388", "item_id": "388", "qualified_id": "(O)388", "name": "Wood", "stack": 5 }
+          ]
+        }
+      ],
+      "available": [],
+      "completed": ["CompletedExampleOrder"],
+      "accepted_types": ["ExampleMod"],
+      "returned_donations": []
+   } }
+```
+
+Special-order projection is best-effort across Stardew and modded runtime
+classes. Tests should filter on the fields relevant to the scenario, such as
+`key`, `requester`, `order_type`, objective `type`, `drop_box`,
+`accepted_context_tags`, and `current_count`.
+
+**Preconditions:** world loaded.
+**Side effects:** none.
+**Implemented in:** `src/Harness/Handlers/StateSpecialOrdersHandler.cs`
+**Tested in:** `tests/Protocol.Tests/SpecialOrdersStateSerializationTests.cs` and `tests/Harness.Tests/StateSpecialOrdersHandlerTests.cs`.
+
 ### state.time
 
 Returns the current in-game date + clock. Always succeeds (safe at title screen).
@@ -824,6 +881,71 @@ Response (unknown item id — GameStateInvalid):
 **Side effects:** adds a freshly-created item stack of size `count` to `Game1.player`'s inventory (or opens the pickup menu if full).
 **Implemented in:** `src/Harness/Handlers/PlayerGiveItemHandler.cs`
 **Tested in:** `tests/Protocol.Tests/GiveItemRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerGiveItemHandlerTests.cs` (error-path unit tests).
+
+### drop_box.deposit
+
+Deposits items from the player's inventory into an active special-order donation
+objective. The handler selects an active order by `order_key`, finds a matching
+`Donate` objective and optional `drop_box`, validates item id/context-tag
+compatibility, then updates Stardew runtime special-order state.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 19, "method": "drop_box.deposit", "params": {
+      "order_key": "ExampleOrder",
+      "drop_box": "ExampleDropBox",
+      "qualified_id": "(O)388",
+      "count": 5
+   } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 19, "result": {
+      "ok": true,
+      "order_key": "ExampleOrder",
+      "drop_box": "ExampleDropBox",
+      "deposited_count": 5,
+      "objective_index": 0,
+      "before_count": 0,
+      "after_count": 5,
+      "item": { "id": "(O)388", "item_id": "388", "qualified_id": "(O)388", "name": "Wood", "stack": 5 }
+   } }
+```
+
+Response (missing `order_key` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32602, "message": "params.order_key required" } }
+```
+
+Response (missing item selector — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32602, "message": "params.item_id or params.qualified_id required" } }
+```
+
+Response (missing active order — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32003, "message": "drop_box.deposit found no active order 'ExampleOrder'" } }
+```
+
+Response (missing donation objective — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32003, "message": "drop_box.deposit found no matching donation objective for order 'ExampleOrder'" } }
+```
+
+Response (insufficient inventory or context mismatch — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 19, "error": { "code": -32003, "message": "drop_box.deposit found not enough matching inventory for objective" } }
+```
+
+Prefer proving the active order and objective with `state.special_orders` or
+runner-side `wait.special_order` before depositing. Keep order keys, event flags,
+and item ids in the repo scenario.
+
+**Preconditions:** world loaded, active special order present, matching inventory present.
+**Side effects:** reduces the selected inventory stack, appends a donated item to the active special order, and increments the donation objective count.
+**Implemented in:** `src/Harness/Handlers/DropBoxDepositHandler.cs`
+**Tested in:** `tests/Protocol.Tests/DropBoxDepositSerializationTests.cs` and `tests/Harness.Tests/DropBoxDepositHandlerTests.cs`.
 
 ### player.set_money
 
@@ -1592,6 +1714,7 @@ Runner scenario convenience:
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, and `health_gte`; timeout details include the last observed health, location, and tile.
+- `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
   It polls `state.location` for the named location until the selected collection
@@ -1630,6 +1753,25 @@ Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
 complete `x`/`y` pair. Timeout diagnostics include the last observed health,
 location, and tile so combat or hazard scenarios can report what state was last
 seen.
+
+### wait.special_order runner action
+
+`wait.special_order` is a runner-only scenario action; it is not a harness RPC.
+It polls `state.special_orders` until order and optional objective filters match.
+
+Request shape:
+```json
+{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox", "timeout_ms": 15000, "poll_ms": 100 } }
+```
+
+Supported collections are `active`, `available`, and `completed`. Supported
+order filters are `key`, `name`, `requester`, `order_type`, `special_rule`,
+`state`, `is_timed`, and `ready_for_removal`. Supported objective filters are
+`objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`,
+`target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`,
+`objective_max_count`, and `complete`. Count filters use `min_count` and
+optional `max_count`. Timeout diagnostics include the last observed
+active/available/completed order keys.
 
 The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `text_matches`, `case_sensitive`, `occurrence`, `min_count`, `timeout_ms`,

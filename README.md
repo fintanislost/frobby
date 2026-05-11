@@ -161,6 +161,13 @@ Frobby tests should exercise the UI like a player whenever possible:
   `wait.menu` plus `event.advance` for click-based dialogue acknowledgement and
   question choices inside events. Active-event screenshots should use
   `screenshot.capture_next_frame`; `freeze.begin` still rejects cutscenes.
+- Use `state.special_orders` and runner-side `wait.special_order` for special
+  order registration, event-gated order activation, objective progress, donated
+  item state, completion keys, and returned donations. Keep mod-specific order
+  keys and event prerequisites in repo scenarios, not in Frobby.
+- Use `drop_box.deposit` for neutral donation-objective tests after proving the
+  active order and drop box through `state.special_orders`. The action works from
+  Stardew runtime special-order state and should not parse a mod's content packs.
 
 See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
 assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the

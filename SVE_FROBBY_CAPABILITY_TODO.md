@@ -77,12 +77,14 @@ Status key:
   - Done: `state.location.debris`, debris-aware `wait.location_content`, runner-side `wait.player`, selector-based combat retargeting, and SVE Slice 9 scenarios (`sve_combat_lifecycle_debris`, `sve_passive_shadow_combat_state`) verify combat lifecycle outcomes beyond a single health delta.
   - Follow-up candidate: add neutral monster instance identity or binding so JSON scenarios can prove a specific moving monster was removed, and add stronger debris attribution when the location has pre-existing debris.
 
-## Next Capability Backlog
-
-- [ ] Pending: Slice 10, special orders, quest state, and drop boxes.
+- [x] Done: Slice 10, special orders, quest state, and drop boxes.
+  - Design spec: `docs/superpowers/specs/2026-05-10-sve-slice-10-special-orders-drop-boxes-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-10-sve-slice-10-special-orders-drop-boxes.md`.
   - SVE pressure: many event-gated special orders, map drop boxes, and long-running collection objectives.
   - Frobby goal: inspect active special orders, objective progress, drop box state, deposit flows, and completion/reward flags without encoding SVE order IDs in Frobby.
-  - Candidate SVE proof: unlock a custom order with event/mail state, validate it appears, deposit required items into a drop box, and assert objective progress.
+  - Done: `state.special_orders`, runner-side `wait.special_order`, neutral `drop_box.deposit`, and SVE scenario 15 verify runtime special-order activation and donation progress.
+
+## Next Capability Backlog
 
 - [ ] Pending: Slice 11, fishing tables and deterministic catch sampling.
   - SVE pressure: custom fish, custom fish areas, alternate farm fishing tables, and patched desert fishing rewards.
