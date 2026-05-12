@@ -509,12 +509,21 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("wait.player requires args.poll_ms >= 1");
         if ((args.X is null) != (args.Y is null))
             throw new InvalidOperationException("wait.player requires both args.x and args.y when filtering by tile");
+        if (args.BuffCountGte is < 0)
+            throw new InvalidOperationException("wait.player requires args.buff_count_gte >= 0");
+        if (args.BuffEffectGte is not null && string.IsNullOrWhiteSpace(args.BuffEffect))
+            throw new InvalidOperationException("wait.player requires args.buff_effect when using args.buff_effect_gte");
+        if (args.BuffAnyEffectGte is not null && args.BuffAnyEffectGte.Effects.Count == 0)
+            throw new InvalidOperationException("wait.player requires args.buff_any_effect_gte.effects");
     }
 
     private static bool PlayerStateMatches(JsonElement root, WaitPlayerStepArgs args)
     {
         return StringFilterMatches(root, "location", args.Location)
             && NumberFilterMatches(root, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
+            && BoolFilterMatches(root, "swimming", args.Swimming)
+            && BoolFilterMatches(root, "bathing_clothes", args.BathingClothes)
+            && BuffFiltersMatch(root, args)
             && TileFilterMatches(root, args.X, args.Y);
     }
 
@@ -523,6 +532,24 @@ public sealed class ScenarioRunner
         var filters = new List<string>();
         if (args.Location is not null) filters.Add($"location={args.Location}");
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
+        if (args.Swimming is not null) filters.Add($"swimming={args.Swimming.Value.ToString().ToLowerInvariant()}");
+        if (args.BathingClothes is not null) filters.Add($"bathing_clothes={args.BathingClothes.Value.ToString().ToLowerInvariant()}");
+        if (args.BuffCountGte is not null) filters.Add($"buff_count_gte={args.BuffCountGte}");
+        if (args.BuffId is not null) filters.Add($"buff_id={args.BuffId}");
+        if (args.BuffSource is not null) filters.Add($"buff_source={args.BuffSource}");
+        if (args.BuffEffect is not null)
+        {
+            filters.Add(args.BuffEffectGte is null
+                ? $"buff_effect={args.BuffEffect}"
+                : $"buff_effect={args.BuffEffect}>={args.BuffEffectGte}");
+        }
+
+        if (args.BuffAnyEffectGte is not null)
+        {
+            filters.Add(
+                $"buff_any_effect_gte={string.Join("|", args.BuffAnyEffectGte.Effects)}>={args.BuffAnyEffectGte.Value}");
+        }
+
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
@@ -549,7 +576,108 @@ public sealed class ScenarioRunner
             tile = $"{xv},{yv}";
         }
 
-        return $"health={health} location={location} tile={tile}";
+        var swimming = ReadBoolText(root.Value, "swimming");
+        var bathing = ReadBoolText(root.Value, "bathing_clothes");
+        var buffSummary = FormatObservedBuffSummary(root.Value);
+        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} {buffSummary}";
+    }
+
+    private static bool BuffFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
+    {
+        var hasBuffFilters = args.BuffId is not null
+            || args.BuffSource is not null
+            || args.BuffEffect is not null
+            || args.BuffCountGte is not null
+            || args.BuffAnyEffectGte is not null;
+        if (!hasBuffFilters)
+            return true;
+
+        if (root.ValueKind != JsonValueKind.Object
+            || !root.TryGetProperty("buffs", out var buffs)
+            || buffs.ValueKind != JsonValueKind.Array)
+            return false;
+
+        var buffList = buffs.EnumerateArray().ToList();
+        if (args.BuffCountGte is not null && buffList.Count < args.BuffCountGte.Value)
+            return false;
+
+        var hasSpecificBuffFilters = args.BuffId is not null
+            || args.BuffSource is not null
+            || args.BuffEffect is not null
+            || args.BuffAnyEffectGte is not null;
+        if (!hasSpecificBuffFilters)
+            return true;
+
+        return buffList.Any(buff =>
+            StringFilterMatches(buff, "id", args.BuffId)
+            && StringFilterMatches(buff, "source", args.BuffSource)
+            && BuffEffectMatches(buff, args.BuffEffect, args.BuffEffectGte)
+            && BuffAnyEffectMatches(buff, args.BuffAnyEffectGte));
+    }
+
+    private static bool BuffEffectMatches(JsonElement buff, string? effect, int? minimum)
+    {
+        if (string.IsNullOrWhiteSpace(effect))
+            return true;
+        if (!TryReadBuffEffect(buff, effect, out var value))
+            return false;
+        return minimum is null || value >= minimum.Value;
+    }
+
+    private static bool BuffAnyEffectMatches(JsonElement buff, BuffAnyEffectFilter? filter)
+    {
+        if (filter is null)
+            return true;
+
+        return filter.Effects.Any(effect =>
+            TryReadBuffEffect(buff, effect, out var value) && value >= filter.Value);
+    }
+
+    private static bool TryReadBuffEffect(JsonElement buff, string effect, out int value)
+    {
+        value = 0;
+        return buff.ValueKind == JsonValueKind.Object
+            && buff.TryGetProperty("effects", out var effects)
+            && effects.ValueKind == JsonValueKind.Object
+            && effects.TryGetProperty(effect, out var effectValue)
+            && effectValue.ValueKind == JsonValueKind.Number
+            && effectValue.TryGetInt32(out value);
+    }
+
+    private static string ReadBoolText(JsonElement root, string property)
+    {
+        return root.TryGetProperty(property, out var value)
+            && (value.ValueKind == JsonValueKind.True || value.ValueKind == JsonValueKind.False)
+            ? value.GetBoolean().ToString().ToLowerInvariant()
+            : "?";
+    }
+
+    private static string FormatObservedBuffSummary(JsonElement root)
+    {
+        if (!root.TryGetProperty("buffs", out var buffs) || buffs.ValueKind != JsonValueKind.Array)
+            return "buffs=?";
+
+        var list = buffs.EnumerateArray().ToList();
+        if (list.Count == 0)
+            return "buffs=0";
+
+        var details = list.Take(3).Select(buff =>
+        {
+            var id = buff.TryGetProperty("id", out var idValue) && idValue.ValueKind == JsonValueKind.String
+                ? idValue.GetString()
+                : "?";
+            var effects = buff.TryGetProperty("effects", out var effectsValue) && effectsValue.ValueKind == JsonValueKind.Object
+                ? string.Join("|", effectsValue.EnumerateObject()
+                    .Select(prop => prop.Value.ValueKind == JsonValueKind.Number
+                        && prop.Value.TryGetInt32(out var value)
+                        && value != 0
+                        ? $"{prop.Name}={value.ToString(CultureInfo.InvariantCulture)}"
+                        : string.Empty)
+                    .Where(text => text.Length > 0))
+                : string.Empty;
+            return string.IsNullOrWhiteSpace(effects) ? id ?? "?" : $"{id}:{effects}";
+        });
+        return $"buffs={list.Count} [{string.Join(", ", details)}]";
     }
 
     private async Task InvokeWaitSpecialOrderAsync(ScenarioStep step, CancellationToken ct)
@@ -2296,8 +2424,22 @@ public sealed class ScenarioRunner
         public int? HealthLte { get; set; }
         public int? HealthGt { get; set; }
         public int? HealthGte { get; set; }
+        public bool? Swimming { get; set; }
+        public bool? BathingClothes { get; set; }
+        public string? BuffId { get; set; }
+        public string? BuffSource { get; set; }
+        public string? BuffEffect { get; set; }
+        public int? BuffEffectGte { get; set; }
+        public int? BuffCountGte { get; set; }
+        public BuffAnyEffectFilter? BuffAnyEffectGte { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class BuffAnyEffectFilter
+    {
+        public List<string> Effects { get; set; } = new();
+        public int Value { get; set; }
     }
 
     private static readonly HashSet<string> AllowedSpecialOrderCollections = new(StringComparer.Ordinal)

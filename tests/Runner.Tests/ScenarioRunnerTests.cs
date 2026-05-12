@@ -706,6 +706,117 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitPlayer_MatchesTransientStateAndBuffEffects()
+    {
+        var socket = SocketPath();
+        var playerPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.player" => JsonDocument.Parse(playerPolls++ == 0
+                            ? "{\"name\":\"Tester\",\"health\":100,\"location\":\"Custom_SpriteSpring2\",\"tile\":{\"x\":10,\"y\":20},\"swimming\":true,\"bathing_clothes\":false,\"buffs\":[]}"
+                            : "{\"name\":\"Tester\",\"health\":100,\"location\":\"Custom_SpriteSpring2\",\"tile\":{\"x\":10,\"y\":20},\"swimming\":true,\"bathing_clothes\":false,\"buffs\":[{\"id\":\"1\",\"display_name\":\"Fishing\",\"effects\":{\"fishing_level\":3},\"milliseconds_duration\":720000}]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_player_buff",
+            Steps =
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.player",
+                    Args = JsonDocument.Parse("{\"location\":\"Custom_SpriteSpring2\",\"swimming\":true,\"buff_count_gte\":1,\"buff_any_effect_gte\":{\"effects\":[\"fishing_level\",\"farming_level\",\"mining_level\",\"foraging_level\",\"attack\"],\"value\":3},\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.True(playerPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitPlayer_TimeoutIncludesTransientAndBuffSummary()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.player" => JsonDocument.Parse("{\"name\":\"Tester\",\"health\":100,\"location\":\"Farm\",\"tile\":{\"x\":64,\"y\":15},\"swimming\":false,\"bathing_clothes\":false,\"buffs\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_player_buff_timeout",
+            Steps =
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.player",
+                    Args = JsonDocument.Parse("{\"swimming\":true,\"buff_count_gte\":1,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("swimming=true", failure);
+        Assert.Contains("last observed health=100 location=Farm tile=64,15 swimming=false bathing_clothes=false buffs=0", failure);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitLocation_WaitsForWarpToSettleAfterLocationMatches()
     {
         var socket = SocketPath();
