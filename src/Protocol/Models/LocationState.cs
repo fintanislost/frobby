@@ -59,6 +59,12 @@ public sealed class ObjectSummary
     public string Name { get; set; } = string.Empty;
     public string Id { get; set; } = string.Empty;
     public string QualifiedId { get; set; } = string.Empty;
+    public string RuntimeType { get; set; } = string.Empty;
+    public bool BigCraftable { get; set; }
+    public bool? ReadyForHarvest { get; set; }
+    public string? HeldObjectId { get; set; }
+    public string? HeldObjectQualifiedId { get; set; }
+    public string? HeldObjectName { get; set; }
     public int? Category { get; set; }
     public int? Stack { get; set; }
     public int? Quality { get; set; }
