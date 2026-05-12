@@ -2578,6 +2578,15 @@ public sealed class ScenarioRunner
                     await TryCaptureAssertionFailureAsync(ct);
                 return result;
             }
+            case "state.fishing_context":
+            case "state.fishing_table":
+            case "fishing.sample_catch":
+            {
+                var result = await EvaluateRpcResultAssertionAsync(a.Type, a, ct);
+                if (!result.Passed)
+                    await TryCaptureAssertionFailureAsync(ct);
+                return result;
+            }
             case "state":
             {
                 // Minimal DSL: "state.<method>.<field>[.<subfield>...] == <literal>"
@@ -2728,6 +2737,112 @@ public sealed class ScenarioRunner
             default:
                 return (false, null);
         }
+    }
+
+    private async Task<(bool Passed, string? Detail)> EvaluateRpcResultAssertionAsync(
+        string method,
+        ScenarioAssertion assertion,
+        CancellationToken ct)
+    {
+        var resp = await _session.InvokeAsync(method, assertion.Params, ct);
+        if (resp.Error is not null)
+            return (false, resp.Error.Message);
+        if (resp.Result is not { } root)
+            return (false, $"{method} returned no result");
+
+        if (string.IsNullOrWhiteSpace(assertion.Expr))
+            return (true, null);
+
+        return EvaluateResultExpression(root, assertion.Expr);
+    }
+
+    private static (bool Passed, string? Detail) EvaluateResultExpression(JsonElement root, string expr)
+    {
+        var trimmed = expr.Trim();
+        var pathPattern = @"[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*";
+        var containsMatch = System.Text.RegularExpressions.Regex.Match(
+            trimmed,
+            $@"^result\.({pathPattern})\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
+        if (containsMatch.Success)
+        {
+            var path = "result." + containsMatch.Groups[1].Value;
+            var objectField = containsMatch.Groups[2].Success ? containsMatch.Groups[2].Value : null;
+            var literal = containsMatch.Groups[4].Value;
+
+            if (!TryResolveResultPath(root, path, out var array))
+                return (false, $"{path} was not found");
+            if (array.ValueKind != JsonValueKind.Array)
+                return (false, $"{path} was not an array");
+
+            foreach (var element in array.EnumerateArray())
+            {
+                if (objectField is null)
+                {
+                    if (element.ValueKind == JsonValueKind.String
+                        && string.Equals(element.GetString(), literal, StringComparison.Ordinal))
+                    {
+                        return (true, null);
+                    }
+                }
+                else if (element.ValueKind == JsonValueKind.Object
+                    && element.TryGetProperty(objectField, out var field)
+                    && field.ValueKind == JsonValueKind.String
+                    && string.Equals(field.GetString(), literal, StringComparison.Ordinal))
+                {
+                    return (true, null);
+                }
+            }
+
+            return (false, $"expected {path} to contain '{literal}'");
+        }
+
+        var neqIdx = trimmed.IndexOf("!=", StringComparison.Ordinal);
+        var eqIdx = trimmed.IndexOf("==", StringComparison.Ordinal);
+        bool negated;
+        string[] parts;
+        if (neqIdx >= 0 && (eqIdx < 0 || neqIdx < eqIdx))
+        {
+            negated = true;
+            parts = new[] { trimmed.Substring(0, neqIdx), trimmed.Substring(neqIdx + 2) };
+        }
+        else if (eqIdx >= 0)
+        {
+            negated = false;
+            parts = new[] { trimmed.Substring(0, eqIdx), trimmed.Substring(eqIdx + 2) };
+        }
+        else
+        {
+            return (false, $"unsupported result expression: {expr}");
+        }
+
+        var lhs = parts[0].Trim();
+        var rhs = parts[1].Trim();
+        if (!TryResolveResultPath(root, lhs, out var value))
+            return (false, $"{lhs} was not found");
+
+        var equal = JsonElementEqualsLiteral(value, rhs);
+        if (equal is null)
+            return (false, $"unsupported literal in result expression: {rhs}");
+
+        var result = negated ? !equal.Value : equal.Value;
+        return (result, result ? null : $"{lhs} did not match {rhs}");
+    }
+
+    private static bool TryResolveResultPath(JsonElement root, string path, out JsonElement value)
+    {
+        value = default;
+        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        if (tokens.Length == 0 || tokens[0] != "result")
+            return false;
+
+        value = root;
+        for (var index = 1; index < tokens.Length; index++)
+        {
+            if (!TryReadJsonToken(value, tokens[index], out value))
+                return false;
+        }
+
+        return true;
     }
 
     private async Task<(bool Passed, string? Detail)> EvaluateContentAssetAssertionAsync(

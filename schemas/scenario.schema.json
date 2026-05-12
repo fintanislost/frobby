@@ -30,7 +30,11 @@
             "type": "object",
             "required": ["action"],
             "properties": {
-              "action": { "type": "string", "minLength": 1 },
+              "action": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including fishing.sample_catch for ad hoc fishing probes."
+              },
               "args": { "type": "object" }
             },
             "additionalProperties": false
@@ -52,7 +56,10 @@
         "type": "object",
         "required": ["type"],
         "properties": {
-          "type": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "Assertion kind. Supported RPC-result assertions include state.fishing_context, state.fishing_table, and fishing.sample_catch."
+          },
           "expr": { "type": "string" },
           "asset": { "type": "string", "minLength": 1 },
           "asset_type": {
