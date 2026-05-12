@@ -94,13 +94,12 @@ Status key:
   - Done: `state.fishing_context`, `state.fishing_table`, `fishing.sample_catch`, runner JSON assertions for fishing RPC results, and SVE scenario 16 (`sve_fishing_core`) verified headlessly.
   - Follow-up candidate: add a second SVE proof against an alternate farm or late-game custom fishing area once Slice 15 provides isolated alternate farm pack runs.
 
-- [ ] Active: Slice 12, buffs, swimming, and timed player state.
+- [x] Done: Slice 12, buffs, swimming, and timed player state.
   - Design spec: `docs/superpowers/specs/2026-05-12-sve-slice-12-player-effects-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-12-sve-slice-12-player-effects.md`.
   - SVE pressure: custom hot spring and swimming areas that apply timed buffs based on save/day state.
   - Frobby goal: inspect active player buffs/effects, swimming or bathing state, and wait for timed state changes.
-  - Active: adding player transient-state projection, active buff summaries, `player.set_transient_state`, and an SVE swim-buff proof scenario.
-  - Candidate SVE proof: enter a custom spring/swimming area, advance time/frames, and assert the expected active buff metadata.
+  - Done: `state.player` transient-state fields and active buff summaries, `player.set_transient_state`, effect-aware `wait.player`, and SVE scenario 17 (`sve_player_effects_swim_buff`) verified headlessly.
 
 - [ ] Pending: Slice 13, object, chest, and buried reward interactions.
   - SVE pressure: piggy bank behavior, secret-note buried rewards, relocated festival chests, and patched object interactions.
