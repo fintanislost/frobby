@@ -592,11 +592,11 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
     private readonly Season _season;
     private readonly string _weatherContextId;
     private readonly string _weather;
-    private readonly Random? _random;
+    private readonly FishingRandomOverride _randomOverride;
     private readonly int _currentToolIndex;
     private readonly MemberValueSnapshot? _dailyLuck;
     private readonly MemberValueSnapshot? _fishingLevel;
-    private readonly AttachmentSnapshot? _attachments;
+    private readonly FishingAttachmentSnapshots _attachments;
 
     private SdvFishingSampleState(
         GameLocation? currentLocation,
@@ -604,18 +604,18 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
         Season season,
         string weatherContextId,
         string weather,
-        Random? random,
+        FishingRandomOverride randomOverride,
         int currentToolIndex,
         MemberValueSnapshot? dailyLuck,
         MemberValueSnapshot? fishingLevel,
-        AttachmentSnapshot? attachments)
+        FishingAttachmentSnapshots attachments)
     {
         _currentLocation = currentLocation;
         _timeOfDay = timeOfDay;
         _season = season;
         _weatherContextId = weatherContextId;
         _weather = weather;
-        _random = random;
+        _randomOverride = randomOverride;
         _currentToolIndex = currentToolIndex;
         _dailyLuck = dailyLuck;
         _fishingLevel = fishingLevel;
@@ -625,17 +625,29 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
     public static SdvFishingSampleState CaptureAndApply(FishingSampleCatchRequest request, GameLocation targetLocation)
     {
         var contextId = targetLocation.GetLocationContextId() ?? "Default";
+        var attachments = new FishingAttachmentSnapshots();
+        attachments.CaptureFromTool(Game1.player.CurrentTool);
         var snapshot = new SdvFishingSampleState(
             Game1.currentLocation,
             Game1.timeOfDay,
             Game1.season,
             contextId,
             ReadWeather(contextId),
-            GameRandomField?.GetValue(null) as Random,
+            FishingRandomOverride.CaptureAndApply(
+                request.Seed,
+                request.RestoreState,
+                () => GameRandomField?.GetValue(null) as Random,
+                value =>
+                {
+                    if (GameRandomField is not null)
+                    {
+                        GameRandomField.SetValue(null, value);
+                    }
+                }),
             Game1.player.CurrentToolIndex,
             MemberValueSnapshot.Capture(Game1.player, "DailyLuck", "dailyLuck"),
             MemberValueSnapshot.Capture(Game1.player, "FishingLevel", "fishingLevel"),
-            AttachmentSnapshot.Capture(Game1.player.CurrentTool));
+            attachments);
 
         Game1.currentLocation = targetLocation;
         if (request.TimeOfDay.HasValue)
@@ -653,11 +665,6 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
             ApplyWeather(contextId, request.Weather);
         }
 
-        if (request.Seed.HasValue && GameRandomField is not null)
-        {
-            GameRandomField.SetValue(null, new Random(request.Seed.Value));
-        }
-
         if (request.Luck.HasValue)
         {
             snapshot._dailyLuck?.Set(request.Luck.Value);
@@ -669,6 +676,7 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
         }
 
         ApplyRod(Game1.player, request.RodId);
+        attachments.CaptureFromTool(Game1.player.CurrentTool);
         ApplyAttachments(Game1.player.CurrentTool, request.BaitId, request.TackleId);
 
         return snapshot;
@@ -680,15 +688,12 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
         Game1.timeOfDay = _timeOfDay;
         Game1.season = _season;
         ApplyWeather(_weatherContextId, _weather);
-        if (GameRandomField is not null)
-        {
-            GameRandomField.SetValue(null, _random);
-        }
+        _randomOverride.Restore();
 
         Game1.player.CurrentToolIndex = _currentToolIndex;
         _dailyLuck?.Restore();
         _fishingLevel?.Restore();
-        _attachments?.Restore();
+        _attachments.Restore();
     }
 
     private static void ApplyRod(Farmer player, string? rodId)
@@ -922,31 +927,109 @@ internal sealed class SdvFishingSampleState : IFishingSampleState
         }
     }
 
+}
+
+internal sealed class FishingRandomOverride
+{
+    private readonly Random? _original;
+    private readonly Action<Random?> _set;
+
+    private FishingRandomOverride(Random? original, Action<Random?> set)
+    {
+        _original = original;
+        _set = set;
+    }
+
+    public static FishingRandomOverride CaptureAndApply(
+        int? seed,
+        bool restoreState,
+        Func<Random?> get,
+        Action<Random?> set)
+    {
+        var original = get();
+        if (seed.HasValue)
+        {
+            set(new Random(seed.Value));
+        }
+        else if (restoreState && original is not null)
+        {
+            set(new Random());
+        }
+
+        return new FishingRandomOverride(original, set);
+    }
+
+    public void Restore() => _set(_original);
+}
+
+internal sealed class FishingAttachmentSnapshots
+{
+    private readonly List<AttachmentSnapshot> _snapshots = [];
+
+    public void CaptureFromTool(Tool? tool)
+    {
+        Capture(ReflectionValue.ReadRaw(tool, "attachments"));
+    }
+
+    public void Capture(object? attachments)
+    {
+        if (attachments is null || _snapshots.Any(snapshot => ReferenceEquals(snapshot.Attachments, attachments)))
+        {
+            return;
+        }
+
+        _snapshots.Add(new AttachmentSnapshot(attachments, GetIndexedValue(attachments, 0), GetIndexedValue(attachments, 1)));
+    }
+
+    public void Restore()
+    {
+        foreach (var snapshot in _snapshots)
+        {
+            snapshot.Restore();
+        }
+    }
+
+    private static object? GetIndexedValue(object source, int index)
+    {
+        try
+        {
+            return source.GetType().GetProperty("Item")?.GetValue(source, [index]);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void SetIndexedValue(object source, int index, object? value)
+    {
+        try
+        {
+            source.GetType().GetProperty("Item")?.SetValue(source, value, [index]);
+        }
+        catch
+        {
+        }
+    }
+
     private sealed class AttachmentSnapshot
     {
-        private readonly object _attachments;
         private readonly object? _bait;
         private readonly object? _tackle;
 
-        private AttachmentSnapshot(object attachments, object? bait, object? tackle)
+        public object Attachments { get; }
+
+        public AttachmentSnapshot(object attachments, object? bait, object? tackle)
         {
-            _attachments = attachments;
+            Attachments = attachments;
             _bait = bait;
             _tackle = tackle;
         }
 
-        public static AttachmentSnapshot? Capture(Tool? tool)
-        {
-            var attachments = ReflectionValue.ReadRaw(tool, "attachments");
-            return attachments is null
-                ? null
-                : new AttachmentSnapshot(attachments, GetIndexedValue(attachments, 0), GetIndexedValue(attachments, 1));
-        }
-
         public void Restore()
         {
-            SetIndexedValue(_attachments, 0, _bait);
-            SetIndexedValue(_attachments, 1, _tackle);
+            SetIndexedValue(Attachments, 0, _bait);
+            SetIndexedValue(Attachments, 1, _tackle);
         }
     }
 }
