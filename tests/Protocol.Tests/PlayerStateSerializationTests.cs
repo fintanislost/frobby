@@ -75,6 +75,53 @@ public class PlayerStateSerializationTests
     }
 
     [Fact]
+    public void Serialize_PlayerEffects_UsesSnakeCaseFields()
+    {
+        var p = new PlayerState
+        {
+            Name = "Tester",
+            Location = "Custom_SpriteSpring2",
+            Tile = new TilePoint { X = 12, Y = 18 },
+            Swimming = true,
+            BathingClothes = true,
+            IsBusy = false,
+            CanMove = true,
+            Buffs =
+            {
+                new PlayerBuffSummary
+                {
+                    Id = "1",
+                    DisplayName = "Fishing",
+                    Source = "food",
+                    MillisecondsDuration = 720000,
+                    TotalMillisecondsDuration = 720000,
+                    RuntimeType = "Buff",
+                    Effects = new PlayerBuffEffects
+                    {
+                        FishingLevel = 3,
+                        Attack = 0,
+                    },
+                },
+            },
+        };
+
+        var json = JsonSerializer.Serialize(p, ProtocolJson.Options);
+
+        Assert.Contains("\"swimming\":true", json);
+        Assert.Contains("\"bathing_clothes\":true", json);
+        Assert.Contains("\"is_busy\":false", json);
+        Assert.Contains("\"can_move\":true", json);
+        Assert.Contains("\"buffs\":[", json);
+        Assert.Contains("\"display_name\":\"Fishing\"", json);
+        Assert.Contains("\"milliseconds_duration\":720000", json);
+        Assert.Contains("\"total_milliseconds_duration\":720000", json);
+        Assert.Contains("\"fishing_level\":3", json);
+        Assert.Contains("\"attack\":0", json);
+        Assert.DoesNotContain("BathingClothes", json);
+        Assert.DoesNotContain("MillisecondsDuration", json);
+    }
+
+    [Fact]
     public void Deserialize_RoundTrips()
     {
         var original = new PlayerState
