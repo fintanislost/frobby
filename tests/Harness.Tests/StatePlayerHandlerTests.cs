@@ -19,6 +19,19 @@ public class StatePlayerHandlerTests
         Assert.Equal(30000, state.Money);
         Assert.Equal(new[] { "button_tut_1", "custom_mail_gate" }, state.MailReceived);
         Assert.Equal(new[] { "60367", "5532011" }, state.EventsSeen);
+        Assert.True(state.Swimming);
+        Assert.True(state.BathingClothes);
+        Assert.False(state.IsBusy);
+        Assert.True(state.CanMove);
+        var buff = Assert.Single(state.Buffs);
+        Assert.Equal("1", buff.Id);
+        Assert.Equal("Fishing", buff.DisplayName);
+        Assert.Equal("food", buff.Source);
+        Assert.Equal(720000, buff.MillisecondsDuration);
+        Assert.Equal(720000, buff.TotalMillisecondsDuration);
+        Assert.Equal("Buff", buff.RuntimeType);
+        Assert.Equal(3, buff.Effects.FishingLevel);
+        Assert.Equal(1, buff.Effects.Speed);
         Assert.Collection(state.Items,
             item =>
             {
@@ -51,6 +64,22 @@ public class StatePlayerHandlerTests
         public TilePoint Tile => new() { X = 8, Y = 10 };
         public IReadOnlyList<string> MailReceived { get; } = new[] { "button_tut_1", "custom_mail_gate" };
         public IReadOnlyList<string> EventsSeen { get; } = new[] { "60367", "5532011" };
+        public bool Swimming => true;
+        public bool BathingClothes => true;
+        public bool IsBusy => false;
+        public bool CanMove => true;
+        public IReadOnlyList<IPlayerBuffSummary> Buffs { get; } = new[]
+        {
+            new PlayerBuffProjection(
+                "1",
+                "Fishing",
+                "food",
+                720000,
+                720000,
+                new PlayerBuffEffects { FishingLevel = 3, Speed = 1 },
+                "Buff"),
+        };
+
         public IReadOnlyList<IPlayerInventoryItem> Items { get; } = new[]
         {
             new PlayerInventoryItem(5, "(F)example_terminal", "example_terminal", "(F)example_terminal", "Example Terminal", 1, -9, 0, "Furniture"),
