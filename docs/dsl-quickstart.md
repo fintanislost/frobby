@@ -408,6 +408,40 @@ paths resolve against the bounded `summary` object, so `asset.layers` means
 scalar fields/properties and bounded nested runtime data objects, with property
 names converted to snake_case.
 
+JSON scenarios can inspect fishing tables and sample live catches:
+
+```json
+{
+  "type": "state.fishing_table",
+  "params": {
+    "location": "Beach",
+    "x": 45,
+    "y": 12,
+    "season": "spring",
+    "time_of_day": 900
+  },
+  "expr": "result.candidates contains qualified_id '(O)128'",
+  "message": "Beach fishing table should expose pufferfish as a candidate"
+},
+{
+  "type": "fishing.sample_catch",
+  "params": {
+    "location": "Desert",
+    "x": 28,
+    "y": 6,
+    "attempts": 10,
+    "seed": 1234,
+    "restore_state": true
+  },
+  "expr": "result.results contains display_name 'Pyramid Decal'",
+  "message": "Runtime Desert sampling should exercise patched catch results"
+}
+```
+
+Fishing table assertions are diagnostic and useful for authoring. Use
+`fishing.sample_catch` when a scenario needs to prove the runtime catch path
+under controlled seed/time/weather state.
+
 ## Error handling
 
 RPC errors throw typed exceptions:

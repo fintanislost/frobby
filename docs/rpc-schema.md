@@ -197,6 +197,62 @@ classes. Tests should filter on the fields relevant to the scenario, such as
 **Implemented in:** `src/Harness/Handlers/StateSpecialOrdersHandler.cs`
 **Tested in:** `tests/Protocol.Tests/SpecialOrdersStateSerializationTests.cs` and `tests/Harness.Tests/StateSpecialOrdersHandlerTests.cs`.
 
+## Fishing
+
+### state.fishing_context
+
+Returns fishability and tile context for a location/bobber tile. Useful fields
+include `is_fishable`, `blocked_reason`, `fish_area_id`, `map_fish`,
+`has_no_fishing`, `tile_properties`, and `location_fish_areas`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 13, "method": "state.fishing_context", "params": {
+      "location": "Beach",
+      "x": 45,
+      "y": 12,
+      "season": "spring",
+      "time_of_day": 900,
+      "weather": "sunny"
+   } }
+```
+
+### state.fishing_table
+
+Returns projected candidate catches for the same context. Candidates can come
+from legacy map `Fish` properties, `Data/Fish`, `Data/Locations`, or compact
+runtime sources. The table is diagnostic; `fishing.sample_catch` is the
+authoritative runtime proof.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 14, "method": "state.fishing_table", "params": {
+      "location": "Beach",
+      "x": 45,
+      "y": 12,
+      "season": "spring",
+      "time_of_day": 900
+   } }
+```
+
+### fishing.sample_catch
+
+Runs bounded live Stardew catch sampling without the fishing minigame. The
+sampler returns projected item results and should use `restore_state: true` for
+scenario tests unless the scenario is isolated.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "fishing.sample_catch", "params": {
+      "location": "Desert",
+      "x": 28,
+      "y": 6,
+      "attempts": 10,
+      "seed": 1234,
+      "restore_state": true
+   } }
+```
+
 ### state.time
 
 Returns the current in-game date + clock. Always succeeds (safe at title screen).

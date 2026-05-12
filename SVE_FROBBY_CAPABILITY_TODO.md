@@ -86,9 +86,12 @@ Status key:
 
 ## Next Capability Backlog
 
-- [ ] Pending: Slice 11, fishing tables and deterministic catch sampling.
+- [ ] Active: Slice 11, fishing tables and deterministic catch sampling.
+  - Design spec: `docs/superpowers/specs/2026-05-11-sve-slice-11-fishing-tables-catch-sampling-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-11-sve-slice-11-fishing-tables-catch-sampling.md`.
   - SVE pressure: custom fish, custom fish areas, alternate farm fishing tables, and patched desert fishing rewards.
   - Frobby goal: query effective fish tables for a location/tile/time/weather context and sample deterministic catch outcomes without requiring the full fishing minigame.
+  - Active: adding `state.fishing_context`, `state.fishing_table`, `fishing.sample_catch`, and two SVE proof scenarios.
   - Candidate SVE proof: assert a custom farm or desert fishing area exposes expected modded fish or patched rewards under controlled state.
 
 - [ ] Pending: Slice 12, buffs, swimming, and timed player state.

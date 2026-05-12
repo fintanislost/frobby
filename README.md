@@ -205,6 +205,9 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 - Runtime content-asset inspection for maps, textures, strings, and bounded
   `Data/*` dictionaries, including selected nested data objects, after Content
   Patcher and game conditions apply.
+- Fishing diagnostics for fishable tile context, effective fishing candidates,
+  and bounded runtime catch sampling through `state.fishing_context`,
+  `state.fishing_table`, and `fishing.sample_catch`.
 - Click-first and hover-first menu automation, including text-targeted helpers.
 - Player/world state mutators for money, inventory, mail, time, weather, shops,
   furniture, interactions, and title-screen reload flows.
