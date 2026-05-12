@@ -350,6 +350,28 @@ Player health waits are also runner-side polling over `state.player`:
 }
 ```
 
+Player effect waits can poll for transient state and active buffs:
+
+```json
+{
+  "action": "player.set_transient_state",
+  "args": { "swimming": true }
+},
+{
+  "action": "wait.player",
+  "args": {
+    "swimming": true,
+    "buff_count_gte": 1,
+    "buff_any_effect_gte": {
+      "effects": ["fishing_level", "farming_level", "mining_level", "foraging_level", "attack"],
+      "value": 3
+    },
+    "timeout_ms": 10000,
+    "poll_ms": 100
+  }
+}
+```
+
 The same runner wait can target hostile monsters with exact metadata filters:
 
 ```json

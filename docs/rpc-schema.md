@@ -112,6 +112,21 @@ Returns the local farmer's current state, including a compact inventory snapshot
       "tile": { "x": 64, "y": 15 },
       "mail_received": ["button_tut_1"],
       "events_seen": ["5532011"],
+      "swimming": true,
+      "bathing_clothes": false,
+      "is_busy": false,
+      "can_move": true,
+      "buffs": [
+        {
+          "id": "1",
+          "display_name": "Fishing",
+          "source": "food",
+          "milliseconds_duration": 720000,
+          "total_milliseconds_duration": 720000,
+          "effects": { "fishing_level": 3 },
+          "runtime_type": "Buff"
+        }
+      ],
       "items": [
         {
           "slot": 5,
@@ -134,6 +149,11 @@ scenario intentionally wants the raw unqualified id. Metadata fields are omitted
 when Stardew or a mod does not expose them.
 `mail_received` and `events_seen` expose the local farmer's save-state flags for
 relationship, event, and mail-gated scenario setup/verification.
+`swimming`, `bathing_clothes`, `is_busy`, and `can_move` expose transient local
+farmer state for mod behavior that keys off the player's current mode. `buffs`
+contains active buff summaries projected from the live Stardew buff manager. Buff
+effect fields use snake-case names such as `fishing_level`, `farming_level`,
+`attack`, `defense`, and `speed`.
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`). No request-time check yet; result fields will reflect title/loading-screen defaults if invoked too early.
 **Side effects:** none.
@@ -1034,6 +1054,33 @@ Response (`amount < 0` — InvalidParams):
 **Implemented in:** `src/Harness/Handlers/PlayerSetMoneyHandler.cs`
 **Tested in:** `tests/Protocol.Tests/SetMoneyRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerSetMoneyHandlerTests.cs` (error-path unit tests).
 
+### player.set_transient_state
+
+Sets selected local farmer transient-state booleans for tests. At least one of
+`swimming` or `bathing_clothes` is required.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "player.set_transient_state", "params": { "swimming": true } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 10, "result": {
+      "ok": true,
+      "tick": 84200,
+      "previous_swimming": false,
+      "previous_bathing_clothes": false,
+      "swimming": true,
+      "bathing_clothes": false
+   } }
+```
+
+**Preconditions:** world loaded.
+**Side effects:** updates only the supplied local farmer transient-state fields.
+**Implemented in:** `src/Harness/Handlers/PlayerSetTransientStateHandler.cs`.
+**Tested in:** `tests/Harness.Tests/PlayerSetTransientStateHandlerTests.cs`.
+
 ### player.add_mail
 
 Adds a received-mail flag to the master farmer. This is a neutral save-state
@@ -1769,7 +1816,7 @@ Runner scenario convenience:
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, and `health_gte`; timeout details include the last observed health, location, and tile.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, and buff summary.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
@@ -1805,10 +1852,12 @@ Request shape:
 ```
 
 Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
-`health_lte`, `health_gt`, and `health_gte`. Tile filters must be supplied as a
-complete `x`/`y` pair. Timeout diagnostics include the last observed health,
-location, and tile so combat or hazard scenarios can report what state was last
-seen.
+`health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`,
+`buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`,
+and `buff_any_effect_gte`. Tile filters must be supplied as a complete `x`/`y`
+pair. Timeout diagnostics include the last observed health, location, tile,
+transient state, and buff summary so combat, hazard, or buff scenarios can report
+what state was last seen.
 
 ### wait.special_order runner action
 

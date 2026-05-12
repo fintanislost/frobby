@@ -33,7 +33,7 @@
               "action": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including fishing.sample_catch for ad hoc fishing probes."
+                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including player.set_transient_state and fishing.sample_catch for ad hoc probes."
               },
               "args": { "type": "object" }
             },
@@ -76,7 +76,7 @@
           "filter": { "type": "object" },
           "params": {
             "type": "object",
-            "description": "Optional state RPC params for type=state assertions."
+            "description": "Optional params passed to RPC-backed assertion types such as state.fishing_table or state.player."
           },
           "min_count": { "type": "integer", "minimum": 1 },
           "max_count": { "type": "integer", "minimum": 1 },
