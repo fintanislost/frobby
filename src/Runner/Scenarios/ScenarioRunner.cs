@@ -1033,6 +1033,9 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(element, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte)
             && NumberFilterMatches(element, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte)
             && StringFilterMatches(element, "sprite_texture", args.SpriteTexture)
+            && BoolFilterMatches(element, "big_craftable", args.BigCraftable)
+            && StringFilterMatches(element, "held_object_id", args.HeldObjectId)
+            && StringFilterMatches(element, "held_object_qualified_id", args.HeldObjectQualifiedId)
             && TileFilterMatches(element, args.X, args.Y);
     }
 
@@ -1117,6 +1120,9 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte);
         AddNumberFilters(filters, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte);
         if (args.SpriteTexture is not null) filters.Add($"sprite_texture={args.SpriteTexture}");
+        if (args.BigCraftable is not null) filters.Add($"big_craftable={args.BigCraftable}");
+        if (args.HeldObjectId is not null) filters.Add($"held_object_id={args.HeldObjectId}");
+        if (args.HeldObjectQualifiedId is not null) filters.Add($"held_object_qualified_id={args.HeldObjectQualifiedId}");
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
@@ -2536,6 +2542,9 @@ public sealed class ScenarioRunner
         public int? CategoryGt { get; set; }
         public int? CategoryGte { get; set; }
         public string? SpriteTexture { get; set; }
+        public bool? BigCraftable { get; set; }
+        public string? HeldObjectId { get; set; }
+        public string? HeldObjectQualifiedId { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
         public int MinCount { get; set; } = 1;

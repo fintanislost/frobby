@@ -1472,6 +1472,58 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitLocationContent_FiltersObjectsByInteractionMetadata()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"FarmHouse\",\"objects\":[{\"tile\":{\"x\":8,\"y\":9},\"name\":\"Golden Piggy Bank\",\"id\":\"FlashShifter.StardewValleyExpandedCP_Golden_Piggy_Bank\",\"qualified_id\":\"(BC)FlashShifter.StardewValleyExpandedCP_Golden_Piggy_Bank\",\"runtime_type\":\"Object\",\"big_craftable\":false,\"held_object_id\":\"388\",\"held_object_qualified_id\":\"(O)388\"},{\"tile\":{\"x\":8,\"y\":9},\"name\":\"Golden Piggy Bank\",\"id\":\"FlashShifter.StardewValleyExpandedCP_Golden_Piggy_Bank\",\"qualified_id\":\"(BC)FlashShifter.StardewValleyExpandedCP_Golden_Piggy_Bank\",\"runtime_type\":\"Object\",\"big_craftable\":true,\"held_object_id\":\"340\",\"held_object_qualified_id\":\"(O)340\"}],\"resource_clumps\":[],\"monsters\":[],\"debris\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_object_metadata",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"FarmHouse\",\"collection\":\"objects\",\"qualified_id\":\"(BC)FlashShifter.StardewValleyExpandedCP_Golden_Piggy_Bank\",\"runtime_type\":\"Object\",\"big_craftable\":true,\"held_object_id\":\"340\",\"held_object_qualified_id\":\"(O)340\",\"x\":8,\"y\":9,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitLocationContent_MatchesMonsterNumericComparisons()
     {
         var socket = SocketPath();
@@ -1625,6 +1677,61 @@ public class ScenarioRunnerTests
         var failure = Assert.Single(report.Failures);
         Assert.Contains("matching name=Crystal Bat, type=Bat, health=180, health_gt=150, max_health=180, max_health_lte=200, damage=32, damage_lt=40, sprite_texture=ExampleMod/Monsters/CrystalBat", failure);
         Assert.Contains("last observed 0 matched out of 1 monsters", failure);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitLocationContent_TimeoutIncludesObjectMetadataFilters()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"FarmHouse\",\"objects\":[{\"tile\":{\"x\":8,\"y\":9},\"name\":\"Plain Chest\",\"id\":\"130\",\"qualified_id\":\"(BC)130\",\"runtime_type\":\"Chest\",\"big_craftable\":true}],\"resource_clumps\":[],\"monsters\":[],\"debris\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_object_timeout",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"FarmHouse\",\"collection\":\"objects\",\"name\":\"Golden Piggy Bank\",\"runtime_type\":\"Object\",\"big_craftable\":true,\"held_object_id\":\"340\",\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("matching name=Golden Piggy Bank, runtime_type=Object, big_craftable=True, held_object_id=340", failure);
+        Assert.Contains("last observed 0 matched out of 1 objects", failure);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
