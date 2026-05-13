@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
@@ -58,7 +59,7 @@ internal sealed class SdvFestivalStartWorld : IFestivalStartWorld
         if (!StardewValley.Event.tryToLoadFestivalData(
                 festivalId,
                 out _,
-                out _,
+                out var data,
                 out var locationName,
                 out var startTime,
                 out var endTime))
@@ -84,12 +85,16 @@ internal sealed class SdvFestivalStartWorld : IFestivalStartWorld
         var location = Game1.getLocationFromName(locationName)
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid, $"festival.start could not find location {locationName}");
 
-        Game1.whereIsTodaysFest = locationName;
-        if (!StardewValley.Event.tryToLoadFestival(festivalId, out var ev))
-            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid, $"festival.start could not create festival event {festivalId}");
+        var assetName = $"Data/Festivals/{festivalId}";
+        var setupScript = SelectFestivalSetupScript(data, Game1.year);
+        var ev = new StardewValley.Event(setupScript, assetName, festivalId, Game1.player)
+        {
+            isFestival = true,
+        };
 
         // Put the festival on the destination before the warp so Player.Warped observers can
         // inspect e.NewLocation.currentEvent through the same lifecycle a mod sees in-game.
+        Game1.whereIsTodaysFest = locationName;
         location.currentEvent = ev;
         Game1.warpFarmer(locationName, Game1.player.TilePoint.X, Game1.player.TilePoint.Y, false);
         location.startEvent(ev);
@@ -101,5 +106,19 @@ internal sealed class SdvFestivalStartWorld : IFestivalStartWorld
             Location = locationName,
             IsFestival = ev.isFestival,
         };
+    }
+
+    internal static string SelectFestivalSetupScript(IReadOnlyDictionary<string, string> data, int year)
+    {
+        for (var candidate = year; candidate >= 1; candidate--)
+        {
+            if (data.TryGetValue($"set-up_y{candidate}", out var yearly))
+                return yearly;
+        }
+
+        if (data.TryGetValue("set-up", out var setup))
+            return setup;
+
+        throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid, "festival.start could not find set-up script in festival data");
     }
 }

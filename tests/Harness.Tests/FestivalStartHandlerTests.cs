@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Harness.Rpc;
@@ -58,6 +59,21 @@ public sealed class FestivalStartHandlerTests
 
         Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
         Assert.Contains("expected location Town", ex.Message);
+    }
+
+    [Fact]
+    public void SelectFestivalSetupScript_UsesClosestYearVariant()
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["set-up"] = "base",
+            ["set-up_y2"] = "year two",
+            ["set-up_y4"] = "year four",
+        };
+
+        Assert.Equal("base", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 1));
+        Assert.Equal("year two", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 3));
+        Assert.Equal("year four", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 4));
     }
 
     private sealed class FakeFestivalStartWorld : IFestivalStartWorld
