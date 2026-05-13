@@ -1524,6 +1524,61 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitLocationContent_FiltersObjectsByContainedItem()
+    {
+        var socket = SocketPath();
+        var locationPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" when locationPolls++ == 0 => JsonDocument.Parse("{\"name\":\"Town\",\"objects\":[{\"tile\":{\"x\":63,\"y\":16},\"name\":\"Treasure Chest\",\"runtime_type\":\"Chest\",\"is_chest\":true,\"item_count\":1,\"items_truncated\":false,\"items\":[{\"slot\":0,\"id\":\"74\",\"item_id\":\"74\",\"qualified_id\":\"(O)74\",\"name\":\"Prismatic Shard\",\"stack\":1,\"quality\":0,\"category\":-12,\"runtime_type\":\"Object\"}]}],\"resource_clumps\":[],\"monsters\":[],\"debris\":[]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"Town\",\"objects\":[{\"tile\":{\"x\":63,\"y\":16},\"name\":\"Treasure Chest\",\"runtime_type\":\"Chest\",\"is_chest\":true,\"item_count\":1,\"items_truncated\":false,\"items\":[{\"slot\":0,\"id\":\"373\",\"item_id\":\"373\",\"qualified_id\":\"(O)373\",\"name\":\"Golden Pumpkin\",\"stack\":1,\"quality\":0,\"category\":-79,\"runtime_type\":\"Object\"}]}],\"resource_clumps\":[],\"monsters\":[],\"debris\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_chest_item",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"Town\",\"collection\":\"objects\",\"runtime_type\":\"Chest\",\"x\":63,\"y\":16,\"contains_item_qualified_id\":\"(O)373\",\"contains_item_stack\":1,\"contains_item_quality\":0,\"contains_item_category\":-79,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+        Assert.True(locationPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitLocationContent_MatchesMonsterNumericComparisons()
     {
         var socket = SocketPath();

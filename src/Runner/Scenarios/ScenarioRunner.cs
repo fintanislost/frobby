@@ -1036,7 +1036,43 @@ public sealed class ScenarioRunner
             && BoolFilterMatches(element, "big_craftable", args.BigCraftable)
             && StringFilterMatches(element, "held_object_id", args.HeldObjectId)
             && StringFilterMatches(element, "held_object_qualified_id", args.HeldObjectQualifiedId)
-            && TileFilterMatches(element, args.X, args.Y);
+            && TileFilterMatches(element, args.X, args.Y)
+            && ContainedItemFilterMatches(element, args);
+    }
+
+    private static bool ContainedItemFilterMatches(JsonElement element, WaitLocationContentStepArgs args)
+    {
+        var hasContainedFilter = args.ContainsItemId is not null
+            || args.ContainsItemQualifiedId is not null
+            || args.ContainsItemName is not null
+            || args.ContainsItemStack is not null
+            || args.ContainsItemStackGte is not null
+            || args.ContainsItemQuality is not null
+            || args.ContainsItemCategory is not null;
+        if (!hasContainedFilter)
+            return true;
+
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty("items", out var items)
+            || items.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        foreach (var item in items.EnumerateArray())
+        {
+            if (StringFilterMatches(item, "id", args.ContainsItemId)
+                && StringFilterMatches(item, "qualified_id", args.ContainsItemQualifiedId)
+                && StringFilterMatches(item, "name", args.ContainsItemName)
+                && NumberFilterMatches(item, "stack", args.ContainsItemStack, null, null, null, args.ContainsItemStackGte)
+                && NumberFilterMatches(item, "quality", args.ContainsItemQuality, null, null, null, null)
+                && NumberFilterMatches(item, "category", args.ContainsItemCategory, null, null, null, null))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool StringFilterMatches(JsonElement element, string property, string? expected)
@@ -1124,6 +1160,13 @@ public sealed class ScenarioRunner
         if (args.HeldObjectId is not null) filters.Add($"held_object_id={args.HeldObjectId}");
         if (args.HeldObjectQualifiedId is not null) filters.Add($"held_object_qualified_id={args.HeldObjectQualifiedId}");
         if (args.X is not null && args.Y is not null) filters.Add($"tile={args.X},{args.Y}");
+        if (args.ContainsItemId is not null) filters.Add($"contains_item_id={args.ContainsItemId}");
+        if (args.ContainsItemQualifiedId is not null) filters.Add($"contains_item_qualified_id={args.ContainsItemQualifiedId}");
+        if (args.ContainsItemName is not null) filters.Add($"contains_item_name={args.ContainsItemName}");
+        if (args.ContainsItemStack is not null) filters.Add($"contains_item_stack={args.ContainsItemStack}");
+        if (args.ContainsItemStackGte is not null) filters.Add($"contains_item_stack_gte={args.ContainsItemStackGte}");
+        if (args.ContainsItemQuality is not null) filters.Add($"contains_item_quality={args.ContainsItemQuality}");
+        if (args.ContainsItemCategory is not null) filters.Add($"contains_item_category={args.ContainsItemCategory}");
         return filters.Count == 0 ? string.Empty : $" matching {string.Join(", ", filters)}";
     }
 
@@ -2545,6 +2588,13 @@ public sealed class ScenarioRunner
         public bool? BigCraftable { get; set; }
         public string? HeldObjectId { get; set; }
         public string? HeldObjectQualifiedId { get; set; }
+        public string? ContainsItemId { get; set; }
+        public string? ContainsItemQualifiedId { get; set; }
+        public string? ContainsItemName { get; set; }
+        public int? ContainsItemStack { get; set; }
+        public int? ContainsItemStackGte { get; set; }
+        public int? ContainsItemQuality { get; set; }
+        public int? ContainsItemCategory { get; set; }
         public int? X { get; set; }
         public int? Y { get; set; }
         public int MinCount { get; set; } = 1;
