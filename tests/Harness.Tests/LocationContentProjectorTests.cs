@@ -157,6 +157,63 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectObject_ReadsObjectMetadata()
+    {
+        var obj = new FakeLocationObject
+        {
+            Name = "Golden Piggy Bank",
+            ItemId = "Example_Golden_Piggy_Bank",
+            QualifiedItemId = "(BC)Example_Golden_Piggy_Bank",
+            Category = -9,
+            Stack = 1,
+            Quality = 0,
+            bigCraftable = new FakeValueWrapper<bool> { Value = true },
+            readyForHarvest = new FakeValueWrapper<bool> { Value = false },
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(8, 9), obj);
+
+        Assert.Equal(8, summary.Tile.X);
+        Assert.Equal(9, summary.Tile.Y);
+        Assert.Equal("Golden Piggy Bank", summary.Name);
+        Assert.Equal("Example_Golden_Piggy_Bank", summary.Id);
+        Assert.Equal("(BC)Example_Golden_Piggy_Bank", summary.QualifiedId);
+        Assert.Equal(-9, summary.Category);
+        Assert.Equal(1, summary.Stack);
+        Assert.Equal(0, summary.Quality);
+        Assert.Equal("FakeLocationObject", summary.RuntimeType);
+        Assert.True(summary.BigCraftable);
+        Assert.False(summary.ReadyForHarvest);
+    }
+
+    [Fact]
+    public void ProjectObject_ReadsHeldObjectMetadata()
+    {
+        var obj = new FakeLocationObject
+        {
+            Name = "Example Machine",
+            ItemId = "Example_Machine",
+            QualifiedItemId = "(BC)Example_Machine",
+            bigCraftable = new FakeValueWrapper<bool> { Value = true },
+            heldObject = new FakeValueWrapper<FakeHeldObject>
+            {
+                Value = new FakeHeldObject
+                {
+                    Name = "Honey",
+                    ItemId = "340",
+                    QualifiedItemId = "(O)340",
+                },
+            },
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(4, 5), obj);
+
+        Assert.Equal("340", summary.HeldObjectId);
+        Assert.Equal("(O)340", summary.HeldObjectQualifiedId);
+        Assert.Equal("Honey", summary.HeldObjectName);
+    }
+
+    [Fact]
     public void IsMonster_ReturnsFalseForSocialNpc()
     {
         var npc = (NPC)FormatterServices.GetUninitializedObject(typeof(NPC));
@@ -222,6 +279,26 @@ public class LocationContentProjectorTests
         public int Stack;
         public int Quality;
         public int Category;
+    }
+
+    private sealed class FakeLocationObject
+    {
+        public string Name = string.Empty;
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
+        public int Category;
+        public int Stack;
+        public int Quality;
+        public FakeValueWrapper<bool>? bigCraftable;
+        public FakeValueWrapper<bool>? readyForHarvest;
+        public FakeValueWrapper<FakeHeldObject>? heldObject;
+    }
+
+    private sealed class FakeHeldObject
+    {
+        public string Name = string.Empty;
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
     }
 
     private sealed class FakeValueWrapper<T>

@@ -49,6 +49,9 @@ internal static class LocationContentProjector
         }
     }
 
+    public static ObjectSummary ProjectObject(Vector2 tile, object obj)
+        => ProjectLocationObject(tile, obj);
+
     public static bool IsMonster(NPC npc) => npc is Monster;
 
     internal static ResourceClumpSummary ProjectResourceClumpForTests(object clump)
@@ -59,6 +62,9 @@ internal static class LocationContentProjector
 
     internal static DebrisSummary ProjectDebrisForTests(object debris)
         => ProjectDebris(debris);
+
+    internal static ObjectSummary ProjectObjectForTests(Vector2 tile, object obj)
+        => ProjectLocationObject(tile, obj);
 
     internal static string ResourceClumpNameForTests(string id)
         => ResourceClumpName(id);
@@ -126,6 +132,30 @@ internal static class LocationContentProjector
             Quality = ReadInt(item, "Quality", "quality") ?? ReadInt(debris, "quality", "Quality", "itemQuality", "ItemQuality"),
             Category = ReadInt(item, "Category", "category") ?? ReadInt(debris, "category", "Category"),
             RuntimeType = debris.GetType().Name,
+        };
+    }
+
+    private static ObjectSummary ProjectLocationObject(Vector2 tile, object obj)
+    {
+        var qualifiedId = ReadString(obj, "QualifiedItemId", "qualifiedItemId") ?? string.Empty;
+        var heldObject = ReadValueProperty(ReadMemberRaw(obj, "heldObject", "HeldObject"))
+            ?? ReadMemberRaw(obj, "heldObject", "HeldObject");
+
+        return new ObjectSummary
+        {
+            Tile = new TilePoint { X = (int)tile.X, Y = (int)tile.Y },
+            Name = ReadString(obj, "Name", "name", "DisplayName", "displayName") ?? obj.GetType().Name,
+            Id = ReadString(obj, "ItemId", "itemId") ?? StripQualifiedPrefix(qualifiedId),
+            QualifiedId = qualifiedId,
+            Category = ReadInt(obj, "Category", "category"),
+            Stack = ReadInt(obj, "Stack", "stack"),
+            Quality = ReadInt(obj, "Quality", "quality"),
+            RuntimeType = obj.GetType().Name,
+            BigCraftable = ReadBool(obj, "bigCraftable", "BigCraftable") ?? false,
+            ReadyForHarvest = ReadBool(obj, "readyForHarvest", "ReadyForHarvest"),
+            HeldObjectId = ReadString(heldObject, "ItemId", "itemId"),
+            HeldObjectQualifiedId = ReadString(heldObject, "QualifiedItemId", "qualifiedItemId"),
+            HeldObjectName = ReadString(heldObject, "Name", "name", "DisplayName", "displayName"),
         };
     }
 
@@ -217,6 +247,21 @@ internal static class LocationContentProjector
         return position is null
             ? new TilePoint()
             : new TilePoint { X = (int)(position.Value.X / 64), Y = (int)(position.Value.Y / 64) };
+    }
+
+    private static bool? ReadBool(object? instance, params string[] names)
+    {
+        if (instance is null)
+            return null;
+
+        var value = ReadMemberRaw(instance, names);
+        value = ReadValueProperty(value) ?? value;
+
+        return value switch
+        {
+            bool b => b,
+            _ => null,
+        };
     }
 
     private static int? ReadInt(object? instance, params string[] names)

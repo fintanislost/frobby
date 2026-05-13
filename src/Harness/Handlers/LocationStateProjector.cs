@@ -50,16 +50,7 @@ internal static class LocationStateProjector
 
         foreach (var kv in loc.Objects.Pairs)
         {
-            state.Objects.Add(new ObjectSummary
-            {
-                Tile = new TilePoint { X = (int)kv.Key.X, Y = (int)kv.Key.Y },
-                Name = kv.Value.Name ?? kv.Value.GetType().Name,
-                Id = kv.Value.ItemId ?? string.Empty,
-                QualifiedId = kv.Value.QualifiedItemId ?? string.Empty,
-                Category = kv.Value.Category,
-                Stack = kv.Value.Stack,
-                Quality = kv.Value.Quality,
-            });
+            state.Objects.Add(LocationContentProjector.ProjectObject(kv.Key, kv.Value));
         }
 
         state.Debris.AddRange(LocationContentProjector.ProjectDebris(loc));
