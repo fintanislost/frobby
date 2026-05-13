@@ -149,6 +149,27 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 Use `screenshot.capture_next_frame` for active events because `freeze.begin`
 intentionally rejects cutscenes while `Game1.eventUp` is true.
 
+Active festival scenarios can enter the current date's festival and assert
+container contents without coordinate clicking through the map entrance:
+
+```json
+{ "action": "time.set", "args": { "time": 2200, "day": 27, "season": "fall", "year": 1 } },
+{ "action": "festival.start", "args": { "location": "Town" } },
+{ "action": "wait.event_active", "args": { "location": "Town", "is_festival": true } },
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "Town",
+    "collection": "objects",
+    "runtime_type": "Chest",
+    "x": 63,
+    "y": 16,
+    "contains_item_qualified_id": "(O)373",
+    "contains_item_stack": 1
+  }
+}
+```
+
 For Stardew-native dialogue choices, use `wait.menu` and choice-targeted
 `event.advance` instead of coordinates:
 
@@ -259,6 +280,10 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 
 This is mod-neutral: Frobby observes the runtime location state and does not call
 Farm Type Manager or parse its content packs.
+
+For chests and chest-like objects, the same wait can require an item inside the
+container with `contains_item_*` filters. The object itself still needs to match
+the normal object filters, such as tile or runtime type.
 
 Placed object interactions can be staged without touching the player's inventory:
 

@@ -321,7 +321,7 @@ Response (success):
         { "source": { "x": 64, "y": 15 }, "target_location": "ExampleTown", "target": { "x": 8, "y": 10 } }
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
-      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null }],
+      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
       "monsters": [{ "tile": { "x": 44, "y": 31 }, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
@@ -344,6 +344,11 @@ runtime details such as `runtime_type`, `big_craftable`, `ready_for_harvest`,
 and held-object fields when Stardew exposes them. Tests should filter only on
 fields relevant to the scenario. Optional object, monster, and debris metadata
 fields may be empty or null when the runtime type does not expose them.
+Container objects include `is_chest`, `item_count`, `items_truncated`, and an
+`items` array. Contained item summaries expose `slot`, `id`, `item_id`,
+`qualified_id`, `name`, `stack`, `quality`, `category`, and `runtime_type`.
+Frobby caps very large contained item lists and reports that through
+`items_truncated`.
 
 **Preconditions:** world loaded. Same note as `state.player`.
 **Side effects:** none.
@@ -864,6 +869,39 @@ After `event.start`, use runner-side `wait.event_active` and `wait.event_complet
 **Side effects:** calls `GameLocation.startEvent` for the resolved event.
 **Implemented in:** `src/Harness/Handlers/EventStartHandler.cs`.
 **Tested in:** `tests/Harness.Tests/EventStartHandlerTests.cs`.
+
+### festival.start
+
+Starts the active festival for the current in-game date and time through
+Stardew festival APIs. This is for active festivals such as Spirit's Eve; passive
+festival map replacements remain ordinary location/content tests.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 11, "method": "festival.start", "params": { "location": "Town" } }
+```
+
+`params.location` is optional. When supplied, Frobby validates that the active
+festival is in that location.
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 11, "result": { "tick": 8421, "id": "fall27", "location": "Town", "is_festival": true } }
+```
+
+Response (no active festival — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 11, "error": { "code": -32003, "message": "festival.start found no active festival for fall26" } }
+```
+
+After `festival.start`, use runner-side `wait.event_active` with
+`is_festival: true`. Active-festival screenshots should use
+`screenshot.capture_next_frame`; `freeze.begin` rejects active events.
+
+**Preconditions:** world loaded; current date must have an active festival; current time must be within the festival's open window.
+**Side effects:** starts the current date's festival and warps the farmer into the festival location.
+**Implemented in:** `src/Harness/Handlers/FestivalStartHandler.cs`.
+**Tested in:** `tests/Harness.Tests/FestivalStartHandlerTests.cs`.
 
 ### event.skip
 
@@ -1870,7 +1908,11 @@ Runner scenario convenience:
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
   `max_health`, `damage`, `runtime_type`, `stack`, `quality`, `category`,
   `sprite_texture`, `big_craftable`, `held_object_id`,
-  `held_object_qualified_id`, and `x`/`y` tile. It accepts
+  `held_object_qualified_id`, and `x`/`y` tile. For `objects`, contained-item
+  filters can require a matching item inside the object: `contains_item_id`,
+  `contains_item_qualified_id`, `contains_item_name`, `contains_item_stack`,
+  `contains_item_stack_gte`, `contains_item_quality`, and
+  `contains_item_category`. It accepts
   `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
   numeric comparisons are supported with `health_lt`, `health_lte`,
   `health_gt`, `health_gte`, matching `max_health_*` filters, and matching
@@ -1879,7 +1921,7 @@ Runner scenario convenience:
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
-- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop" } }` is runner-only. It polls `state.event` until an active event matches the optional `id` and `location` filters.
+- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, and `is_festival` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
 - `{ "action": "event.advance", "args": { "choice_text": "Pet Dusty" } }` waits for the matching menu choice and then calls `input.click_menu_choice`. Without a choice/text target it waits for an active menu and calls `input.click_menu_advance`; `repeat` and `interval_ms` can advance multi-page dialogue. `ui.acknowledge` uses the same menu-advance path.

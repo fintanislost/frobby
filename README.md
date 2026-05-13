@@ -161,6 +161,10 @@ Frobby tests should exercise the UI like a player whenever possible:
   `wait.menu` plus `event.advance` for click-based dialogue acknowledgement and
   question choices inside events. Active-event screenshots should use
   `screenshot.capture_next_frame`; `freeze.begin` still rejects cutscenes.
+- Use `festival.start`, `wait.event_active` with `is_festival`, and
+  `wait.location_content` contained-item filters when testing active festival
+  maps, festival chests, or other runtime containers. Keep festival-specific
+  item ids and tile coordinates in the mod repo scenarios.
 - Use `state.special_orders` and runner-side `wait.special_order` for special
   order registration, event-gated order activation, objective progress, donated
   item state, completion keys, and returned donations. Keep mod-specific order
