@@ -1392,7 +1392,8 @@ public sealed class ScenarioRunner
             lastObserved = await ReadEventStateAsync(step.Action, ct);
             if (lastObserved.Active
                 && (string.IsNullOrWhiteSpace(args.Id) || string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
-                && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal)))
+                && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal))
+                && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value))
             {
                 return;
             }
@@ -1456,7 +1457,7 @@ public sealed class ScenarioRunner
     private static string FormatEventState(EventState? state)
         => state is null
             ? "nothing"
-            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}'";
+            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}";
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
     {
@@ -2650,6 +2651,7 @@ public sealed class ScenarioRunner
     {
         public string? Id { get; set; }
         public string? Location { get; set; }
+        public bool? IsFestival { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
