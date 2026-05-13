@@ -321,7 +321,7 @@ Response (success):
         { "source": { "x": 64, "y": 15 }, "target_location": "ExampleTown", "target": { "x": 8, "y": 10 } }
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
-      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0 }],
+      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
       "monsters": [{ "tile": { "x": 44, "y": 31 }, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
@@ -339,9 +339,11 @@ for social/non-hostile NPCs. Monster summaries include runtime `health`,
 `max_health`, `damage`, and `sprite_texture` when Stardew or the mod exposes
 those values. `debris` contains transient runtime debris such as item drops and
 visual debris. Fields are best-effort because Stardew debris can be item-backed,
-animated, or purely visual. Tests should filter only on fields relevant to the
-scenario. Optional object, monster, and debris metadata fields may be empty or
-null when the runtime type does not expose them.
+animated, or purely visual. Object summaries include stable item metadata plus
+runtime details such as `runtime_type`, `big_craftable`, `ready_for_harvest`,
+and held-object fields when Stardew exposes them. Tests should filter only on
+fields relevant to the scenario. Optional object, monster, and debris metadata
+fields may be empty or null when the runtime type does not expose them.
 
 **Preconditions:** world loaded. Same note as `state.player`.
 **Side effects:** none.
@@ -1330,6 +1332,48 @@ Response (unknown item id, non-furniture item, or unknown location — GameState
 **Implemented in:** `src/Harness/Handlers/WorldPlaceFurnitureHandler.cs`
 **Tested in:** `tests/Protocol.Tests/PlaceFurnitureRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldPlaceFurnitureHandlerTests.cs` (error-path unit tests).
 
+### world.place_object
+
+Creates a Stardew object or big craftable via SDV's `ItemRegistry` and adds it to
+a loaded location's object table. This is a deterministic test setup action; it
+does not simulate player inventory, placement sounds, or collision rules.
+
+`params.id` is required. Qualified ids such as `"(O)388"` and
+`"(BC)Example.Mod_BigCraftable"` are accepted when Stardew accepts them.
+`params.location` is optional and defaults to the current location. `params.x`
+and `params.y` are required nonnegative tile coordinates. `params.stack` and
+`params.quality` are optional overrides. `params.remove_existing` is optional and
+defaults to `false`; pass `true` to replace an object already at the tile.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 12, "method": "world.place_object", "params": { "id": "(BC)Example.Mod_Golden_Piggy_Bank", "location": "FarmHouse", "x": 8, "y": 9, "remove_existing": true } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 12, "result": { "ok": true, "tick": 84200, "id": "Example.Mod_Golden_Piggy_Bank", "qualified_id": "(BC)Example.Mod_Golden_Piggy_Bank", "name": "Golden Piggy Bank", "location": "FarmHouse", "tile": { "x": 8, "y": 9 }, "big_craftable": true, "runtime_type": "Object" } }
+```
+
+Response (missing/empty `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 12, "error": { "code": -32602, "message": "params.id required" } }
+```
+
+Response (unknown item id, non-object item, occupied tile, or unknown location — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 12, "error": { "code": -32003, "message": "unknown item id: (O)missing" } }
+```
+
+`tick` is `Game1.ticks` at the moment the object was added. When
+`remove_existing` is true, an existing object at the same tile is removed before
+the new object is added.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`); `params.id` must resolve through `ItemRegistry.Exists` and create a `StardewValley.Object`; the requested location must exist when provided, otherwise `Game1.currentLocation` must be available.
+**Side effects:** mutates `GameLocation.Objects` by adding a freshly-created object instance and optionally removing an object already at the target tile.
+**Implemented in:** `src/Harness/Handlers/WorldPlaceObjectHandler.cs`
+**Tested in:** `tests/Protocol.Tests/PlaceObjectSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/WorldPlaceObjectHandlerTests.cs` (error-path and placement seam unit tests).
+
 ### world.interact_tile
 
 Invokes the current location's furniture or object interaction at a tile. Furniture whose top-left `TileLocation` exactly matches the tile is tried first; if none matches, the handler checks `GameLocation.Objects` at that tile.
@@ -1825,7 +1869,8 @@ Runner scenario convenience:
   `resource_clumps`, `monsters`, `critters`, and `debris`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
   `max_health`, `damage`, `runtime_type`, `stack`, `quality`, `category`,
-  `sprite_texture`, and `x`/`y` tile. It accepts
+  `sprite_texture`, `big_craftable`, `held_object_id`,
+  `held_object_qualified_id`, and `x`/`y` tile. It accepts
   `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
   numeric comparisons are supported with `health_lt`, `health_lte`,
   `health_gt`, `health_gte`, matching `max_health_*` filters, and matching

@@ -260,6 +260,37 @@ For spawned world content, prefer `wait.location_content` over fixed sleeps:
 This is mod-neutral: Frobby observes the runtime location state and does not call
 Farm Type Manager or parse its content packs.
 
+Placed object interactions can be staged without touching the player's inventory:
+
+```json
+{
+  "action": "world.place_object",
+  "args": {
+    "id": "(BC)Example.Mod_Golden_Piggy_Bank",
+    "location": "FarmHouse",
+    "x": 8,
+    "y": 9,
+    "remove_existing": true
+  }
+},
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "FarmHouse",
+    "collection": "objects",
+    "qualified_id": "(BC)Example.Mod_Golden_Piggy_Bank",
+    "big_craftable": true,
+    "x": 8,
+    "y": 9,
+    "min_count": 1
+  }
+},
+{
+  "action": "world.interact_tile",
+  "args": { "x": 8, "y": 9 }
+}
+```
+
 Transient debris and combat drops are exposed through the same wait:
 
 ```json

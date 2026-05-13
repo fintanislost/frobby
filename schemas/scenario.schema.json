@@ -33,7 +33,7 @@
               "action": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including player.set_transient_state and fishing.sample_catch for ad hoc probes."
+                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including player.set_transient_state, fishing.sample_catch, and world.place_object for ad hoc probes."
               },
               "args": { "type": "object" }
             },
