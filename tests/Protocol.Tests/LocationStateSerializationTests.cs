@@ -100,7 +100,7 @@ public class LocationStateSerializationTests
         Assert.Contains("\"map_height\":80", json);
         Assert.Contains("\"warps\":[{\"source\":{\"x\":64,\"y\":15},\"target_location\":\"FarmHouse\",\"target\":{\"x\":8,\"y\":10}}]", json);
         Assert.Contains("\"npcs\":[{\"name\":\"Pierre\"", json);
-        Assert.Contains("\"objects\":[{\"tile\":{\"x\":10,\"y\":10},\"name\":\"Weeds\",\"id\":\"O771\",\"qualified_id\":\"(O)771\",\"runtime_type\":\"Object\",\"big_craftable\":false,\"ready_for_harvest\":true,\"held_object_id\":\"O340\",\"held_object_qualified_id\":\"(O)340\",\"held_object_name\":\"Honey\",\"category\":-999,\"stack\":1,\"quality\":0}]", json);
+        Assert.Contains("\"objects\":[{\"tile\":{\"x\":10,\"y\":10},\"name\":\"Weeds\",\"id\":\"O771\",\"qualified_id\":\"(O)771\",\"runtime_type\":\"Object\",\"big_craftable\":false,\"ready_for_harvest\":true,\"held_object_id\":\"O340\",\"held_object_qualified_id\":\"(O)340\",\"held_object_name\":\"Honey\",\"category\":-999,\"stack\":1,\"quality\":0,\"is_chest\":false,\"items\":[]}]", json);
         Assert.Contains("\"debris\":[{\"tile\":{\"x\":15,\"y\":16},\"pixel\":{\"x\":960,\"y\":1024},\"kind\":\"ItemDebris\",\"id\":\"769\",\"qualified_id\":\"(O)769\",\"name\":\"Void Essence\",\"stack\":2,\"quality\":0,\"category\":-2,\"runtime_type\":\"Debris\"}]", json);
         Assert.Contains("\"furniture\":[{\"tile\":{\"x\":7,\"y\":8},\"id\":\"(F)1302\",\"name\":\"Oak Chair\"}]", json);
         Assert.Contains("\"terrain\":[{\"tile\":{\"x\":12,\"y\":12},\"kind\":\"HoeDirt\"}]", json);

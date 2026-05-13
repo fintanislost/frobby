@@ -109,10 +109,13 @@ Status key:
   - Done: `world.place_object`, richer `state.location.objects` metadata, object-aware `wait.location_content` filters, and SVE scenario 18 (`sve_object_piggy_bank_interaction`) verified headlessly against SVE's Golden Piggy Bank patched object behavior.
   - Follow-up candidate: chest content summaries for festival/runtime storage and hoe/dig support for Secret Note buried rewards.
 
-- [ ] Pending: Slice 14, festivals, movie theater, and special map variants.
+- [x] Done: Slice 14, festivals, movie theater, and special map variants.
+  - Design spec: `docs/superpowers/specs/2026-05-13-sve-slice-14-spirit-eve-chest-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-13-sve-slice-14-spirit-eve-chest.md`.
   - SVE pressure: custom festival maps, grange judging patches, Spirit's Eve chest edits, and movie theater NPC behavior.
   - Frobby goal: set up festival/theater contexts, inspect event or festival state, interact with festival shops/chests/NPCs, and assert variant-specific content.
-  - Candidate SVE proof: start a festival or theater context and validate one SVE runtime variant using state assertions plus screenshots.
+  - Done: neutral container item projection, contained-item waits, `festival.start`, `wait.event_active.is_festival`, and SVE scenario 19 (`sve_spirit_eve_chest`) verified headlessly against SVE's Spirit's Eve Golden Pumpkin chest behavior.
+  - Follow-up candidates: movie theater NPC interaction coverage, grange judging assertions, festival shops, and passive festival map variants.
 
 - [ ] Pending: Slice 15, config packs and alternate farm variants.
   - SVE pressure: Grandpa's Farm, Immersive Farm 2 Remastered, Frontier Farm, low-memory options, and config-gated map/content changes.
