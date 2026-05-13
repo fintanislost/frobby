@@ -101,12 +101,13 @@ Status key:
   - Frobby goal: inspect active player buffs/effects, swimming or bathing state, and wait for timed state changes.
   - Done: `state.player` transient-state fields and active buff summaries, `player.set_transient_state`, effect-aware `wait.player`, and SVE scenario 17 (`sve_player_effects_swim_buff`) verified headlessly.
 
-- [ ] Active: Slice 13, object, chest, and buried reward interactions.
+- [x] Done: Slice 13, object, chest, and buried reward interactions.
   - Design spec: `docs/superpowers/specs/2026-05-12-sve-slice-13-object-interactions-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-12-sve-slice-13-object-interactions.md`.
   - SVE pressure: piggy bank behavior, secret-note buried rewards, relocated festival chests, and patched object interactions.
   - Frobby goal: place or inspect objects, big craftables, chests, item debris, mail flags, and interaction side effects.
-  - Candidate SVE proof: validate a patched object interaction changes money/mail/debris state, or assert a festival chest's runtime contents.
+  - Done: `world.place_object`, richer `state.location.objects` metadata, object-aware `wait.location_content` filters, and SVE scenario 18 (`sve_object_piggy_bank_interaction`) verified headlessly against SVE's Golden Piggy Bank patched object behavior.
+  - Follow-up candidate: chest content summaries for festival/runtime storage and hoe/dig support for Secret Note buried rewards.
 
 - [ ] Pending: Slice 14, festivals, movie theater, and special map variants.
   - SVE pressure: custom festival maps, grange judging patches, Spirit's Eve chest edits, and movie theater NPC behavior.
