@@ -23,14 +23,14 @@ public class PlaceObjectSerializationTests
     }
 
     [Fact]
-    public void Request_OptionalFieldsDefaultToCurrentLocationSingleStackNormalQualityAndNoRemoval()
+    public void Request_OptionalFieldsRemainNullWhenOmitted()
     {
         var json = "{\"id\":\"(O)771\",\"x\":1,\"y\":2}";
         var req = JsonSerializer.Deserialize<PlaceObjectRequest>(json, ProtocolJson.Options)!;
 
         Assert.Null(req.Location);
-        Assert.Equal(1, req.Stack);
-        Assert.Equal(0, req.Quality);
+        Assert.Null(req.Stack);
+        Assert.Null(req.Quality);
         Assert.False(req.RemoveExisting);
     }
 

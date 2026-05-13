@@ -15,11 +15,11 @@ public sealed class PlaceObjectRequest
     /// <summary>Tile Y coordinate.</summary>
     public int? Y { get; set; }
 
-    /// <summary>Item stack size to place.</summary>
-    public int Stack { get; set; } = 1;
+    /// <summary>Optional stack override. Null keeps the created object's stack.</summary>
+    public int? Stack { get; set; }
 
-    /// <summary>Item quality value to place.</summary>
-    public int Quality { get; set; }
+    /// <summary>Optional quality override. Null keeps the created object's quality.</summary>
+    public int? Quality { get; set; }
 
     /// <summary>When true, remove an existing object at the same tile before adding.</summary>
     public bool RemoveExisting { get; set; }
