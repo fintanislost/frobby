@@ -12,6 +12,8 @@ namespace SdvTestFramework.Harness.Handlers;
 
 internal static class LocationContentProjector
 {
+    private const int MaxContainedItems = 72;
+
     public static IEnumerable<ResourceClumpSummary> ProjectResourceClumps(GameLocation loc)
     {
         if (ReadMemberRaw(loc, "resourceClumps", "ResourceClumps") is not IEnumerable clumps)
@@ -141,7 +143,7 @@ internal static class LocationContentProjector
         var heldObject = ReadValueProperty(ReadMemberRaw(obj, "heldObject", "HeldObject"))
             ?? ReadMemberRaw(obj, "heldObject", "HeldObject");
 
-        return new ObjectSummary
+        var summary = new ObjectSummary
         {
             Tile = new TilePoint { X = (int)tile.X, Y = (int)tile.Y },
             Name = ReadString(obj, "Name", "name", "DisplayName", "displayName") ?? obj.GetType().Name,
@@ -156,6 +158,68 @@ internal static class LocationContentProjector
             HeldObjectId = ReadString(heldObject, "ItemId", "itemId"),
             HeldObjectQualifiedId = ReadString(heldObject, "QualifiedItemId", "qualifiedItemId"),
             HeldObjectName = ReadString(heldObject, "Name", "name", "DisplayName", "displayName"),
+        };
+
+        ProjectContainedItems(obj, summary);
+        return summary;
+    }
+
+    private static void ProjectContainedItems(object obj, ObjectSummary summary)
+    {
+        var items = ReadContainedItems(obj);
+        if (items is null)
+            return;
+
+        summary.IsChest = true;
+
+        var slot = 0;
+        foreach (var entry in items)
+        {
+            if (slot >= MaxContainedItems)
+            {
+                summary.ItemsTruncated = true;
+                break;
+            }
+
+            var item = ReadValueProperty(entry) ?? entry;
+            if (item is not null)
+                summary.Items.Add(ProjectContainedItem(slot, item));
+            slot++;
+        }
+
+        summary.ItemCount = summary.Items.Count;
+        summary.ItemsTruncated ??= false;
+    }
+
+    private static IEnumerable? ReadContainedItems(object obj)
+    {
+        var raw = ReadMemberRaw(obj, "Items", "items", "NetItems", "netItems");
+        if (raw is null
+            && !string.Equals(obj.GetType().Name, "Chest", StringComparison.Ordinal)
+            && !obj.GetType().Name.EndsWith("Chest", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        raw = ReadValueProperty(raw) ?? raw;
+        return raw as IEnumerable;
+    }
+
+    private static ContainedItemSummary ProjectContainedItem(int slot, object item)
+    {
+        var qualifiedId = ReadString(item, "QualifiedItemId", "qualifiedItemId") ?? string.Empty;
+        var itemId = ReadString(item, "ItemId", "itemId") ?? StripQualifiedPrefix(qualifiedId);
+        return new ContainedItemSummary
+        {
+            Slot = slot,
+            Id = itemId,
+            ItemId = itemId,
+            QualifiedId = qualifiedId,
+            Name = ReadString(item, "Name", "name", "DisplayName", "displayName") ?? item.GetType().Name,
+            Stack = ReadInt(item, "Stack", "stack"),
+            Quality = ReadInt(item, "Quality", "quality"),
+            Category = ReadInt(item, "Category", "category"),
+            RuntimeType = item.GetType().Name,
         };
     }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 using Microsoft.Xna.Framework;
 using SdvTestFramework.Harness.Handlers;
@@ -214,6 +215,63 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectObject_ReadsChestContainedItems()
+    {
+        var chest = new FakeChest
+        {
+            Name = "Treasure Chest",
+            ItemId = "130",
+            QualifiedItemId = "(BC)130",
+            Items =
+            {
+                new FakeHeldObject
+                {
+                    Name = "Golden Pumpkin",
+                    ItemId = "373",
+                    QualifiedItemId = "(O)373",
+                    Stack = 1,
+                    Quality = 0,
+                    Category = -79,
+                },
+            },
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(63, 16), chest);
+
+        Assert.True(summary.IsChest);
+        Assert.Equal(1, summary.ItemCount);
+        Assert.False(summary.ItemsTruncated);
+        var item = Assert.Single(summary.Items);
+        Assert.Equal(0, item.Slot);
+        Assert.Equal("373", item.Id);
+        Assert.Equal("373", item.ItemId);
+        Assert.Equal("(O)373", item.QualifiedId);
+        Assert.Equal("Golden Pumpkin", item.Name);
+        Assert.Equal(1, item.Stack);
+        Assert.Equal(0, item.Quality);
+        Assert.Equal(-79, item.Category);
+        Assert.Equal("FakeHeldObject", item.RuntimeType);
+    }
+
+    [Fact]
+    public void ProjectObject_LeavesNonChestItemListEmpty()
+    {
+        var obj = new FakeLocationObject
+        {
+            Name = "Golden Piggy Bank",
+            ItemId = "Example_Golden_Piggy_Bank",
+            QualifiedItemId = "(BC)Example_Golden_Piggy_Bank",
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(8, 9), obj);
+
+        Assert.False(summary.IsChest);
+        Assert.Null(summary.ItemCount);
+        Assert.Null(summary.ItemsTruncated);
+        Assert.Empty(summary.Items);
+    }
+
+    [Fact]
     public void IsMonster_ReturnsFalseForSocialNpc()
     {
         var npc = (NPC)FormatterServices.GetUninitializedObject(typeof(NPC));
@@ -299,6 +357,17 @@ public class LocationContentProjectorTests
         public string Name = string.Empty;
         public string ItemId = string.Empty;
         public string QualifiedItemId = string.Empty;
+        public int Stack;
+        public int Quality;
+        public int Category;
+    }
+
+    private sealed class FakeChest
+    {
+        public string Name = string.Empty;
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
+        public List<FakeHeldObject> Items { get; } = new();
     }
 
     private sealed class FakeValueWrapper<T>

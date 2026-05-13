@@ -68,6 +68,24 @@ public sealed class ObjectSummary
     public int? Category { get; set; }
     public int? Stack { get; set; }
     public int? Quality { get; set; }
+    public bool IsChest { get; set; }
+    public int? ItemCount { get; set; }
+    public bool? ItemsTruncated { get; set; }
+    public List<ContainedItemSummary> Items { get; set; } = new();
+}
+
+/// <summary>Item descriptor for an object-owned container such as a chest.</summary>
+public sealed class ContainedItemSummary
+{
+    public int Slot { get; set; }
+    public string Id { get; set; } = string.Empty;
+    public string ItemId { get; set; } = string.Empty;
+    public string QualifiedId { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int? Stack { get; set; }
+    public int? Category { get; set; }
+    public int? Quality { get; set; }
+    public string RuntimeType { get; set; } = string.Empty;
 }
 
 /// <summary>Transient debris descriptor. Some fields are best-effort because Stardew debris can be non-item visual debris.</summary>
