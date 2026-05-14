@@ -71,6 +71,7 @@ public sealed class RepoTestConfig
 
             RequireText(modSet.Name, path, $"modSets[{i}].name");
             Require(modSet.ExtraMods is { Count: > 0 }, path, $"modSets[{i}].extraMods");
+            Require(modSet.Deps is not null, path, $"modSets[{i}].deps");
             ValidateDependencies(modSet.Deps, path, $"modSets[{i}].deps");
             ValidateEntries(modSet.ExtraMods, path, $"modSets[{i}].extraMods");
         }
@@ -134,7 +135,21 @@ public sealed class RepoTestConfig
             RequireText(overlay.Source, path, $"{field}[{i}].source");
             RequireText(overlay.TargetMod, path, $"{field}[{i}].targetMod");
             RequireText(overlay.TargetPath, path, $"{field}[{i}].targetPath");
+            Require(IsSafeOverlayTargetPath(overlay.TargetPath!), path, $"{field}[{i}].targetPath");
         }
+    }
+
+    private static bool IsSafeOverlayTargetPath(string targetPath)
+    {
+        if (Path.IsPathRooted(targetPath))
+        {
+            return false;
+        }
+
+        var parts = targetPath.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+        return Array.TrueForAll(parts, part => part is not "." and not "..");
     }
 
     private static void ValidateDependencies(

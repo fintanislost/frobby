@@ -149,6 +149,7 @@ public sealed class RepoTestConfigTests : IDisposable
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":[]}]}""", "modSets[0].extraMods")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{"id":" "}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":null,"extraMods":["mods/a"]}]}""", "modSets[0].deps")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"extraMods":[" "]}}}""", "profiles.bad.extraMods[0]")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":" ","targetMod":"Mod","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].source")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":"a.json","targetMod":" ","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].targetMod")]
@@ -165,6 +166,36 @@ public sealed class RepoTestConfigTests : IDisposable
 
         Assert.Contains(field, ex.Message);
         Assert.Contains("sdv-test.config.json", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("/tmp/config.json")]
+    [InlineData("../config.json")]
+    [InlineData("config/../../outside.json")]
+    public void Load_validates_overlay_target_path_stays_relative_to_mod(string targetPath)
+    {
+        WriteConfig(
+            $$"""
+            {
+              "project": { "name": "Frobby", "slug": "frobby", "version": "1.0.0" },
+              "build": { "command": "dotnet" },
+              "defaultTarget": "smoke",
+              "modSets": [
+                { "name": "smoke", "extraMods": ["mods/a"] }
+              ],
+              "profiles": {
+                "bad": {
+                  "configOverlays": [
+                    { "source": "a.json", "targetMod": "Mod", "targetPath": "{{targetPath}}" }
+                  ]
+                }
+              }
+            }
+            """);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => RepoTestConfig.Load(_repoRoot));
+
+        Assert.Contains("profiles.bad.configOverlays[0].targetPath", ex.Message);
     }
 
     [Fact]
