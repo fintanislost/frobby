@@ -26,9 +26,23 @@ public static class RepoProfileResolver
             throw new InvalidOperationException("repo root is required.");
         }
 
-        var name = string.IsNullOrWhiteSpace(requestedName)
-            ? SelectDefaultName(config)
-            : requestedName!;
+        if (string.IsNullOrWhiteSpace(requestedName))
+        {
+            if (config.ModSets.Count > 0)
+            {
+                return ResolveModSet(repoRoot, config.ModSets[0], environment, requireRepoExtraMods);
+            }
+
+            if (config.Profiles.Count == 0)
+            {
+                throw new InvalidOperationException("sdv-test config must define at least one mod set or profile.");
+            }
+
+            var defaultProfileName = config.Profiles.Keys.OrderBy(value => value, StringComparer.Ordinal).First();
+            return ResolveProfile(repoRoot, config, defaultProfileName, environment, requireRepoExtraMods, new Stack<string>());
+        }
+
+        var name = requestedName!;
 
         if (config.Profiles.ContainsKey(name))
         {
@@ -38,21 +52,6 @@ public static class RepoProfileResolver
         var modSet = config.ModSets.FirstOrDefault(candidate => candidate.Name == name)
             ?? throw new InvalidOperationException($"Unknown profile '{name}'.");
         return ResolveModSet(repoRoot, modSet, environment, requireRepoExtraMods);
-    }
-
-    private static string SelectDefaultName(RepoTestConfig config)
-    {
-        if (config.ModSets.Count > 0 && !string.IsNullOrWhiteSpace(config.ModSets[0].Name))
-        {
-            return config.ModSets[0].Name!;
-        }
-
-        if (config.Profiles.Count > 0)
-        {
-            return config.Profiles.Keys.OrderBy(value => value, StringComparer.Ordinal).First();
-        }
-
-        throw new InvalidOperationException("sdv-test config must define at least one mod set or profile.");
     }
 
     private static ResolvedRepoProfile ResolveModSet(

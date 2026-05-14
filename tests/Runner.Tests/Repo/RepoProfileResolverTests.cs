@@ -30,6 +30,30 @@ public sealed class RepoProfileResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_blank_request_uses_first_legacy_mod_set_even_when_profile_name_matches()
+    {
+        var coreMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core")).FullName;
+        var profileMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "ProfileCore")).FullName;
+        var config = Config(
+            modSets: [ModSet("core", "mods/Core")],
+            profiles: new Dictionary<string, RepoProfileConfig>
+            {
+                ["core"] = new() { ExtraMods = ["mods/ProfileCore"] },
+            });
+
+        var profile = RepoProfileResolver.Resolve(
+            _repoRoot,
+            config,
+            requestedName: null,
+            environment: new Dictionary<string, string?>(),
+            requireRepoExtraMods: true);
+
+        Assert.Equal("core", profile.Id);
+        Assert.Equal([coreMod], profile.ExtraMods);
+        Assert.DoesNotContain(profileMod, profile.ExtraMods);
+    }
+
+    [Fact]
     public void Resolve_profile_inherits_parent_deps_extra_mods_and_overlays_in_order()
     {
         var cacheRoot = Path.Combine(_repoRoot, "dep-cache");
