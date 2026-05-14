@@ -170,10 +170,15 @@ public sealed class RepoTestConfigTests : IDisposable
 
     [Theory]
     [InlineData("/tmp/config.json")]
+    [InlineData("C:\\tmp\\config.json")]
+    [InlineData("\\tmp\\config.json")]
     [InlineData("../config.json")]
+    [InlineData("..\\config.json")]
     [InlineData("config/../../outside.json")]
+    [InlineData("config\\..\\outside.json")]
     public void Load_validates_overlay_target_path_stays_relative_to_mod(string targetPath)
     {
+        var targetPathJson = JsonSerializer.Serialize(targetPath);
         WriteConfig(
             $$"""
             {
@@ -186,7 +191,7 @@ public sealed class RepoTestConfigTests : IDisposable
               "profiles": {
                 "bad": {
                   "configOverlays": [
-                    { "source": "a.json", "targetMod": "Mod", "targetPath": "{{targetPath}}" }
+                    { "source": "a.json", "targetMod": "Mod", "targetPath": {{targetPathJson}} }
                   ]
                 }
               }

@@ -141,14 +141,14 @@ public sealed class RepoTestConfig
 
     private static bool IsSafeOverlayTargetPath(string targetPath)
     {
-        if (Path.IsPathRooted(targetPath))
+        if (Path.IsPathRooted(targetPath)
+            || targetPath.StartsWith('\\')
+            || targetPath.Contains(':', StringComparison.Ordinal))
         {
             return false;
         }
 
-        var parts = targetPath.Split(
-            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
-            StringSplitOptions.RemoveEmptyEntries);
+        var parts = targetPath.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
         return Array.TrueForAll(parts, part => part is not "." and not "..");
     }
 
