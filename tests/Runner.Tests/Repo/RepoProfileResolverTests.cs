@@ -30,6 +30,28 @@ public sealed class RepoProfileResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_explicit_name_prefers_profile_when_profile_and_mod_set_names_match()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core"));
+        var profileMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "ProfileCore")).FullName;
+        var config = Config(
+            modSets: [ModSet("core", "mods/Core")],
+            profiles: new Dictionary<string, RepoProfileConfig>
+            {
+                ["core"] = new() { ExtraMods = ["mods/ProfileCore"] },
+            });
+
+        var profile = RepoProfileResolver.Resolve(
+            _repoRoot,
+            config,
+            requestedName: "core",
+            environment: new Dictionary<string, string?>(),
+            requireRepoExtraMods: true);
+
+        Assert.Equal([profileMod], profile.ExtraMods);
+    }
+
+    [Fact]
     public void Resolve_blank_request_uses_first_legacy_mod_set_even_when_profile_name_matches()
     {
         var coreMod = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core")).FullName;
@@ -51,6 +73,23 @@ public sealed class RepoProfileResolverTests : IDisposable
         Assert.Equal("core", profile.Id);
         Assert.Equal([coreMod], profile.ExtraMods);
         Assert.DoesNotContain(profileMod, profile.ExtraMods);
+    }
+
+    [Theory]
+    [InlineData(".")]
+    [InlineData("..")]
+    public void Resolve_rejects_path_control_cache_namespaces(string cacheNamespace)
+    {
+        var config = Config(
+            profiles: new Dictionary<string, RepoProfileConfig>
+            {
+                ["bad"] = new() { CacheNamespace = cacheNamespace },
+            });
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            RepoProfileResolver.Resolve(_repoRoot, config, "bad", new Dictionary<string, string?>(), true));
+
+        Assert.Contains("cache namespace", ex.Message);
     }
 
     [Fact]

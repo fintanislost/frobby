@@ -153,6 +153,10 @@ public sealed class RepoTestConfigTests : IDisposable
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":" ","targetMod":"Mod","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].source")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":"a.json","targetMod":" ","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].targetMod")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":"a.json","targetMod":"Mod","targetPath":" "}]}}}""", "profiles.bad.configOverlays[0].targetPath")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":null}""", "profiles")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"deps":null}}}""", "profiles.bad.deps")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"extraMods":null}}}""", "profiles.bad.extraMods")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":null}}}""", "profiles.bad.configOverlays")]
     public void Load_validates_required_fields(string json, string field)
     {
         WriteConfig(json);

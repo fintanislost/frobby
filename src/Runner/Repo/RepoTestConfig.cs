@@ -60,6 +60,7 @@ public sealed class RepoTestConfig
         RequireText(DefaultTarget, path, "defaultTarget");
         ValidateEntries(build.Args, path, "build.args");
         Require(ModSets is { Count: > 0 }, path, "modSets");
+        Require(Profiles is not null, path, "profiles");
 
         for (var i = 0; i < ModSets.Count; i++)
         {
@@ -104,6 +105,9 @@ public sealed class RepoTestConfig
                 RequireText(profile.CacheNamespace, path, $"profiles.{name}.cacheNamespace");
             }
 
+            Require(profile.Deps is not null, path, $"profiles.{name}.deps");
+            Require(profile.ExtraMods is not null, path, $"profiles.{name}.extraMods");
+            Require(profile.ConfigOverlays is not null, path, $"profiles.{name}.configOverlays");
             ValidateDependencies(profile.Deps, path, $"profiles.{name}.deps");
             ValidateEntries(profile.ExtraMods, path, $"profiles.{name}.extraMods");
             ValidateConfigOverlays(profile.ConfigOverlays, path, $"profiles.{name}.configOverlays");

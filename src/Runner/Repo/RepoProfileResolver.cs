@@ -144,12 +144,19 @@ public static class RepoProfileResolver
 
     private static string SanitizeCacheNamespace(string value)
     {
+        var original = value;
         foreach (var c in Path.GetInvalidFileNameChars())
         {
             value = value.Replace(c, '_');
         }
 
-        return value.Trim();
+        var sanitized = value.Trim();
+        if (string.IsNullOrWhiteSpace(sanitized) || sanitized is "." or "..")
+        {
+            throw new InvalidOperationException($"profile cache namespace '{original}' is not valid.");
+        }
+
+        return sanitized;
     }
 
     private static StringComparer PathComparer
