@@ -76,11 +76,38 @@ public class ScenarioLoaderTests
     }
 
     [Fact]
+    public void Load_WithProfile_RoundTripsProfile()
+    {
+        var path = WriteTemp("""
+{
+  "name": "profiled",
+  "profile": "sve-grandpas-farm",
+  "steps": []
+}
+""");
+
+        var spec = ScenarioLoader.Load(path);
+
+        Assert.Equal("sve-grandpas-farm", spec.Profile);
+    }
+
+    [Fact]
     public void Load_ExtraTopLevelField_Throws()
     {
         var path = WriteTemp("""{"name":"x","steps":[],"surprise":true}""");
         var ex = Assert.Throws<ScenarioLoadException>(() => ScenarioLoader.Load(path));
         Assert.Contains("schema validation", ex.Message);
+    }
+
+    [Fact]
+    public void Load_NonStringProfile_Throws()
+    {
+        var path = WriteTemp("""{"name":"x","profile":42,"steps":[]}""");
+
+        var ex = Assert.Throws<ScenarioLoadException>(() => ScenarioLoader.Load(path));
+
+        Assert.Contains("schema validation", ex.Message);
+        Assert.Contains("profile", ex.Message);
     }
 
     [Fact]

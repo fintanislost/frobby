@@ -14,6 +14,9 @@ public sealed class ScenarioSpec
     /// <summary>Optional fixture save to load before steps execute.</summary>
     public string? Fixture { get; set; }
 
+    /// <summary>Optional repo-local mod/config profile required by this scenario.</summary>
+    public string? Profile { get; set; }
+
     /// <summary>Mods to ensure are loaded for this scenario.</summary>
     public List<string> Mods { get; set; } = new();
 
