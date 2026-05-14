@@ -30,6 +30,7 @@ public sealed class RepoTestConfig
     public IReadOnlyList<RepoModSetConfig> ModSets { get; init; } = Array.Empty<RepoModSetConfig>();
 
     [JsonPropertyName("profiles")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, RepoProfileConfig> Profiles { get; init; }
         = new Dictionary<string, RepoProfileConfig>(StringComparer.Ordinal);
 

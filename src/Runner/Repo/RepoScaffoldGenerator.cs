@@ -236,6 +236,7 @@ public static class RepoScaffoldGenerator
                     ExtraMods = options.ExtraMods,
                 },
             ],
+            Profiles = null!,
         };
         var jsonOptions = new JsonSerializerOptions(ProtocolJson.Options) { WriteIndented = true };
         return JsonSerializer.Serialize(config, jsonOptions) + Environment.NewLine;
