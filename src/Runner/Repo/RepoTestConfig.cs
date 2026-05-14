@@ -29,6 +29,10 @@ public sealed class RepoTestConfig
     [JsonPropertyName("modSets")]
     public IReadOnlyList<RepoModSetConfig> ModSets { get; init; } = Array.Empty<RepoModSetConfig>();
 
+    [JsonPropertyName("profiles")]
+    public IReadOnlyDictionary<string, RepoProfileConfig> Profiles { get; init; }
+        = new Dictionary<string, RepoProfileConfig>(StringComparer.Ordinal);
+
     public static RepoTestConfig Load(string repoRoot)
     {
         var path = Path.Combine(repoRoot, FileName);
@@ -68,6 +72,64 @@ public sealed class RepoTestConfig
             Require(modSet.ExtraMods is { Count: > 0 }, path, $"modSets[{i}].extraMods");
             ValidateDependencies(modSet.Deps, path, $"modSets[{i}].deps");
             ValidateEntries(modSet.ExtraMods, path, $"modSets[{i}].extraMods");
+        }
+
+        ValidateProfiles(Profiles, path);
+    }
+
+    private static void ValidateProfiles(
+        IReadOnlyDictionary<string, RepoProfileConfig>? profiles,
+        string path)
+    {
+        if (profiles is null)
+        {
+            return;
+        }
+
+        foreach (var (name, profile) in profiles)
+        {
+            RequireText(name, path, $"profiles.{name}");
+            if (profile is null)
+            {
+                throw Missing(path, $"profiles.{name}");
+            }
+
+            if (profile.Inherits is not null)
+            {
+                RequireText(profile.Inherits, path, $"profiles.{name}.inherits");
+            }
+
+            if (profile.CacheNamespace is not null)
+            {
+                RequireText(profile.CacheNamespace, path, $"profiles.{name}.cacheNamespace");
+            }
+
+            ValidateDependencies(profile.Deps, path, $"profiles.{name}.deps");
+            ValidateEntries(profile.ExtraMods, path, $"profiles.{name}.extraMods");
+            ValidateConfigOverlays(profile.ConfigOverlays, path, $"profiles.{name}.configOverlays");
+        }
+    }
+
+    private static void ValidateConfigOverlays(
+        IReadOnlyList<RepoConfigOverlayConfig>? overlays,
+        string path,
+        string field)
+    {
+        if (overlays is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < overlays.Count; i++)
+        {
+            if (overlays[i] is not { } overlay)
+            {
+                throw Missing(path, $"{field}[{i}]");
+            }
+
+            RequireText(overlay.Source, path, $"{field}[{i}].source");
+            RequireText(overlay.TargetMod, path, $"{field}[{i}].targetMod");
+            RequireText(overlay.TargetPath, path, $"{field}[{i}].targetPath");
         }
     }
 
@@ -157,6 +219,36 @@ public sealed class RepoModSetConfig
 
     [JsonPropertyName("extraMods")]
     public IReadOnlyList<string> ExtraMods { get; init; } = Array.Empty<string>();
+}
+
+public sealed class RepoProfileConfig
+{
+    [JsonPropertyName("inherits")]
+    public string? Inherits { get; init; }
+
+    [JsonPropertyName("deps")]
+    public IReadOnlyList<RepoModDependencyConfig> Deps { get; init; } = Array.Empty<RepoModDependencyConfig>();
+
+    [JsonPropertyName("extraMods")]
+    public IReadOnlyList<string> ExtraMods { get; init; } = Array.Empty<string>();
+
+    [JsonPropertyName("configOverlays")]
+    public IReadOnlyList<RepoConfigOverlayConfig> ConfigOverlays { get; init; } = Array.Empty<RepoConfigOverlayConfig>();
+
+    [JsonPropertyName("cacheNamespace")]
+    public string? CacheNamespace { get; init; }
+}
+
+public sealed class RepoConfigOverlayConfig
+{
+    [JsonPropertyName("source")]
+    public string? Source { get; init; }
+
+    [JsonPropertyName("targetMod")]
+    public string? TargetMod { get; init; }
+
+    [JsonPropertyName("targetPath")]
+    public string? TargetPath { get; init; }
 }
 
 public sealed class RepoModDependencyConfig

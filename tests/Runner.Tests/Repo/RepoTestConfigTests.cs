@@ -86,6 +86,51 @@ public sealed class RepoTestConfigTests : IDisposable
     }
 
     [Fact]
+    public void Load_reads_profiles_with_inheritance_deps_extra_mods_cache_namespace_and_overlays()
+    {
+        WriteConfig(
+            """
+            {
+              "project": { "name": "Frobby", "slug": "frobby", "version": "1.2.3" },
+              "build": { "command": "dotnet" },
+              "defaultTarget": "smoke",
+              "modSets": [
+                { "name": "core", "extraMods": ["mods/Core"] }
+              ],
+              "profiles": {
+                "sve-core": {
+                  "deps": [{ "id": "Pathoschild.ContentPatcher" }],
+                  "extraMods": ["mods/SVE"]
+                },
+                "sve-grandpas-farm": {
+                  "inherits": "sve-core",
+                  "extraMods": ["Grandpa's Farm/[CP] Grandpa's Farm"],
+                  "cacheNamespace": "sve-grandpas-farm",
+                  "configOverlays": [
+                    {
+                      "source": "tests/config/grandpas-farm/content-patcher.json",
+                      "targetMod": "Pathoschild.ContentPatcher",
+                      "targetPath": "config.json"
+                    }
+                  ]
+                }
+              }
+            }
+            """);
+
+        var config = RepoTestConfig.Load(_repoRoot);
+
+        Assert.True(config.Profiles.ContainsKey("sve-core"));
+        Assert.True(config.Profiles.ContainsKey("sve-grandpas-farm"));
+        Assert.Equal("sve-core", config.Profiles["sve-grandpas-farm"].Inherits);
+        Assert.Equal("sve-grandpas-farm", config.Profiles["sve-grandpas-farm"].CacheNamespace);
+        var overlay = Assert.Single(config.Profiles["sve-grandpas-farm"].ConfigOverlays);
+        Assert.Equal("tests/config/grandpas-farm/content-patcher.json", overlay.Source);
+        Assert.Equal("Pathoschild.ContentPatcher", overlay.TargetMod);
+        Assert.Equal("config.json", overlay.TargetPath);
+    }
+
+    [Fact]
     public void Load_missing_config_throws_file_not_found_with_config_name()
     {
         var ex = Assert.Throws<FileNotFoundException>(() => RepoTestConfig.Load(_repoRoot));
@@ -104,6 +149,10 @@ public sealed class RepoTestConfigTests : IDisposable
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":[]}]}""", "modSets[0].extraMods")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
     [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","deps":[{"id":" "}],"extraMods":["mods/a"]}]}""", "modSets[0].deps[0].id")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"extraMods":[" "]}}}""", "profiles.bad.extraMods[0]")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":" ","targetMod":"Mod","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].source")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":"a.json","targetMod":" ","targetPath":"config.json"}]}}}""", "profiles.bad.configOverlays[0].targetMod")]
+    [InlineData("""{"project":{"name":"Frobby","slug":"frobby","version":"1.0.0"},"build":{"command":"dotnet"},"defaultTarget":"smoke","modSets":[{"name":"smoke","extraMods":["mods/a"]}],"profiles":{"bad":{"configOverlays":[{"source":"a.json","targetMod":"Mod","targetPath":" "}]}}}""", "profiles.bad.configOverlays[0].targetPath")]
     public void Load_validates_required_fields(string json, string field)
     {
         WriteConfig(json);
