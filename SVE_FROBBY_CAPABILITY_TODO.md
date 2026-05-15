@@ -126,7 +126,7 @@ Status key:
   - Done: repo profiles, inherited profile resolution, profile-specific test Mods caches, scenario `profile` selection, config overlays, profile report metadata, and SVE scenario 20 against Grandpa's Farm.
   - Follow-up candidates: add Immersive Farm 2 Remastered and Frontier Farm profiles, and add config-overlay proofs for low-memory or bridge layout variants.
 
-- [ ] Planning: Slice 16, late-game unlocks and trigger actions.
+- [ ] Active: Slice 16, late-game unlocks and trigger actions.
   - SVE pressure: event/mail-gated regions, minecart or bridge unlocks, trigger actions, shrines, and map mutations over progression.
   - Frobby goal: seed progression state, observe trigger-action effects, assert map/action changes, and verify unlocks across day/event boundaries.
   - Candidate SVE proof: set progression prerequisites, run a trigger/unlock flow, and assert the resulting warp/map/action state.

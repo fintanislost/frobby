@@ -431,6 +431,20 @@ Player effect waits can poll for transient state and active buffs:
 }
 ```
 
+Player progression waits can poll received mail, pending mail, and seen events:
+
+```json
+{
+  "action": "wait.player",
+  "args": {
+    "mail_for_tomorrow": "HenchmanMarshTonics",
+    "event_seen": "1000035",
+    "timeout_ms": 10000,
+    "poll_ms": 100
+  }
+}
+```
+
 The same runner wait can target hostile monsters with exact metadata filters:
 
 ```json

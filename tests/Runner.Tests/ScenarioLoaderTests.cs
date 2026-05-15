@@ -92,6 +92,31 @@ public class ScenarioLoaderTests
     }
 
     [Fact]
+    public void Load_WaitPlayerProgressionArgs_RoundTrips()
+    {
+        var path = WriteTemp("""
+{
+  "name": "wait_progression",
+  "steps": [
+    {
+      "action": "wait.player",
+      "args": {
+        "mail_received": "ShedRepaired",
+        "mail_for_tomorrow": "HenchmanMarshTonics",
+        "event_seen": "1000035"
+      }
+    }
+  ]
+}
+""");
+
+        var spec = ScenarioLoader.Load(path);
+
+        Assert.Equal("wait.player", spec.Steps[0].Action);
+        Assert.Equal("HenchmanMarshTonics", spec.Steps[0].Args!.Value.GetProperty("mail_for_tomorrow").GetString());
+    }
+
+    [Fact]
     public void Load_ExtraTopLevelField_Throws()
     {
         var path = WriteTemp("""{"name":"x","steps":[],"surprise":true}""");

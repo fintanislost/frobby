@@ -115,6 +115,7 @@ Returns the local farmer's current state, including a compact inventory snapshot
       "location": "Farm",
       "tile": { "x": 64, "y": 15 },
       "mail_received": ["button_tut_1"],
+      "mail_for_tomorrow": ["HenchmanMarshTonics"],
       "events_seen": ["5532011"],
       "swimming": true,
       "bathing_clothes": false,
@@ -151,8 +152,11 @@ Inventory `id` remains the backwards-compatible stable identifier. New tests sho
 prefer `qualified_id` for exact Stardew 1.6 item matching and `item_id` when a
 scenario intentionally wants the raw unqualified id. Metadata fields are omitted
 when Stardew or a mod does not expose them.
-`mail_received` and `events_seen` expose the local farmer's save-state flags for
-relationship, event, and mail-gated scenario setup/verification.
+`mail_received`, `mail_for_tomorrow`, and `events_seen` expose the local
+farmer's save-state flags for relationship, event, mail-gated, and pending-mail
+scenario setup/verification. `mail_for_tomorrow` is useful for trigger actions
+that schedule mail during day-ending without running Stardew's full overnight
+sleep/save flow.
 `swimming`, `bathing_clothes`, `is_busy`, and `can_move` expose transient local
 farmer state for mod behavior that keys off the player's current mode. `buffs`
 contains active buff summaries projected from the live Stardew buff manager. Buff
@@ -1902,7 +1906,7 @@ Runner scenario convenience:
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, and buff summary.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
@@ -1944,11 +1948,11 @@ Request shape:
 
 Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
 `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`,
-`buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`,
-and `buff_any_effect_gte`. Tile filters must be supplied as a complete `x`/`y`
-pair. Timeout diagnostics include the last observed health, location, tile,
-transient state, and buff summary so combat, hazard, or buff scenarios can report
-what state was last seen.
+`mail_received`, `mail_for_tomorrow`, `event_seen`, `buff_id`, `buff_source`,
+`buff_effect`, `buff_effect_gte`, `buff_count_gte`, and
+`buff_any_effect_gte`; timeout details include the last observed health,
+location, tile, transient state, buff summary, and progression-list counts. Tile
+filters must be supplied as a complete `x`/`y` pair.
 
 ### wait.special_order runner action
 

@@ -34,7 +34,7 @@
               "action": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Scenario step action. Unknown actions are invoked as RPC methods, including player.set_transient_state, fishing.sample_catch, and world.place_object for ad hoc probes."
+                "description": "Scenario step action. Unknown actions are invoked as RPC methods; runner-only actions include wait.player with health, buff, mail_received, mail_for_tomorrow, and event_seen filters."
               },
               "args": { "type": "object" }
             },
