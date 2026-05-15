@@ -82,6 +82,145 @@ public sealed class RepoCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task RepoRun_DirectoryWithScenarioProfiles_RunsEachScenarioWithDeclaredProfile()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "sdv"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "GrandpasFarm"));
+        File.WriteAllText(Path.Combine(_repoRoot, "tests", "sdv", "01-core.test.json"), """{"name":"core","steps":[]}""");
+        File.WriteAllText(Path.Combine(_repoRoot, "tests", "sdv", "20-grandpa.test.json"), """{"name":"grandpa","profile":"grandpas","steps":[]}""");
+        WriteConfig(
+            defaultTarget: "tests/sdv",
+            modSetsJson:
+                """
+                [
+                  { "name": "core", "extraMods": ["mods/Core"] }
+                ]
+                """,
+            profilesJson:
+                """
+                {
+                  "grandpas": { "extraMods": ["mods/GrandpasFarm"], "cacheNamespace": "grandpas" }
+                }
+                """);
+
+        var calls = new List<IReadOnlyList<string>>();
+        var original = RepoCommand.RunExecutor;
+        RepoCommand.RunExecutor = (args, _) =>
+        {
+            calls.Add(args.ToArray());
+            return Task.FromResult(0);
+        };
+
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--no-build", "--headless" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            RepoCommand.RunExecutor = original;
+        }
+
+        Assert.Equal(2, calls.Count);
+        Assert.All(calls, call => Assert.Equal("run", call[0]));
+        Assert.Contains(calls, call =>
+            call.Contains("--profile-id")
+            && call.Contains("core")
+            && call.Any(arg => arg.EndsWith("01-core.test.json", StringComparison.Ordinal)));
+        Assert.Contains(calls, call =>
+            call.Contains("--profile-id")
+            && call.Contains("grandpas")
+            && call.Any(arg => arg.EndsWith("20-grandpa.test.json", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public async Task RepoRun_DryRunProfiledScenarios_AllowsMissingBuiltModsWhenBuildWouldRun()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "sdv"));
+        File.WriteAllText(Path.Combine(_repoRoot, "tests", "sdv", "20-grandpa.test.json"), """{"name":"grandpa","profile":"grandpas","steps":[]}""");
+        WriteConfig(
+            defaultTarget: "tests/sdv",
+            modSetsJson:
+                """
+                [
+                  { "name": "core", "extraMods": [".cache/frobby-game-mods/Core"] }
+                ]
+                """,
+            profilesJson:
+                """
+                {
+                  "grandpas": { "extraMods": [".cache/frobby-game-mods/GrandpasFarm"], "cacheNamespace": "grandpas" }
+                }
+                """);
+
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+        }
+
+        Assert.Contains(".cache/frobby-game-mods/GrandpasFarm", output.ToString());
+    }
+
+    [Fact]
+    public async Task RepoRun_DryRunProfiledScenarios_PrintsBuildOnce()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "sdv"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "GrandpasFarm"));
+        File.WriteAllText(Path.Combine(_repoRoot, "tests", "sdv", "01-core.test.json"), """{"name":"core","steps":[]}""");
+        File.WriteAllText(Path.Combine(_repoRoot, "tests", "sdv", "20-grandpa.test.json"), """{"name":"grandpa","profile":"grandpas","steps":[]}""");
+        WriteConfig(
+            defaultTarget: "tests/sdv",
+            modSetsJson:
+                """
+                [
+                  { "name": "core", "extraMods": ["mods/Core"] }
+                ]
+                """,
+            profilesJson:
+                """
+                {
+                  "grandpas": { "extraMods": ["mods/GrandpasFarm"], "cacheNamespace": "grandpas" }
+                }
+                """);
+
+        var output = new StringWriter();
+        var previousOut = Console.Out;
+        Console.SetOut(output);
+        try
+        {
+            var exit = await RepoCommand.RunAsync(
+                new[] { "run", "--repo-root", _repoRoot, "--dry-run" }.AsMemory(),
+                CancellationToken.None);
+
+            Assert.Equal(0, exit);
+        }
+        finally
+        {
+            Console.SetOut(previousOut);
+        }
+
+        var text = output.ToString();
+        Assert.Equal(1, Count(text, "dotnet build Frobby.sln"));
+        Assert.Equal(2, Count(text, "sdv-test run "));
+    }
+
+    [Fact]
     public async Task RepoRun_dry_run_parses_headless_baseline_mod_set_report_dir_and_trailing_target()
     {
         Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Default"));
@@ -744,7 +883,11 @@ public sealed class RepoCommandTests : IDisposable
             $$"""{"Name":"Test","UniqueID":"{{uniqueId}}","Version":"{{version}}","EntryDll":"Test.dll"}""");
     }
 
-    private void WriteConfig(string defaultTarget, string? modSetsJson = null, string buildCommand = "dotnet")
+    private void WriteConfig(
+        string defaultTarget,
+        string? modSetsJson = null,
+        string buildCommand = "dotnet",
+        string? profilesJson = null)
     {
         modSetsJson ??=
             """
@@ -770,7 +913,8 @@ public sealed class RepoCommandTests : IDisposable
               },
               "defaultTarget": "{{defaultTarget}}",
               "baselineTarget": "tests/scenarios",
-              "modSets": {{modSetsJson}}
+              "modSets": {{modSetsJson}},
+              "profiles": {{profilesJson ?? "{}"}}
             }
             """);
     }

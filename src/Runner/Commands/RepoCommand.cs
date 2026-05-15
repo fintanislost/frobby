@@ -8,6 +8,8 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Protocol.Models;
+using SdvTestFramework.Protocol.Scenarios;
 using SdvTestFramework.Runner.Repo;
 
 namespace SdvTestFramework.Runner.Commands;
@@ -50,6 +52,39 @@ public static class RepoCommand
         var options = ParseRunOptions(args);
         var config = RepoTestConfig.Load(options.RepoRoot);
         var environment = BuildRepoEnvironment();
+        var profiledScenarioPlans = BuildProfiledScenarioPlans(options, config, environment);
+        if (profiledScenarioPlans.Count > 0)
+        {
+            var buildPlan = RepoRunPlanner.BuildRunPlan(options.RepoRoot, config, options.ToRequest(), environment);
+            if (options.DryRun)
+            {
+                PrintDryRunBuild(buildPlan);
+                foreach (var scenarioPlan in profiledScenarioPlans)
+                {
+                    PrintDryRunRun(scenarioPlan);
+                }
+
+                return 0;
+            }
+
+            {
+                var profiledBuildExit = await RunBuildIfNeededAsync(buildPlan, ct);
+                if (profiledBuildExit != 0)
+                {
+                    return profiledBuildExit;
+                }
+            }
+
+            var worstExit = 0;
+            foreach (var scenarioPlan in profiledScenarioPlans)
+            {
+                var exit = await RunExecutor(scenarioPlan.FrobbyArgs, ct);
+                worstExit = Math.Max(worstExit, exit);
+            }
+
+            return worstExit;
+        }
+
         var plan = RepoRunPlanner.BuildRunPlan(options.RepoRoot, config, options.ToRequest(), environment);
 
         if (options.DryRun)
@@ -65,6 +100,74 @@ public static class RepoCommand
         }
 
         return await RunExecutor(plan.FrobbyArgs, ct);
+    }
+
+    private static List<RepoRunPlan> BuildProfiledScenarioPlans(
+        RunOptions options,
+        RepoTestConfig config,
+        IReadOnlyDictionary<string, string?> environment)
+    {
+        if (options.Baseline)
+        {
+            return new List<RepoRunPlan>();
+        }
+
+        var rawTargets = options.Targets.Count > 0
+            ? options.Targets
+            : new[] { RequireText(config.DefaultTarget, "defaultTarget") };
+        var scenarios = DiscoverRepoScenarios(options.RepoRoot, rawTargets, environment);
+        if (!string.IsNullOrWhiteSpace(options.Filter))
+        {
+            scenarios = scenarios
+                .Where(item => item.Spec.Name.Contains(options.Filter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (scenarios.Count == 0 || scenarios.All(item => string.IsNullOrWhiteSpace(item.Spec.Profile)))
+        {
+            return new List<RepoRunPlan>();
+        }
+
+        var plans = new List<RepoRunPlan>(scenarios.Count);
+        foreach (var (path, spec) in scenarios)
+        {
+            var profileName = string.IsNullOrWhiteSpace(spec.Profile) ? options.ModSet : spec.Profile;
+            var request = options with
+            {
+                NoBuild = options.NoBuild,
+                ModSet = profileName,
+                Targets = [path],
+            };
+            plans.Add(RepoRunPlanner.BuildRunPlan(options.RepoRoot, config, request.ToRequest(), environment));
+        }
+
+        return plans;
+    }
+
+    private static List<(string Path, ScenarioSpec Spec)> DiscoverRepoScenarios(
+        string repoRoot,
+        IReadOnlyList<string> rawTargets,
+        IReadOnlyDictionary<string, string?> environment)
+    {
+        var scenarios = new List<(string Path, ScenarioSpec Spec)>();
+        foreach (var target in rawTargets)
+        {
+            var resolved = RepoPathResolver.Resolve(repoRoot, target, environment, requireExists: true);
+            if (File.Exists(resolved))
+            {
+                scenarios.Add((resolved, ScenarioLoader.Load(resolved)));
+                continue;
+            }
+
+            foreach (var file in Directory
+                .EnumerateFiles(resolved, "*.test.json", SearchOption.AllDirectories)
+                .OrderBy(path => path, StringComparer.Ordinal))
+            {
+                scenarios.Add((file, ScenarioLoader.Load(file)));
+            }
+        }
+
+        return scenarios;
     }
 
     private static async Task<int> RunRepoRepeatAsync(ReadOnlyMemory<string> args, CancellationToken ct)
@@ -265,11 +368,20 @@ public static class RepoCommand
     private static void PrintDryRun(RepoRunPlan plan)
     {
         Console.Out.WriteLine("cd " + plan.RepoRoot);
+        PrintDryRunBuild(plan);
+        PrintDryRunRun(plan);
+    }
+
+    private static void PrintDryRunBuild(RepoRunPlan plan)
+    {
         if (plan.BuildCommand is not null)
         {
             Console.Out.WriteLine(FormatCommand(plan.BuildCommand));
         }
+    }
 
+    private static void PrintDryRunRun(RepoRunPlan plan)
+    {
         Console.Out.WriteLine("sdv-test " + FormatCommand(plan.FrobbyArgs));
         Console.Out.WriteLine("report hub: " + Path.Combine(plan.ReportDir, "index.html"));
     }
@@ -281,6 +393,7 @@ public static class RepoCommand
         var noBuild = false;
         var dryRun = false;
         var baseline = false;
+        string? filter = null;
         string? modSet = null;
         string? reportDir = null;
         var targets = new List<string>();
@@ -308,6 +421,9 @@ public static class RepoCommand
                 case "--baseline":
                     baseline = true;
                     continue;
+                case "--filter":
+                    filter = ReadRequiredValue(args, ref i, value);
+                    continue;
                 case "--mod-set":
                     modSet = ReadRequiredValue(args, ref i, value);
                     continue;
@@ -330,6 +446,7 @@ public static class RepoCommand
             noBuild,
             dryRun,
             baseline,
+            filter,
             modSet,
             reportDir,
             targets);
@@ -368,6 +485,11 @@ public static class RepoCommand
 
         return args.Span[++index];
     }
+
+    private static string RequireText(string? value, string field)
+        => !string.IsNullOrWhiteSpace(value)
+            ? value
+            : throw new InvalidOperationException($"sdv-test config requires '{field}'.");
 
     private static string RepeatReportDir(RepoTestConfig config, string? requestedReportDir, int runNumber)
     {
@@ -450,12 +572,13 @@ public static class RepoCommand
         bool NoBuild,
         bool DryRun,
         bool Baseline,
+        string? Filter,
         string? ModSet,
         string? ReportDir,
         IReadOnlyList<string> Targets)
     {
         public RepoRunRequest ToRequest()
-            => new(Visible, NoBuild, DryRun, Baseline, ModSet, ReportDir, Targets);
+            => new(Visible, NoBuild, DryRun, Baseline, ModSet, ReportDir, Targets, Filter);
     }
 
     private sealed record RepeatOptions(int Count, RunOptions Run);

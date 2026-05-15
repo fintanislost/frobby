@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SdvTestFramework.Protocol;
 
 namespace SdvTestFramework.Runner.Repo;
 
@@ -12,14 +13,19 @@ public sealed record RepoRunRequest(
     bool Baseline,
     string? ModSet,
     string? ReportDir,
-    IReadOnlyList<string> Targets);
+    IReadOnlyList<string> Targets,
+    string? Filter = null);
 
 public sealed record RepoRunPlan(
     string RepoRoot,
     IReadOnlyList<string>? BuildCommand,
     List<string> FrobbyArgs,
     string ReportDir,
-    IReadOnlyList<string> ExtraMods);
+    IReadOnlyList<string> ExtraMods,
+    string ModsPath,
+    string ProfileId,
+    string ProfileCacheNamespace,
+    IReadOnlyList<ExtraModConfigOverlay> ConfigOverlays);
 
 public static class RepoRunPlanner
 {
@@ -35,15 +41,14 @@ public static class RepoRunPlanner
         }
 
         var fullRepoRoot = Path.GetFullPath(repoRoot);
-        var modSet = SelectModSet(config, request.ModSet);
-        var dependencyMods = modSet.Deps
-            .Select(dependency => RepoDependencyCache.ResolveRequired(dependency, environment))
-            .ToArray();
-        var requireRepoExtraMods = request.NoBuild;
-        var repoExtraMods = modSet.ExtraMods
-            .Select(path => RepoPathResolver.Resolve(fullRepoRoot, path, environment, requireExists: requireRepoExtraMods))
-            .ToArray();
-        var extraMods = dependencyMods.Concat(repoExtraMods).ToArray();
+        var profile = RepoProfileResolver.Resolve(
+            fullRepoRoot,
+            config,
+            request.ModSet,
+            environment,
+            requireRepoExtraMods: request.NoBuild);
+        var extraMods = profile.ExtraMods;
+        var modsPath = Path.Combine(fullRepoRoot, ".cache", "frobby-test-mods", profile.CacheNamespace);
         var buildCommand = request.NoBuild
             ? null
             : new[] { RequireText(config.Build.Command, "build.command") }
@@ -67,10 +72,31 @@ public static class RepoRunPlanner
             frobbyArgs.Add("--headless");
         }
 
+        frobbyArgs.Add("--mods-path");
+        frobbyArgs.Add(modsPath);
+        frobbyArgs.Add("--profile-id");
+        frobbyArgs.Add(profile.Id);
+        frobbyArgs.Add("--profile-cache-namespace");
+        frobbyArgs.Add(profile.CacheNamespace);
+
+        if (!string.IsNullOrWhiteSpace(request.Filter))
+        {
+            frobbyArgs.Add("--filter");
+            frobbyArgs.Add(request.Filter!);
+        }
+
         foreach (var extraMod in extraMods)
         {
             frobbyArgs.Add("--extra-mod");
             frobbyArgs.Add(extraMod);
+        }
+
+        foreach (var overlay in profile.ConfigOverlays)
+        {
+            frobbyArgs.Add("--config-overlay");
+            frobbyArgs.Add(overlay.SourcePath);
+            frobbyArgs.Add(overlay.TargetModUniqueId);
+            frobbyArgs.Add(overlay.TargetRelativePath);
         }
 
         frobbyArgs.Add("--report-dir");
@@ -83,23 +109,16 @@ public static class RepoRunPlanner
 
         frobbyArgs.AddRange(targets);
 
-        return new RepoRunPlan(fullRepoRoot, buildCommand, frobbyArgs, reportDir, extraMods);
-    }
-
-    private static RepoModSetConfig SelectModSet(RepoTestConfig config, string? requestedName)
-    {
-        if (config.ModSets.Count == 0)
-        {
-            throw new InvalidOperationException("sdv-test config must define at least one mod set.");
-        }
-
-        if (string.IsNullOrWhiteSpace(requestedName))
-        {
-            return config.ModSets[0];
-        }
-
-        return config.ModSets.FirstOrDefault(modSet => modSet.Name == requestedName)
-            ?? throw new InvalidOperationException($"Unknown mod set '{requestedName}'.");
+        return new RepoRunPlan(
+            fullRepoRoot,
+            buildCommand,
+            frobbyArgs,
+            reportDir,
+            extraMods,
+            modsPath,
+            profile.Id,
+            profile.CacheNamespace,
+            profile.ConfigOverlays);
     }
 
     private static IReadOnlyList<string> ResolveTargets(

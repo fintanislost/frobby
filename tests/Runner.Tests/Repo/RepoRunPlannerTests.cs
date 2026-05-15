@@ -33,9 +33,16 @@ public sealed class RepoRunPlannerTests : IDisposable
         Assert.Equal(new[] { "dotnet", "build", "Frobby.sln" }, plan.BuildCommand);
         Assert.Equal(Path.Combine(Path.GetTempPath(), "frobby-frobby-results-1.2.3"), plan.ReportDir);
         Assert.Equal(new[] { extraOne, extraTwo }, plan.ExtraMods);
+        Assert.Equal("default", plan.ProfileId);
+        Assert.Equal("default", plan.ProfileCacheNamespace);
+        Assert.Equal(Path.Combine(_repoRoot, ".cache", "frobby-test-mods", "default"), plan.ModsPath);
         Assert.Equal("run-suite", plan.FrobbyArgs[0]);
         Assert.Contains("--fresh-process-per-scenario", plan.FrobbyArgs);
         Assert.Contains("--headless", plan.FrobbyArgs);
+        Assert.Contains("--mods-path", plan.FrobbyArgs);
+        Assert.Contains(plan.ModsPath, plan.FrobbyArgs);
+        Assert.Contains("--profile-id", plan.FrobbyArgs);
+        Assert.Contains("default", plan.FrobbyArgs);
         Assert.Equal(2, Count(plan.FrobbyArgs, "--extra-mod"));
         Assert.Contains(extraOne, plan.FrobbyArgs);
         Assert.Contains(extraTwo, plan.FrobbyArgs);
@@ -58,6 +65,9 @@ public sealed class RepoRunPlannerTests : IDisposable
             new RepoRunRequest(false, NoBuild: true, false, false, null, null, Array.Empty<string>()));
 
         Assert.Null(plan.BuildCommand);
+        Assert.Equal("default", plan.ProfileId);
+        Assert.Equal("default", plan.ProfileCacheNamespace);
+        Assert.Equal(Path.Combine(_repoRoot, ".cache", "frobby-test-mods", "default"), plan.ModsPath);
         Assert.Equal("run", plan.FrobbyArgs[0]);
         Assert.DoesNotContain("--fresh-process-per-scenario", plan.FrobbyArgs);
         Assert.Equal(scenario, plan.FrobbyArgs[^1]);
@@ -104,6 +114,9 @@ public sealed class RepoRunPlannerTests : IDisposable
             new RepoRunRequest(false, false, false, false, "alternate", null, Array.Empty<string>()));
 
         Assert.Equal(new[] { selectedOne, selectedTwo }, plan.ExtraMods);
+        Assert.Equal("alternate", plan.ProfileId);
+        Assert.Equal("alternate", plan.ProfileCacheNamespace);
+        Assert.Equal(Path.Combine(_repoRoot, ".cache", "frobby-test-mods", "alternate"), plan.ModsPath);
         Assert.DoesNotContain(defaultMod, plan.ExtraMods);
         Assert.Contains(selectedOne, plan.FrobbyArgs);
         Assert.Contains(selectedTwo, plan.FrobbyArgs);
@@ -130,6 +143,22 @@ public sealed class RepoRunPlannerTests : IDisposable
 
         Assert.Equal(new[] { envMod }, plan.ExtraMods);
         Assert.Contains(envMod, plan.FrobbyArgs);
+    }
+
+    [Fact]
+    public void BuildRunPlan_filter_is_passed_through_to_frobby_args()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "One"));
+        var config = Config(defaultTarget: "tests/scenarios", extraMods: ["mods/One"]);
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, false, false, false, null, null, Array.Empty<string>(), Filter: "grandpa"));
+
+        Assert.Contains("--filter", plan.FrobbyArgs);
+        Assert.Contains("grandpa", plan.FrobbyArgs);
     }
 
     [Fact]
@@ -169,6 +198,58 @@ public sealed class RepoRunPlannerTests : IDisposable
         Assert.Equal(contentPatcher, plan.FrobbyArgs[firstExtraFlag + 1]);
         var secondExtraFlag = plan.FrobbyArgs.IndexOf("--extra-mod", firstExtraFlag + 1);
         Assert.Equal(frobbyMod, plan.FrobbyArgs[secondExtraFlag + 1]);
+    }
+
+    [Fact]
+    public void BuildRunPlan_profile_adds_profile_mods_metadata_overlays_and_isolated_mods_path()
+    {
+        Directory.CreateDirectory(Path.Combine(_repoRoot, "tests", "scenarios"));
+        var core = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "Core")).FullName;
+        var farm = Directory.CreateDirectory(Path.Combine(_repoRoot, "mods", "GrandpasFarm")).FullName;
+        var overlay = Path.Combine(_repoRoot, "tests", "config", "content-patcher.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(overlay)!);
+        File.WriteAllText(overlay, "{}");
+        var config = Config(
+            defaultTarget: "tests/scenarios",
+            profiles: new Dictionary<string, RepoProfileConfig>
+            {
+                ["sve-core"] = new() { ExtraMods = ["mods/Core"] },
+                ["sve-grandpas-farm"] = new()
+                {
+                    Inherits = "sve-core",
+                    ExtraMods = ["mods/GrandpasFarm"],
+                    CacheNamespace = "sve-grandpas-farm",
+                    ConfigOverlays =
+                    [
+                        new RepoConfigOverlayConfig
+                        {
+                            Source = "tests/config/content-patcher.json",
+                            TargetMod = "Pathoschild.ContentPatcher",
+                            TargetPath = "config.json",
+                        },
+                    ],
+                },
+            });
+
+        var plan = RepoRunPlanner.BuildRunPlan(
+            _repoRoot,
+            config,
+            new RepoRunRequest(false, false, false, false, "sve-grandpas-farm", null, Array.Empty<string>()),
+            new Dictionary<string, string?>());
+
+        Assert.Equal("sve-grandpas-farm", plan.ProfileId);
+        Assert.Equal("sve-grandpas-farm", plan.ProfileCacheNamespace);
+        Assert.Equal(Path.Combine(_repoRoot, ".cache", "frobby-test-mods", "sve-grandpas-farm"), plan.ModsPath);
+        Assert.Equal([core, farm], plan.ExtraMods);
+        Assert.Contains("--mods-path", plan.FrobbyArgs);
+        Assert.Contains(plan.ModsPath, plan.FrobbyArgs);
+        Assert.Contains("--profile-id", plan.FrobbyArgs);
+        Assert.Contains("sve-grandpas-farm", plan.FrobbyArgs);
+        Assert.Contains("--profile-cache-namespace", plan.FrobbyArgs);
+        Assert.Contains("--config-overlay", plan.FrobbyArgs);
+        Assert.Contains(overlay, plan.FrobbyArgs);
+        Assert.Contains("Pathoschild.ContentPatcher", plan.FrobbyArgs);
+        Assert.Contains("config.json", plan.FrobbyArgs);
     }
 
     [Fact]
@@ -214,7 +295,8 @@ public sealed class RepoRunPlannerTests : IDisposable
         string defaultTarget,
         string? baselineTarget = null,
         string[]? extraMods = null,
-        RepoModSetConfig[]? modSets = null)
+        RepoModSetConfig[]? modSets = null,
+        IReadOnlyDictionary<string, RepoProfileConfig>? profiles = null)
         => new()
         {
             Project = new RepoProjectConfig { Name = "Frobby", Slug = "frobby", Version = "1.2.3" },
@@ -222,6 +304,7 @@ public sealed class RepoRunPlannerTests : IDisposable
             DefaultTarget = defaultTarget,
             BaselineTarget = baselineTarget,
             ModSets = modSets ?? [ModSet("default", extraMods ?? Array.Empty<string>())],
+            Profiles = profiles ?? new Dictionary<string, RepoProfileConfig>(),
         };
 
     private static RepoModSetConfig ModSet(string name, params string[] extraMods)
