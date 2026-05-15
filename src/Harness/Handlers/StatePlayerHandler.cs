@@ -29,6 +29,7 @@ public static class StatePlayerHandler
             Location = world.Location,
             Tile = world.Tile,
             MailReceived = world.MailReceived.ToList(),
+            MailForTomorrow = world.MailForTomorrow.ToList(),
             EventsSeen = world.EventsSeen.ToList(),
             Swimming = world.Swimming,
             BathingClothes = world.BathingClothes,
@@ -75,6 +76,7 @@ internal interface IPlayerStateWorld
     string Location { get; }
     TilePoint Tile { get; }
     IReadOnlyList<string> MailReceived { get; }
+    IReadOnlyList<string> MailForTomorrow { get; }
     IReadOnlyList<string> EventsSeen { get; }
     bool Swimming { get; }
     bool BathingClothes { get; }
@@ -140,6 +142,10 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
     public string Location => Game1.currentLocation?.Name ?? string.Empty;
     public TilePoint Tile => new() { X = Player.TilePoint.X, Y = Player.TilePoint.Y };
     public IReadOnlyList<string> MailReceived => Player.mailReceived.Select(m => m ?? string.Empty).ToList();
+    public IReadOnlyList<string> MailForTomorrow
+        => ReflectionValue.ReadStringList(
+            ReflectionValue.ReadRaw(Player, "mailForTomorrow", "MailForTomorrow"))
+            .ToList();
     public IReadOnlyList<string> EventsSeen => Player.eventsSeen.Select(e => e.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
     public bool Swimming => ReadBoolValue(Player, "swimming", "Swimming") ?? false;
     public bool BathingClothes => ReadBoolValue(Player, "bathingClothes", "BathingClothes") ?? false;

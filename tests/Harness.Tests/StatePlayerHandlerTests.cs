@@ -18,6 +18,7 @@ public class StatePlayerHandlerTests
         Assert.Equal("Tester", state.Name);
         Assert.Equal(30000, state.Money);
         Assert.Equal(new[] { "button_tut_1", "custom_mail_gate" }, state.MailReceived);
+        Assert.Equal(new[] { "HenchmanMarshTonics", "SusanCooking" }, state.MailForTomorrow);
         Assert.Equal(new[] { "60367", "5532011" }, state.EventsSeen);
         Assert.True(state.Swimming);
         Assert.True(state.BathingClothes);
@@ -63,6 +64,7 @@ public class StatePlayerHandlerTests
         public string Location => "FarmHouse";
         public TilePoint Tile => new() { X = 8, Y = 10 };
         public IReadOnlyList<string> MailReceived { get; } = new[] { "button_tut_1", "custom_mail_gate" };
+        public IReadOnlyList<string> MailForTomorrow { get; } = new[] { "HenchmanMarshTonics", "SusanCooking" };
         public IReadOnlyList<string> EventsSeen { get; } = new[] { "60367", "5532011" };
         public bool Swimming => true;
         public bool BathingClothes => true;

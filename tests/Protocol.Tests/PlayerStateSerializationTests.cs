@@ -20,6 +20,7 @@ public class PlayerStateSerializationTests
             Location = "Farm",
             Tile = new TilePoint { X = 64, Y = 15 },
             MailReceived = new() { "button_tut_1" },
+            MailForTomorrow = new() { "HenchmanMarshTonics" },
             EventsSeen = new() { "5532011" },
         };
         p.Items.Add(new PlayerItemSummary
@@ -41,11 +42,13 @@ public class PlayerStateSerializationTests
         Assert.Contains("\"max_stamina\":270", json);
         Assert.Contains("\"tile\":{\"x\":64,\"y\":15}", json);
         Assert.Contains("\"mail_received\":[\"button_tut_1\"]", json);
+        Assert.Contains("\"mail_for_tomorrow\":[\"HenchmanMarshTonics\"]", json);
         Assert.Contains("\"events_seen\":[\"5532011\"]", json);
         Assert.Contains("\"item_id\":\"ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"runtime_type\":\"Object\"", json);
         Assert.DoesNotContain("MaxStamina", json);
+        Assert.DoesNotContain("MailForTomorrow", json);
         Assert.DoesNotContain("QualifiedId", json);
     }
 
