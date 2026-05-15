@@ -509,6 +509,12 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("wait.player requires args.poll_ms >= 1");
         if ((args.X is null) != (args.Y is null))
             throw new InvalidOperationException("wait.player requires both args.x and args.y when filtering by tile");
+        if (args.MailReceived is not null && string.IsNullOrWhiteSpace(args.MailReceived))
+            throw new InvalidOperationException("wait.player requires args.mail_received to be non-empty when supplied");
+        if (args.MailForTomorrow is not null && string.IsNullOrWhiteSpace(args.MailForTomorrow))
+            throw new InvalidOperationException("wait.player requires args.mail_for_tomorrow to be non-empty when supplied");
+        if (args.EventSeen is not null && string.IsNullOrWhiteSpace(args.EventSeen))
+            throw new InvalidOperationException("wait.player requires args.event_seen to be non-empty when supplied");
         if (args.BuffCountGte is < 0)
             throw new InvalidOperationException("wait.player requires args.buff_count_gte >= 0");
         if (args.BuffEffectGte is not null && string.IsNullOrWhiteSpace(args.BuffEffect))
@@ -523,6 +529,7 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(root, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && BoolFilterMatches(root, "swimming", args.Swimming)
             && BoolFilterMatches(root, "bathing_clothes", args.BathingClothes)
+            && ProgressionFiltersMatch(root, args)
             && BuffFiltersMatch(root, args)
             && TileFilterMatches(root, args.X, args.Y);
     }
@@ -534,6 +541,9 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         if (args.Swimming is not null) filters.Add($"swimming={args.Swimming.Value.ToString().ToLowerInvariant()}");
         if (args.BathingClothes is not null) filters.Add($"bathing_clothes={args.BathingClothes.Value.ToString().ToLowerInvariant()}");
+        if (args.MailReceived is not null) filters.Add($"mail_received contains {args.MailReceived}");
+        if (args.MailForTomorrow is not null) filters.Add($"mail_for_tomorrow contains {args.MailForTomorrow}");
+        if (args.EventSeen is not null) filters.Add($"events_seen contains {args.EventSeen}");
         if (args.BuffCountGte is not null) filters.Add($"buff_count_gte={args.BuffCountGte}");
         if (args.BuffId is not null) filters.Add($"buff_id={args.BuffId}");
         if (args.BuffSource is not null) filters.Add($"buff_source={args.BuffSource}");
@@ -579,7 +589,15 @@ public sealed class ScenarioRunner
         var swimming = ReadBoolText(root.Value, "swimming");
         var bathing = ReadBoolText(root.Value, "bathing_clothes");
         var buffSummary = FormatObservedBuffSummary(root.Value);
-        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} {buffSummary}";
+        var progression = FormatObservedProgressionSummary(root.Value);
+        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} {buffSummary} {progression}";
+    }
+
+    private static bool ProgressionFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
+    {
+        return StringArrayContains(root, "mail_received", args.MailReceived)
+            && StringArrayContains(root, "mail_for_tomorrow", args.MailForTomorrow)
+            && StringArrayContains(root, "events_seen", args.EventSeen);
     }
 
     private static bool BuffFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
@@ -678,6 +696,20 @@ public sealed class ScenarioRunner
             return string.IsNullOrWhiteSpace(effects) ? id ?? "?" : $"{id}:{effects}";
         });
         return $"buffs={list.Count} [{string.Join(", ", details)}]";
+    }
+
+    private static string FormatObservedProgressionSummary(JsonElement root)
+    {
+        return $"mail_received={CountStringArray(root, "mail_received")} " +
+               $"mail_for_tomorrow={CountStringArray(root, "mail_for_tomorrow")} " +
+               $"events_seen={CountStringArray(root, "events_seen")}";
+    }
+
+    private static string CountStringArray(JsonElement root, string property)
+    {
+        return root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Array
+            ? value.GetArrayLength().ToString(CultureInfo.InvariantCulture)
+            : "?";
     }
 
     private async Task InvokeWaitSpecialOrderAsync(ScenarioStep step, CancellationToken ct)
@@ -2476,6 +2508,9 @@ public sealed class ScenarioRunner
         public int? HealthGte { get; set; }
         public bool? Swimming { get; set; }
         public bool? BathingClothes { get; set; }
+        public string? MailReceived { get; set; }
+        public string? MailForTomorrow { get; set; }
+        public string? EventSeen { get; set; }
         public string? BuffId { get; set; }
         public string? BuffSource { get; set; }
         public string? BuffEffect { get; set; }
