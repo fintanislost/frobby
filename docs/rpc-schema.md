@@ -1284,7 +1284,7 @@ Internally the handler calls `Game1.performTenMinuteClockUpdate` once per 10-min
 
 ### time.next_day
 
-Advances the active scenario through a deterministic testing day transition and returns the new date. This is not a `time.set` clone, but it also does not run SDV's full sleep/save/end-of-night UI. The handler raises SMAPI `GameLoop.DayEnding`, advances the SDV calendar by exactly one day, sets the clock to 06:00, raises SMAPI `GameLoop.DayStarted`, and returns the post-transition snapshot.
+Advances the active scenario through a deterministic testing day transition and returns the new date. This is not a `time.set` clone, but it also does not run SDV's full sleep/save/end-of-night UI. The handler raises SDV `DayEnding` trigger actions, raises SMAPI `GameLoop.DayEnding`, advances the SDV calendar by exactly one day, sets the clock to 06:00, raises SDV `DayStarted` trigger actions, raises SMAPI `GameLoop.DayStarted`, and returns the post-transition snapshot.
 
 Request:
 ```json
@@ -1306,8 +1306,8 @@ Response (invalid game state):
 When `time.next_day` is used as a runner scenario step, the runner retries the RPC briefly if the harness reports `time.next_day requires no active warp`. This covers the common UI-testing case where a semantic click has just closed a menu and the game is still settling. Scenario authors may override the retry window with `args.settle_timeout_ms` and `args.poll_ms`.
 
 **Preconditions:** an active scenario; world loaded; no active menu; no minigame; no event; not mid-warp.
-**Side effects:** raises exactly one SMAPI `DayEnding`, advances date/time deterministically, then raises exactly one SMAPI `DayStarted`. It does not save, show sleep/end-of-night menus, run overnight farm simulation, or execute SDV's full sleep transition.
-**Fallback seam:** production and unit tests use `DeterministicTimeNextDayTransition`, which applies the same 28-day season/year rollover and fires day-ending then day-started callbacks in order.
+**Side effects:** raises SDV `DayEnding` trigger actions, raises exactly one SMAPI `DayEnding`, advances date/time deterministically, raises SDV `DayStarted` trigger actions, then raises exactly one SMAPI `DayStarted`. It does not save, show sleep/end-of-night menus, run overnight farm simulation, or execute SDV's full sleep transition.
+**Fallback seam:** production and unit tests use `DeterministicTimeNextDayTransition`, which applies the same 28-day season/year rollover and fires trigger-action and SMAPI day-ending/day-started callbacks in order.
 **Implemented in:** `src/Harness/Handlers/TimeNextDayHandler.cs`
 **Tested in:** `tests/Protocol.Tests/TimeNextDayResultSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/TimeNextDayHandlerTests.cs` (preconditions/projection/seam order) + `tests/Runner.Tests/ScenarioRunnerTests.cs` (runner active-warp retry).
 

@@ -9,6 +9,7 @@ using SdvTestFramework.Protocol.Models;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Triggers;
 
 namespace SdvTestFramework.Harness.Handlers;
 
@@ -89,7 +90,9 @@ internal interface ITimeNextDayWorld
     int TimeOfDay { get; set; }
 
     void MarkTransitionStarted();
+    void RaiseDayEndingTriggerActions();
     void NotifyDayEnding();
+    void RaiseDayStartedTriggerActions();
     void NotifyDayStarted();
 }
 
@@ -123,6 +126,7 @@ internal sealed class DeterministicTimeNextDayTransition : ITimeNextDayTransitio
         var next = TimeNextDayCalendar.Next(world.Year, world.Season, world.DayOfMonth);
 
         world.MarkTransitionStarted();
+        world.RaiseDayEndingTriggerActions();
         world.NotifyDayEnding();
 
         world.Year = next.Year;
@@ -130,6 +134,7 @@ internal sealed class DeterministicTimeNextDayTransition : ITimeNextDayTransitio
         world.DayOfMonth = next.DayOfMonth;
         world.TimeOfDay = 600;
 
+        world.RaiseDayStartedTriggerActions();
         world.NotifyDayStarted();
     }
 }
@@ -256,8 +261,14 @@ internal sealed class SdvTimeNextDayWorld : ITimeNextDayWorld
 
     public void MarkTransitionStarted() { }
 
+    public void RaiseDayEndingTriggerActions()
+        => TriggerActionManager.Raise("DayEnding", null, null, null, null, null);
+
     public void NotifyDayEnding()
         => EventSink.RaiseDayEnding();
+
+    public void RaiseDayStartedTriggerActions()
+        => TriggerActionManager.Raise("DayStarted", null, null, null, null, null);
 
     public void NotifyDayStarted()
         => EventSink.RaiseDayStarted();

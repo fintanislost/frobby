@@ -107,8 +107,10 @@ public class TimeNextDayHandlerTests
         Assert.Equal(new[]
         {
             "transition-started",
+            "trigger-day-ending",
             "day-ending",
             "date:2/spring/1 time:600",
+            "trigger-day-started",
             "day-started",
         }, world.Events);
     }
@@ -202,6 +204,8 @@ public class TimeNextDayHandlerTests
 
     private sealed class FakeTimeNextDayWorld : ITimeNextDayWorld
     {
+        private int _timeOfDay;
+
         public bool IsScenarioActive { get; set; }
         public bool IsWorldReady { get; set; }
         public bool IsMenuOpen { get; set; }
@@ -212,7 +216,17 @@ public class TimeNextDayHandlerTests
         public int Year { get; set; }
         public string Season { get; set; } = "spring";
         public int DayOfMonth { get; set; }
-        public int TimeOfDay { get; set; }
+        public int TimeOfDay
+        {
+            get => _timeOfDay;
+            set
+            {
+                _timeOfDay = value;
+                if (TransitionCalls > 0 && value == 600)
+                    Events.Add($"date:{Year}/{Season}/{DayOfMonth} time:{TimeOfDay}");
+            }
+        }
+
         public int TransitionCalls { get; set; }
         public List<string> Callbacks { get; } = new();
         public List<string> Events { get; } = new();
@@ -229,10 +243,15 @@ public class TimeNextDayHandlerTests
             Events.Add("day-ending");
         }
 
+        public void RaiseDayEndingTriggerActions()
+            => Events.Add("trigger-day-ending");
+
+        public void RaiseDayStartedTriggerActions()
+            => Events.Add("trigger-day-started");
+
         public void NotifyDayStarted()
         {
             Callbacks.Add("day-started");
-            Events.Add($"date:{Year}/{Season}/{DayOfMonth} time:{TimeOfDay}");
             Events.Add("day-started");
         }
     }
