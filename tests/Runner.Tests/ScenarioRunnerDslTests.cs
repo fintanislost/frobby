@@ -243,6 +243,35 @@ public class ScenarioRunnerDslTests
     }
 
     [Fact]
+    public async Task StateAssertion_StringArrayNotContains_MatchesAbsence()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithStateJson(
+            socket,
+            "{\"name\":\"x\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}",
+            "{\"unique_ids\":[\"FlashShifter.SVECode\",\"Pathoschild.ContentPatcher\"],\"mods\":[]}");
+        using var _ = cts; using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "string_array_not_contains",
+            Assertions = new()
+            {
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.unique_ids not contains 'Missing.Mod'" },
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.unique_ids not contains 'FlashShifter.SVECode'" },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.Equal(2, report.AssertionsRun);
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Single(report.Failures);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task StateAssertion_ObjectArrayContains_MatchesField()
     {
         var socket = SocketPath();
@@ -260,6 +289,35 @@ public class ScenarioRunnerDslTests
             {
                 new ScenarioAssertion { Type = "state", Expr = "state.mods.mods contains unique_id 'FlashShifter.SVECode'" },
                 new ScenarioAssertion { Type = "state", Expr = "state.mods.mods contains unique_id 'Missing.Mod'" },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.Equal(2, report.AssertionsRun);
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Single(report.Failures);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task StateAssertion_ObjectArrayNotContains_MatchesFieldAbsence()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithStateJson(
+            socket,
+            "{\"name\":\"x\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}",
+            "{\"unique_ids\":[],\"mods\":[{\"unique_id\":\"FlashShifter.SVECode\",\"name\":\"SVE\",\"version\":\"1.0.0\"},{\"unique_id\":\"Pathoschild.ContentPatcher\",\"name\":\"CP\",\"version\":\"2.0.0\"}]}");
+        using var _ = cts; using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "object_array_not_contains",
+            Assertions = new()
+            {
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.mods not contains unique_id 'Missing.Mod'" },
+                new ScenarioAssertion { Type = "state", Expr = "state.mods.mods not contains unique_id 'FlashShifter.SVECode'" },
             },
         };
         var report = await runner.RunAsync(spec, cts.Token);

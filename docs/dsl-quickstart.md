@@ -149,6 +149,11 @@ JSON runner scenarios can observe cutscenes and other Stardew events with
 { "action": "wait.event_complete", "args": { "id": "520702", "timeout_ms": 30000 } }
 ```
 
+State array assertions support both presence and absence checks. Use
+`state.<method>.<array> contains '<value>'` for string arrays,
+`state.<method>.<array> contains <field> '<value>'` for object arrays, and
+insert `not` before `contains` to assert the value is absent.
+
 Use `screenshot.capture_next_frame` for active events because `freeze.begin`
 intentionally rejects cutscenes while `Game1.eventUp` is true.
 

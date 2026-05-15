@@ -2829,7 +2829,7 @@ public sealed class ScenarioRunner
             {
                 // Minimal DSL: "state.<method>.<field>[.<subfield>...] == <literal>"
                 //           or "state.<method>.<field>[.<subfield>...] != <literal>"
-                //           or "state.<method>.<array> contains [field] '<literal>'.
+                //           or "state.<method>.<array> [not] contains [field] '<literal>'.
                 // RHS literal: single/double-quoted string, integer, or boolean. Anything
                 // more expressive is deferred — scenarios needing richer logic compose
                 // multiple assertions.
@@ -2837,13 +2837,14 @@ public sealed class ScenarioRunner
 
                 var containsMatch = System.Text.RegularExpressions.Regex.Match(
                     a.Expr.Trim(),
-                    @"^state\.([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\4$");
+                    @"^state\.(?<method>[A-Za-z_][A-Za-z0-9_]*)\.(?<array>[A-Za-z_][A-Za-z0-9_]*)\s+(?:(?<not>not)\s+)?contains(?:\s+(?<field>[A-Za-z_][A-Za-z0-9_]*))?\s+(?<quote>['""])(?<literal>.*?)\k<quote>$");
                 if (containsMatch.Success)
                 {
-                    var containsMethod = $"state.{containsMatch.Groups[1].Value}";
-                    var arrayProperty = containsMatch.Groups[2].Value;
-                    var objectField = containsMatch.Groups[3].Success ? containsMatch.Groups[3].Value : null;
-                    var literal = containsMatch.Groups[5].Value;
+                    var containsMethod = $"state.{containsMatch.Groups["method"].Value}";
+                    var arrayProperty = containsMatch.Groups["array"].Value;
+                    var objectField = containsMatch.Groups["field"].Success ? containsMatch.Groups["field"].Value : null;
+                    var literal = containsMatch.Groups["literal"].Value;
+                    var negatedContains = containsMatch.Groups["not"].Success;
 
                     var containsResp = await _session.InvokeAsync(containsMethod, a.Params, ct);
                     if (containsResp.Error is not null || containsResp.Result is not { } containsRoot)
@@ -2855,7 +2856,7 @@ public sealed class ScenarioRunner
                     if (!containsRoot.TryGetProperty(arrayProperty, out var array) || array.ValueKind != JsonValueKind.Array)
                     {
                         await TryCaptureAssertionFailureAsync(ct);
-                        return (false, $"state.{containsMatch.Groups[1].Value}.{arrayProperty} was not an array");
+                        return (false, $"state.{containsMatch.Groups["method"].Value}.{arrayProperty} was not an array");
                     }
 
                     var matched = false;
@@ -2878,8 +2879,11 @@ public sealed class ScenarioRunner
                             break;
                     }
 
-                    if (!matched) await TryCaptureAssertionFailureAsync(ct);
-                    return (matched, matched ? null : $"expected {arrayProperty} to contain '{literal}'");
+                    var passed = negatedContains ? !matched : matched;
+                    if (!passed) await TryCaptureAssertionFailureAsync(ct);
+                    return (passed, passed ? null : negatedContains
+                        ? $"expected {arrayProperty} not to contain '{literal}'"
+                        : $"expected {arrayProperty} to contain '{literal}'");
                 }
 
                 // Split on the first occurrence of "!=" or "==" — "!=" checked first so that
