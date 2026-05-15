@@ -77,6 +77,15 @@ packs. Normal `sdv-test repo run` stages cached copies into the isolated test
 mods directory and does not read the user's live game `Mods` folder unless the
 repo config still contains explicit `${SDV_GAME_MODS}` paths.
 
+### Repo Profiles
+
+Large mods can define `profiles` in `sdv-test.config.json` for alternate packs
+or config-gated runs. Scenarios select a profile with top-level `"profile":
+"profile-id"`. Repo runs stage each profile into
+`.cache/frobby-test-mods/<cacheNamespace>/`; when `cacheNamespace` is omitted it
+defaults from the profile id. The user's playable Stardew `Mods` folder stays
+untouched.
+
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.

@@ -64,6 +64,9 @@ dotnet test
 By default the collection fixture launches one SDV subprocess per `dotnet test`
 invocation and reuses it across every `[Collection("SDV")]` test in the assembly.
 
+Use repo profiles for alternate mod/config packs. Keep pack-specific paths in
+`sdv-test.config.json`; keep assertions in scenario JSON.
+
 Environment knobs:
 
 - `SDV_MODS_PATH` — override the mods directory the harness is deployed to (default:

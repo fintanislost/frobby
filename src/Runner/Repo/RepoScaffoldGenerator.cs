@@ -310,7 +310,7 @@ public static class RepoScaffoldGenerator
 
     private static string Docs()
         =>
-            """
+            """""
             # FROBBY repo scaffold
 
             This repository is configured for `sdv-test repo run` and `sdv-test repo repeat`.
@@ -346,8 +346,42 @@ public static class RepoScaffoldGenerator
             `$SDV_TEST_MOD_CACHE`; it does not read your playable Stardew `Mods` folder
             unless this repo explicitly keeps `${SDV_GAME_MODS}` paths in `extraMods`.
 
+            ## Test profiles
+
+            Use `profiles` when a scenario needs a different mod/config set than the default
+            core suite. A scenario declares its environment with a top-level `profile` field:
+
+            ```json
+            {
+              "name": "alternate_pack_loads",
+              "profile": "alternate-pack",
+              "steps": []
+            }
+            ```
+
+            Profiles can inherit shared dependencies and repo-owned mods:
+
+            ```json
+            "profiles": {
+              "core": {
+                "deps": [{ "id": "Pathoschild.ContentPatcher" }],
+                "extraMods": ["bin/Release/net6.0"]
+              },
+              "alternate-pack": {
+                "inherits": "core",
+                "extraMods": ["packs/Alternate Pack"],
+                "cacheNamespace": "alternate-pack"
+              }
+            }
+            ```
+
+            Profile runs stage mods into `.cache/frobby-test-mods/<cacheNamespace>/`, which
+            is separate from the playable Stardew `Mods` folder. Use `configOverlays` only
+            when a profile needs to copy a known repo file into a staged mod folder before
+            launch.
+
             Repo commands default to headless runs. Pass `--visible` when debugging locally.
-            """;
+            """"";
 
     private static string ReadRequiredValue(ReadOnlyMemory<string> args, ref int index, string option)
     {

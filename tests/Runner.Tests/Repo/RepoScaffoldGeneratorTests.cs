@@ -94,6 +94,14 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("repo deps doctor", docsText);
         Assert.Contains("deps", docsText);
         Assert.Contains("extraMods", docsText);
+        Assert.Contains("\"profiles\"", docsText);
+        Assert.Contains("\"profile\"", docsText);
+        Assert.Contains("configOverlays", docsText);
+        Assert.Contains(".cache/frobby-test-mods", docsText);
+        Assert.Equal(0, Count(docsText, "```") % 2);
+        Assert.Contains("```json", docsText);
+        Assert.Contains("\"profiles\": {", docsText);
+        Assert.Contains("\"cacheNamespace\": \"alternate-pack\"", docsText);
         Assert.Contains("FROBBY_ROOT", scriptText);
         Assert.Contains("../frobby/sdv-test-framework", scriptText);
         Assert.Contains("--visible", docsText);
@@ -225,6 +233,19 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
             Assert.DoesNotContain("star" + "berg", text);
             Assert.DoesNotContain("sto" + "nks", text);
         }
+    }
+
+    private static int Count(string value, string expected)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = value.IndexOf(expected, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += expected.Length;
+        }
+
+        return count;
     }
 
     private static RepoScaffoldOptions DefaultOptions()

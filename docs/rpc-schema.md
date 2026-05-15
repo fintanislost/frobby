@@ -25,6 +25,10 @@ Implemented and tested in `tests/Protocol.Tests/UnixSocketRpcTests.cs`.
 
 ## Methods
 
+Scenario files may include top-level `"profile": "profile-id"` when run through
+`sdv-test repo run`. The profile is resolved from `sdv-test.config.json` before
+Stardew launches.
+
 ### scenario.begin
 
 Opens a new scenario session. Pins `Game1.random` to `params.seed`, resets the process-wide
