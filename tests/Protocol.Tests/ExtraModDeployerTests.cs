@@ -122,4 +122,130 @@ public class ExtraModDeployerTests
                 Directory.Delete(root, recursive: true);
         }
     }
+
+    [Fact]
+    public void ApplyConfigOverlays_CopiesSourceIntoDeployedMod()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-overlay-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var targetMod = Path.Combine(mods, "Example.Mod");
+        var source = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(targetMod);
+        try
+        {
+            File.WriteAllText(source, "{\"enabled\":true}");
+            var lastWrite = new DateTime(2026, 5, 14, 12, 0, 0, DateTimeKind.Utc);
+            File.SetLastWriteTimeUtc(source, lastWrite);
+
+            ExtraModDeployer.ApplyConfigOverlays(
+                mods,
+                new[]
+                {
+                    new ExtraModConfigOverlay(source, "Example.Mod", "config/settings.json"),
+                });
+
+            var target = Path.Combine(targetMod, "config", "settings.json");
+            Assert.True(File.Exists(target));
+            Assert.Equal("{\"enabled\":true}", File.ReadAllText(target));
+            Assert.Equal(lastWrite, File.GetLastWriteTimeUtc(target));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("../escape.json")]
+    [InlineData("..\\escape.json")]
+    [InlineData("/escape.json")]
+    [InlineData("\\escape.json")]
+    [InlineData("C:\\escape.json")]
+    [InlineData("config/./escape.json")]
+    [InlineData("config\\..\\escape.json")]
+    public void ApplyConfigOverlays_RejectsTargetPathsOutsideMod(string targetPath)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-overlay-bad-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var targetMod = Path.Combine(mods, "Example.Mod");
+        var source = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(targetMod);
+        try
+        {
+            File.WriteAllText(source, "{}");
+
+            var ex = Assert.Throws<InvalidOperationException>(() => ExtraModDeployer.ApplyConfigOverlays(
+                mods,
+                new[]
+                {
+                    new ExtraModConfigOverlay(source, "Example.Mod", targetPath),
+                }));
+
+            Assert.Contains("overlay target must stay inside deployed mod", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData(".")]
+    [InlineData("..")]
+    [InlineData("../Example.Mod")]
+    [InlineData("C:\\Example.Mod")]
+    public void ApplyConfigOverlays_RejectsUnsafeTargetModIds(string targetModId)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-overlay-bad-id-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var source = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(mods);
+        try
+        {
+            File.WriteAllText(source, "{}");
+
+            var ex = Assert.Throws<InvalidOperationException>(() => ExtraModDeployer.ApplyConfigOverlays(
+                mods,
+                new[]
+                {
+                    new ExtraModConfigOverlay(source, targetModId, "config.json"),
+                }));
+
+            Assert.Contains("overlay target mod id is not valid", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ApplyConfigOverlays_MissingTargetModThrowsClearError()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-overlay-missing-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var source = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(mods);
+        try
+        {
+            File.WriteAllText(source, "{}");
+
+            var ex = Assert.Throws<DirectoryNotFoundException>(() => ExtraModDeployer.ApplyConfigOverlays(
+                mods,
+                new[]
+                {
+                    new ExtraModConfigOverlay(source, "Example.Missing", "config.json"),
+                }));
+
+            Assert.Contains("Example.Missing", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
 }

@@ -24,6 +24,48 @@ public static class ExtraModDeployer
         return deployed;
     }
 
+    public static void ApplyConfigOverlays(string modsPath, IEnumerable<ExtraModConfigOverlay> overlays)
+    {
+        if (string.IsNullOrWhiteSpace(modsPath))
+            throw new ArgumentException("modsPath required", nameof(modsPath));
+        if (overlays is null)
+            throw new ArgumentNullException(nameof(overlays));
+
+        var fullModsPath = NormalizeDirectoryPath(modsPath);
+        foreach (var overlay in overlays)
+        {
+            if (string.IsNullOrWhiteSpace(overlay.SourcePath))
+                throw new ArgumentException("overlay source path required", nameof(overlays));
+            if (string.IsNullOrWhiteSpace(overlay.TargetModUniqueId))
+                throw new ArgumentException("overlay target mod id required", nameof(overlays));
+            if (string.IsNullOrWhiteSpace(overlay.TargetRelativePath))
+                throw new ArgumentException("overlay target relative path required", nameof(overlays));
+            if (!File.Exists(overlay.SourcePath))
+                throw new FileNotFoundException($"config overlay source not found: {overlay.SourcePath}", overlay.SourcePath);
+
+            ValidateOverlayTargetModId(overlay.TargetModUniqueId);
+            var targetModDir = NormalizeDirectoryPath(
+                Path.Combine(fullModsPath, SanitizeFolderName(overlay.TargetModUniqueId)));
+            if (!Directory.Exists(targetModDir))
+                throw new DirectoryNotFoundException(
+                    $"config overlay target mod not found: {overlay.TargetModUniqueId}");
+
+            ValidateOverlayTargetRelativePath(overlay.TargetRelativePath);
+
+            var normalizedRelativePath = overlay.TargetRelativePath
+                .Replace('\\', Path.DirectorySeparatorChar)
+                .Replace('/', Path.DirectorySeparatorChar);
+            var targetPath = Path.GetFullPath(Path.Combine(targetModDir, normalizedRelativePath));
+            if (!IsSubPathOf(targetPath, targetModDir))
+                throw new InvalidOperationException(
+                    $"overlay target must stay inside deployed mod: {overlay.TargetRelativePath}");
+
+            Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+            File.Copy(overlay.SourcePath, targetPath, overwrite: true);
+            File.SetLastWriteTimeUtc(targetPath, File.GetLastWriteTimeUtc(overlay.SourcePath));
+        }
+    }
+
     public static string Deploy(string modsPath, string modPath)
     {
         if (string.IsNullOrWhiteSpace(modsPath))
@@ -79,6 +121,39 @@ public static class ExtraModDeployer
             value = value.Replace(c, '_');
 
         return value;
+    }
+
+    private static void ValidateOverlayTargetModId(string targetModId)
+    {
+        if (targetModId is "." or ".."
+            || targetModId.Contains('/', StringComparison.Ordinal)
+            || targetModId.Contains('\\', StringComparison.Ordinal)
+            || targetModId.Contains(':', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"overlay target mod id is not valid: {targetModId}");
+        }
+    }
+
+    private static void ValidateOverlayTargetRelativePath(string targetRelativePath)
+    {
+        if (Path.IsPathRooted(targetRelativePath)
+            || targetRelativePath.StartsWith("/", StringComparison.Ordinal)
+            || targetRelativePath.StartsWith("\\", StringComparison.Ordinal)
+            || targetRelativePath.Contains(':', StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"overlay target must stay inside deployed mod: {targetRelativePath}");
+        }
+
+        var components = targetRelativePath.Split(new[] { '/', '\\' }, StringSplitOptions.None);
+        foreach (var component in components)
+        {
+            if (component is "." or "..")
+            {
+                throw new InvalidOperationException(
+                    $"overlay target must stay inside deployed mod: {targetRelativePath}");
+            }
+        }
     }
 
     private static string NormalizeDirectoryPath(string path)

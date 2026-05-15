@@ -26,8 +26,11 @@ public static class RunCommand
         // ---- parse args ----
         var paths = new List<string>();
         var extraMods = new List<string>();
+        var configOverlays = new List<ExtraModConfigOverlay>();
         string? filter = null;
         string? modsPath = null;
+        string? profileId = null;
+        string? profileCacheNamespace = null;
         string reporterName = "console";
         string? outputPath = null;
         bool watch = false;
@@ -44,6 +47,38 @@ public static class RunCommand
             if (a == "--filter" && i + 1 < args.Length) { filter = args.Span[++i]; continue; }
             if (a == "--mods-path" && i + 1 < args.Length) { modsPath = args.Span[++i]; continue; }
             if (a == "--extra-mod" && i + 1 < args.Length) { extraMods.Add(args.Span[++i]); continue; }
+            if (a == "--profile-id" && i + 1 < args.Length) { profileId = args.Span[++i]; continue; }
+            if (a == "--profile-cache-namespace" && i + 1 < args.Length) { profileCacheNamespace = args.Span[++i]; continue; }
+            if (a == "--config-overlay")
+            {
+                if (!TryReadRunOptionValue(args, ref i, a, out var source, out var sourceError))
+                {
+                    Console.Error.WriteLine(sourceError);
+                    return 2;
+                }
+                if (!TryReadRunOptionValue(args, ref i, a, out var targetMod, out var targetModError))
+                {
+                    Console.Error.WriteLine(targetModError);
+                    return 2;
+                }
+                if (!TryReadRunOptionValue(args, ref i, a, out var targetPath, out var targetPathError))
+                {
+                    Console.Error.WriteLine(targetPathError);
+                    return 2;
+                }
+                if (LooksLikeScenarioPath(targetPath!))
+                {
+                    Console.Error.WriteLine(
+                        $"[run] --config-overlay target path '{targetPath}' looks like a scenario path; expected <source> <target-mod> <target-path>");
+                    return 2;
+                }
+
+                configOverlays.Add(new ExtraModConfigOverlay(
+                    SourcePath: source!,
+                    TargetModUniqueId: targetMod!,
+                    TargetRelativePath: targetPath!));
+                continue;
+            }
             if (a == "--reporter" && i + 1 < args.Length) { reporterName = args.Span[++i]; continue; }
             if (a == "--output" && i + 1 < args.Length) { outputPath = args.Span[++i]; continue; }
             if (a == "--watch") { watch = true; continue; }
@@ -118,10 +153,44 @@ public static class RunCommand
             Tier: runWideTier,
             NoCacheCleanup: noCacheCleanup,
             Headless: headless,
+            ProfileId: profileId,
+            ProfileCacheNamespace: profileCacheNamespace,
+            ConfigOverlays: configOverlays,
             PreCreatedRunDir: runDir);
 
         return await RunFromOptions(opts, ct);
     }
+
+    private static bool TryReadRunOptionValue(
+        ReadOnlyMemory<string> args,
+        ref int index,
+        string option,
+        out string? value,
+        out string error)
+    {
+        value = null;
+        error = string.Empty;
+        if (index + 1 >= args.Length)
+        {
+            error = $"[run] {option} requires a value";
+            return false;
+        }
+
+        var next = args.Span[++index];
+        if (next.StartsWith("-", StringComparison.Ordinal))
+        {
+            error = $"[run] {option} requires a value";
+            return false;
+        }
+
+        value = next;
+        return true;
+    }
+
+    private static bool LooksLikeScenarioPath(string value)
+        => Directory.Exists(value)
+            || (File.Exists(value)
+                && value.EndsWith(".test.json", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Post-argv-parse half of the run flow: resolve reporter + output sink + mods path,
@@ -167,6 +236,7 @@ public static class RunCommand
                 opts.ExtraMods
                     .Concat(ExtraModDeployer.ParseEnvList(Environment.GetEnvironmentVariable("SDV_EXTRA_MODS")))
                     .Distinct(StringComparer.Ordinal));
+            ExtraModDeployer.ApplyConfigOverlays(modsPath, opts.ConfigOverlays);
         }
         catch (Exception ex) when (ex is ArgumentException
             or DirectoryNotFoundException

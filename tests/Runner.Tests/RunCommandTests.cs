@@ -185,6 +185,109 @@ public class RunCommandTests
     }
 
     [Fact]
+    public async Task Run_ConfigOverlayFlag_AppliesOverlayAfterExtraModDeploy()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"run-overlay-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var scenarios = Path.Combine(root, "scenarios");
+        var extra = Path.Combine(root, "extra");
+        var overlay = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(mods);
+        Directory.CreateDirectory(scenarios);
+        Directory.CreateDirectory(extra);
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(extra, "manifest.json"),
+                "{\"Name\":\"Probe\",\"UniqueID\":\"Example.Probe\",\"EntryDll\":\"Probe.dll\"}");
+            File.WriteAllText(Path.Combine(extra, "Probe.dll"), "not real");
+            File.WriteAllText(overlay, "{\"enabled\":true}");
+
+            var outW = new StringWriter();
+            var priorOut = Console.Out;
+            Console.SetOut(outW);
+            int exit;
+            try
+            {
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[]
+                    {
+                        "--mods-path", mods,
+                        "--extra-mod", extra,
+                        "--config-overlay", overlay, "Example.Probe", "config.json",
+                        scenarios,
+                    }),
+                    CancellationToken.None);
+            }
+            finally { Console.SetOut(priorOut); }
+
+            Assert.Equal(0, exit);
+            Assert.True(File.Exists(Path.Combine(mods, "Example.Probe", "config.json")));
+            Assert.Equal("{\"enabled\":true}", File.ReadAllText(Path.Combine(mods, "Example.Probe", "config.json")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Run_ConfigOverlayFlag_MissingTargetPathBeforeScenarioDirReturnsTwo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"run-overlay-missing-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var scenarios = Path.Combine(root, "scenarios");
+        var extra = Path.Combine(root, "extra");
+        var overlay = Path.Combine(root, "overlay.json");
+        Directory.CreateDirectory(mods);
+        Directory.CreateDirectory(scenarios);
+        Directory.CreateDirectory(extra);
+        try
+        {
+            File.WriteAllText(
+                Path.Combine(extra, "manifest.json"),
+                "{\"Name\":\"Probe\",\"UniqueID\":\"Example.Probe\",\"EntryDll\":\"Probe.dll\"}");
+            File.WriteAllText(Path.Combine(extra, "Probe.dll"), "not real");
+            File.WriteAllText(overlay, "{}");
+            File.WriteAllText(Path.Combine(scenarios, "broken.test.json"), "{not json");
+
+            var errW = new StringWriter();
+            var priorErr = Console.Error;
+            var priorCwd = Directory.GetCurrentDirectory();
+            Console.SetError(errW);
+            int exit;
+            try
+            {
+                Directory.SetCurrentDirectory(root);
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[]
+                    {
+                        "--no-report",
+                        "--mods-path", "mods",
+                        "--extra-mod", "extra",
+                        "--config-overlay", "overlay.json", "Example.Probe", "scenarios",
+                    }),
+                    CancellationToken.None);
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(priorCwd);
+                Console.SetError(priorErr);
+            }
+
+            Assert.Equal(2, exit);
+            Assert.Contains("--config-overlay", errW.ToString());
+            Assert.False(File.Exists(Path.Combine(mods, "Example.Probe", "scenarios")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Run_ExtraModMissingManifest_ReturnsTwo()
     {
         var root = Path.Combine(Path.GetTempPath(), $"run-extra-bad-{Guid.NewGuid():N}");

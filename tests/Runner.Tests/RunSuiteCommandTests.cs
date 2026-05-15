@@ -82,6 +82,102 @@ public class RunSuiteCommandTests
     }
 
     [Fact]
+    public async Task RunSuite_ConfigOverlayFlag_IsPassedToChildRun()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"suite-overlay-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var scenario = Path.Combine(root, "a.test.json");
+            File.WriteAllText(scenario, """{"name":"a","steps":[]}""");
+            var calls = new List<string[]>();
+            var original = RunSuiteCommand.RunExecutor;
+            RunSuiteCommand.RunExecutor = (args, _) =>
+            {
+                calls.Add(args.ToArray());
+                return Task.FromResult(0);
+            };
+
+            try
+            {
+                var exit = await RunSuiteCommand.RunAsync(
+                    new[]
+                    {
+                        "--config-overlay", "/tmp/source.json", "Example.Mod", "config.json",
+                        "--profile-id", "profile-a",
+                        root,
+                    }.AsMemory(),
+                    CancellationToken.None);
+
+                Assert.Equal(0, exit);
+            }
+            finally
+            {
+                RunSuiteCommand.RunExecutor = original;
+            }
+
+            var call = Assert.Single(calls);
+            Assert.Contains("--config-overlay", call);
+            Assert.Contains("/tmp/source.json", call);
+            Assert.Contains("Example.Mod", call);
+            Assert.Contains("config.json", call);
+            Assert.Contains("--profile-id", call);
+            Assert.Contains("profile-a", call);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunSuite_ConfigOverlayFlag_MissingTargetPathBeforeScenarioDirReturnsTwo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"suite-overlay-missing-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "a.test.json"), """{"name":"a","steps":[]}""");
+            var calls = 0;
+            var original = RunSuiteCommand.RunExecutor;
+            RunSuiteCommand.RunExecutor = (_, _) =>
+            {
+                calls++;
+                return Task.FromResult(0);
+            };
+            var errW = new StringWriter();
+            var priorErr = Console.Error;
+            Console.SetError(errW);
+
+            try
+            {
+                var exit = await RunSuiteCommand.RunAsync(
+                    new[]
+                    {
+                        "--config-overlay", "/tmp/source.json", "Example.Mod", root,
+                    }.AsMemory(),
+                    CancellationToken.None);
+
+                Assert.Equal(2, exit);
+            }
+            finally
+            {
+                Console.SetError(priorErr);
+                RunSuiteCommand.RunExecutor = original;
+            }
+
+            Assert.Equal(0, calls);
+            Assert.Contains("--config-overlay", errW.ToString());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task RunSuite_FilterMatchesScenarioNamesBeforeInvokingRuns()
     {
         var root = Path.Combine(Path.GetTempPath(), $"suite-filter-{Guid.NewGuid():N}");

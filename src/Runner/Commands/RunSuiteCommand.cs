@@ -170,12 +170,32 @@ public static class RunSuiteCommand
 
                 case "--mods-path":
                 case "--extra-mod":
+                case "--profile-id":
+                case "--profile-cache-namespace":
                 case "--tier":
                 case "--diff-format":
                     if (!TryReadValue(args, ref i, value, out var argValue, out var error))
                         return ParseResult.Fail(error);
                     passThrough.Add(value);
                     passThrough.Add(argValue!);
+                    continue;
+
+                case "--config-overlay":
+                    if (!TryReadValue(args, ref i, value, out var source, out var sourceError))
+                        return ParseResult.Fail(sourceError);
+                    if (!TryReadValue(args, ref i, value, out var targetMod, out var targetModError))
+                        return ParseResult.Fail(targetModError);
+                    if (!TryReadValue(args, ref i, value, out var targetPath, out var targetPathError))
+                        return ParseResult.Fail(targetPathError);
+                    if (LooksLikeScenarioPath(targetPath!))
+                    {
+                        return ParseResult.Fail(
+                            $"[suite] --config-overlay target path '{targetPath}' looks like a scenario path; expected <source> <target-mod> <target-path>");
+                    }
+                    passThrough.Add(value);
+                    passThrough.Add(source!);
+                    passThrough.Add(targetMod!);
+                    passThrough.Add(targetPath!);
                     continue;
 
                 case "--update-baselines":
@@ -220,6 +240,11 @@ public static class RunSuiteCommand
         value = args.Span[++index];
         return true;
     }
+
+    private static bool LooksLikeScenarioPath(string value)
+        => Directory.Exists(value)
+            || (File.Exists(value)
+                && value.EndsWith(".test.json", StringComparison.OrdinalIgnoreCase));
 
     private sealed record SuiteOptions(
         IReadOnlyList<string> Paths,

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Runner.Reports;
 
@@ -33,4 +34,8 @@ public sealed record RunCommandOptions(
     string Tier,
     bool NoCacheCleanup,
     bool Headless,
-    RunDirectory? PreCreatedRunDir);
+    string? ProfileId,
+    string? ProfileCacheNamespace,
+    IReadOnlyList<ExtraModConfigOverlay> ConfigOverlays,
+    RunDirectory? PreCreatedRunDir)
+;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Protocol.Scenarios;
@@ -135,6 +136,9 @@ public static class BaselinesCommand
             Tier: tier,
             NoCacheCleanup: false,
             Headless: false,
+            ProfileId: null,
+            ProfileCacheNamespace: null,
+            ConfigOverlays: Array.Empty<ExtraModConfigOverlay>(),
             PreCreatedRunDir: null);
 
         return await RunExecutor(opts, ct);

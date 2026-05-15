@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Runner.Commands;
 using SdvTestFramework.Runner.Reports;
@@ -40,6 +41,9 @@ public class RunMetadataBuilderTests
                 Tier: "generic",
                 NoCacheCleanup: false,
                 Headless: true,
+                ProfileId: null,
+                ProfileCacheNamespace: null,
+                ConfigOverlays: Array.Empty<ExtraModConfigOverlay>(),
                 PreCreatedRunDir: null);
 
             var metadata = RunMetadataBuilder.Build(
