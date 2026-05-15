@@ -119,14 +119,16 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
 
         Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", scriptText);
         Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", repeatText);
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", scriptText);
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", repeatText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", scriptText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", repeatText);
         Assert.Contains("unset FROBBY_ROOT", scriptText);
         Assert.Contains("unset FROBBY_ROOT", repeatText);
         Assert.Contains("exec dotnet run", scriptText);
         Assert.Contains("exec dotnet run", repeatText);
-        Assert.Contains("--project src/Runner/Runner.csproj", scriptText);
-        Assert.Contains("--project src/Runner/Runner.csproj", repeatText);
+        Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", scriptText);
+        Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", repeatText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", repeatText);
     }

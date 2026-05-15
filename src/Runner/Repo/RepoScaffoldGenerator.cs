@@ -253,9 +253,10 @@ public static class RepoScaffoldGenerator
             FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
+              FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
               cd "$FROBBY_SOURCE_ROOT"
               unset FROBBY_ROOT
-              exec dotnet run --project src/Runner/Runner.csproj -- repo run --repo-root "$REPO_ROOT" "$@"
+              exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo run --repo-root "$REPO_ROOT" "$@"
@@ -272,9 +273,10 @@ public static class RepoScaffoldGenerator
             FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
+              FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
               cd "$FROBBY_SOURCE_ROOT"
               unset FROBBY_ROOT
-              exec dotnet run --project src/Runner/Runner.csproj -- repo repeat --repo-root "$REPO_ROOT" "$@"
+              exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"
