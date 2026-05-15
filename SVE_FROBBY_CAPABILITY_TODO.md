@@ -117,10 +117,12 @@ Status key:
   - Done: neutral container item projection, contained-item waits, `festival.start`, `wait.event_active.is_festival`, and SVE scenario 19 (`sve_spirit_eve_chest`) verified headlessly against SVE's Spirit's Eve Golden Pumpkin chest behavior.
   - Follow-up candidates: movie theater NPC interaction coverage, grange judging assertions, festival shops, and passive festival map variants.
 
-- [ ] Pending: Slice 15, config packs and alternate farm variants.
+- [ ] Active: Slice 15, config packs and alternate farm variants.
   - SVE pressure: Grandpa's Farm, Immersive Farm 2 Remastered, Frontier Farm, low-memory options, and config-gated map/content changes.
   - Frobby goal: run tests against isolated mod/config sets, cache shared dependencies, and assert alternate farm registration and runtime map/content differences.
   - Candidate SVE proof: execute the same neutral location/content assertions against a selected alternate farm pack in an isolated dependency cache.
+  - Design spec: `docs/superpowers/specs/2026-05-14-sve-slice-15-config-pack-profiles-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-14-sve-slice-15-config-pack-profiles.md`.
 
 - [ ] Pending: Slice 16, late-game unlocks and trigger actions.
   - SVE pressure: event/mail-gated regions, minecart or bridge unlocks, trigger actions, shrines, and map mutations over progression.
