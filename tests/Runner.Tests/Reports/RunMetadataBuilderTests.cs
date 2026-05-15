@@ -77,6 +77,91 @@ public class RunMetadataBuilderTests
         }
     }
 
+    [Fact]
+    public void Build_RecordsProfileMetadataWhenPresent()
+    {
+        var opts = new RunCommandOptions(
+            Paths: new[] { "tests/sdv/20-profile.test.json" },
+            Filter: null,
+            ModsPath: "/tmp/example-mods",
+            ExtraMods: new[] { "/tmp/extra-a", "/tmp/extra-b" },
+            ReporterName: "console",
+            OutputPath: null,
+            Watch: false,
+            UpdateBaselines: false,
+            ReportDirPath: null,
+            NoReport: false,
+            DiffFormat: DiffFormat.Files,
+            Tier: "generic",
+            NoCacheCleanup: false,
+            Headless: true,
+            ProfileId: "sve-grandpas-farm",
+            ProfileCacheNamespace: "sve-grandpas-farm",
+            ConfigOverlays:
+            [
+                new ExtraModConfigOverlay(
+                    "/tmp/source.json",
+                    "Pathoschild.ContentPatcher",
+                    "config.json"),
+            ],
+            PreCreatedRunDir: null);
+
+        var metadata = RunMetadataBuilder.Build(
+            opts,
+            effectiveHeadless: true,
+            launcher: "xvfb-run",
+            command: "sdv-test run",
+            workingDirectory: Directory.GetCurrentDirectory());
+
+        Assert.NotNull(metadata.Profile);
+        Assert.Equal("sve-grandpas-farm", metadata.Profile.Id);
+        Assert.Equal("sve-grandpas-farm", metadata.Profile.CacheNamespace);
+        Assert.Equal("/tmp/example-mods", metadata.Profile.ModsPath);
+        Assert.Equal(["/tmp/extra-a", "/tmp/extra-b"], metadata.Profile.ExtraMods);
+        var overlay = Assert.Single(metadata.Profile.ConfigOverlays);
+        Assert.Equal("/tmp/source.json", overlay.SourcePath);
+        Assert.Equal("Pathoschild.ContentPatcher", overlay.TargetModUniqueId);
+        Assert.Equal("config.json", overlay.TargetRelativePath);
+    }
+
+    [Fact]
+    public void Build_ProfileMetadataFallsBackToProfileIdAndAllowsEmptyCollections()
+    {
+        var opts = new RunCommandOptions(
+            Paths: new[] { "tests/sdv/20-profile.test.json" },
+            Filter: null,
+            ModsPath: null,
+            ExtraMods: Array.Empty<string>(),
+            ReporterName: "console",
+            OutputPath: null,
+            Watch: false,
+            UpdateBaselines: false,
+            ReportDirPath: null,
+            NoReport: false,
+            DiffFormat: DiffFormat.Files,
+            Tier: "generic",
+            NoCacheCleanup: false,
+            Headless: true,
+            ProfileId: "core",
+            ProfileCacheNamespace: " ",
+            ConfigOverlays: Array.Empty<ExtraModConfigOverlay>(),
+            PreCreatedRunDir: null);
+
+        var metadata = RunMetadataBuilder.Build(
+            opts,
+            effectiveHeadless: true,
+            launcher: "xvfb-run",
+            command: "sdv-test run",
+            workingDirectory: Directory.GetCurrentDirectory());
+
+        Assert.NotNull(metadata.Profile);
+        Assert.Equal("core", metadata.Profile.Id);
+        Assert.Equal("core", metadata.Profile.CacheNamespace);
+        Assert.Null(metadata.Profile.ModsPath);
+        Assert.Empty(metadata.Profile.ExtraMods);
+        Assert.Empty(metadata.Profile.ConfigOverlays);
+    }
+
     private static string CreateGitRepo(string path)
     {
         Directory.CreateDirectory(path);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Runner.Commands;
 
@@ -27,13 +28,35 @@ internal static class RunMetadataBuilder
             AddRepository(repositories, seenRoots, "extra-mod", path);
         }
 
-        return new RunMetadata(
+        var metadata = new RunMetadata(
             Command: command ?? Environment.CommandLine,
             WorkingDirectory: cwd,
             LaunchMode: effectiveHeadless ? "headless" : "windowed",
             Headless: effectiveHeadless,
             Launcher: launcher,
             Repositories: repositories);
+
+        if (!string.IsNullOrWhiteSpace(opts.ProfileId))
+        {
+            metadata = metadata with
+            {
+                Profile = new RunProfileMetadata(
+                    opts.ProfileId!,
+                    string.IsNullOrWhiteSpace(opts.ProfileCacheNamespace)
+                        ? opts.ProfileId!
+                        : opts.ProfileCacheNamespace!,
+                    opts.ModsPath,
+                    opts.ExtraMods.ToArray(),
+                    opts.ConfigOverlays
+                        .Select(overlay => new RunConfigOverlayMetadata(
+                            overlay.SourcePath,
+                            overlay.TargetModUniqueId,
+                            overlay.TargetRelativePath))
+                        .ToArray()),
+            };
+        }
+
+        return metadata;
     }
 
     private static void AddRepository(

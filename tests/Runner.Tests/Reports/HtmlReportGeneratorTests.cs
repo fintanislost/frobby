@@ -170,6 +170,66 @@ public class HtmlReportGeneratorTests
     }
 
     [Fact]
+    public void Generate_RendersProfileMetadata()
+    {
+        var rd = MakeRunDir("profile");
+        try
+        {
+            var summary = new RunSummary(
+                rd.RunId,
+                DateTime.UtcNow.ToString("o"),
+                1,
+                Array.Empty<ScenarioOutcome>())
+            {
+                Metadata = new RunMetadata(
+                    "sdv-test run",
+                    "/repo",
+                    "headless",
+                    true,
+                    "xvfb-run",
+                    Array.Empty<RunRepositoryMetadata>())
+                {
+                    Profile = new RunProfileMetadata(
+                        "sve-<grandpas>&farm",
+                        "sve-\"grandpas\"",
+                        "/repo/.cache/frobby-test-mods/sve-grandpas-farm",
+                        ["/repo/Grandpa's Farm/[CP] <Grandpa>&Farm"],
+                        [new RunConfigOverlayMetadata("/repo/<config>&file.json", "Pathoschild.ContentPatcher", "config\"path\".json")]),
+                },
+            };
+
+            HtmlReportGenerator.Generate(rd, summary);
+
+            var json = File.ReadAllText(Path.Combine(rd.Root, "summary.json"));
+            Assert.Contains("\"profile\":", json);
+            Assert.Contains("\"cache_namespace\": \"sve-\\u0022grandpas\\u0022\"", json);
+            Assert.Contains("\"extra_mods\":", json);
+            Assert.Contains("\"config_overlays\":", json);
+            var roundTripped = JsonSerializer.Deserialize<RunSummary>(
+                json,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+            Assert.NotNull(roundTripped?.Metadata?.Profile);
+            Assert.Equal("sve-<grandpas>&farm", roundTripped!.Metadata!.Profile!.Id);
+            Assert.Equal("sve-\"grandpas\"", roundTripped.Metadata.Profile.CacheNamespace);
+            Assert.Equal("/repo/.cache/frobby-test-mods/sve-grandpas-farm", roundTripped.Metadata.Profile.ModsPath);
+            Assert.Equal("/repo/Grandpa's Farm/[CP] <Grandpa>&Farm", Assert.Single(roundTripped.Metadata.Profile.ExtraMods));
+            Assert.Equal("config\"path\".json", Assert.Single(roundTripped.Metadata.Profile.ConfigOverlays).TargetRelativePath);
+
+            var html = File.ReadAllText(Path.Combine(rd.Root, "index.html"));
+            Assert.Contains("sve-&lt;grandpas&gt;&amp;farm", html);
+            Assert.Contains("sve-&quot;grandpas&quot;", html);
+            Assert.Contains("frobby-test-mods", html);
+            Assert.Contains("Pathoschild.ContentPatcher", html);
+            Assert.Contains("&lt;Grandpa&gt;&amp;Farm", html);
+            Assert.Contains("/repo/&lt;config&gt;&amp;file.json", html);
+            Assert.Contains("config&quot;path&quot;.json", html);
+            Assert.DoesNotContain("sve-<grandpas>&farm", html);
+            Assert.DoesNotContain("<Grandpa>&Farm", html);
+        }
+        finally { Directory.Delete(rd.Root, recursive: true); }
+    }
+
+    [Fact]
     public void ScenarioReport_RendersStepScreenshotsNearMatchingStep()
     {
         var rd = MakeRunDir("stepshots");

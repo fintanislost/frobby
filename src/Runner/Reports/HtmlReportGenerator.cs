@@ -121,6 +121,46 @@ public static class HtmlReportGenerator
             sb.AppendLine("</tbody></table>");
         }
 
+        if (metadata.Profile is { } profile)
+        {
+            sb.AppendLine("<section class=\"run-profile\">");
+            sb.AppendLine("<h3>Profile</h3>");
+            sb.AppendLine("<dl>");
+            AppendDefinition(sb, "ID", profile.Id);
+            AppendDefinition(sb, "Cache namespace", profile.CacheNamespace);
+            if (!string.IsNullOrWhiteSpace(profile.ModsPath))
+                AppendDefinition(sb, "Mods path", profile.ModsPath);
+            sb.AppendLine("</dl>");
+
+            if (profile.ExtraMods.Count > 0)
+            {
+                sb.AppendLine("<h4>Staged mod sources</h4>");
+                sb.AppendLine("<ul>");
+                foreach (var extraMod in profile.ExtraMods)
+                    sb.Append("<li>").Append(WebUtility.HtmlEncode(extraMod)).AppendLine("</li>");
+                sb.AppendLine("</ul>");
+            }
+
+            if (profile.ConfigOverlays.Count > 0)
+            {
+                sb.AppendLine("<h4>Config overlays</h4>");
+                sb.AppendLine("<ul>");
+                foreach (var overlay in profile.ConfigOverlays)
+                {
+                    sb.Append("<li>")
+                        .Append(WebUtility.HtmlEncode(overlay.SourcePath))
+                        .Append(" -&gt; ")
+                        .Append(WebUtility.HtmlEncode(overlay.TargetModUniqueId))
+                        .Append("/")
+                        .Append(WebUtility.HtmlEncode(overlay.TargetRelativePath))
+                        .AppendLine("</li>");
+                }
+                sb.AppendLine("</ul>");
+            }
+
+            sb.AppendLine("</section>");
+        }
+
         sb.AppendLine("</section>");
     }
 

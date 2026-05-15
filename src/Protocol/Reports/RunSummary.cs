@@ -21,7 +21,25 @@ public sealed record RunMetadata(
     string LaunchMode,
     bool Headless,
     string Launcher,
-    IReadOnlyList<RunRepositoryMetadata> Repositories);
+    IReadOnlyList<RunRepositoryMetadata> Repositories)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RunProfileMetadata? Profile { get; init; }
+}
+
+/// <summary>Repo-local profile and staging metadata for a run.</summary>
+public sealed record RunProfileMetadata(
+    string Id,
+    string CacheNamespace,
+    string? ModsPath,
+    IReadOnlyList<string> ExtraMods,
+    IReadOnlyList<RunConfigOverlayMetadata> ConfigOverlays);
+
+/// <summary>One config overlay applied to a staged dependency mod.</summary>
+public sealed record RunConfigOverlayMetadata(
+    string SourcePath,
+    string TargetModUniqueId,
+    string TargetRelativePath);
 
 /// <summary>Git revision metadata for a repository that influenced the run.</summary>
 public sealed record RunRepositoryMetadata(
