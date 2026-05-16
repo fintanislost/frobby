@@ -86,6 +86,24 @@ or config-gated runs. Scenarios select a profile with top-level `"profile":
 defaults from the profile id. The user's playable Stardew `Mods` folder stays
 untouched.
 
+When a repo needs the same base fixture staged as another farm type, a scenario
+can apply a farm override while selecting the relevant profile:
+
+```json
+{
+  "name": "alternate_farm_profile",
+  "profile": "alternate-farm",
+  "fixture": "spring_day_1",
+  "save_overrides": {
+    "farm_type": {
+      "which_farm": "mod",
+      "mod_farm_id": "ExampleFarm"
+    }
+  },
+  "steps": []
+}
+```
+
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.
@@ -181,6 +199,11 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use `drop_box.deposit` for neutral donation-objective tests after proving the
   active order and drop box through `state.special_orders`. The action works from
   Stardew runtime special-order state and should not parse a mod's content packs.
+- Use scenario `save_overrides.farm_type` when a repo needs the same base fixture
+  staged as an additional or modded farm type. The override mutates only the
+  staged save copy and writes a derived save folder name, so standard and modded
+  variants of the same fixture can run in the same suite. Keep mod farm ids such
+  as `FrontierFarm` in repo scenarios rather than in Frobby code.
 
 See `docs/dsl-quickstart.md` for C# DSL usage, report behavior, text-fit
 assertions, bitmap baselines, and cache cleanup. See `docs/rpc-schema.md` for the

@@ -62,6 +62,6 @@ public sealed class ScenarioFarmTypeSaveOverride
     /// <summary>Farm kind. Currently only "mod" is supported.</summary>
     public string? WhichFarm { get; set; }
 
-    /// <summary>Opaque additional-farm id, such as "FrontierFarm".</summary>
+    /// <summary>Opaque additional-farm id, such as "ExampleFarm".</summary>
     public string? ModFarmId { get; set; }
 }

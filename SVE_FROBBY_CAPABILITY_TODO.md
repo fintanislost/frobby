@@ -134,6 +134,12 @@ Status key:
   - Done: `state.player.mail_for_tomorrow`, progression-aware `wait.player` filters for `mail_received`, `mail_for_tomorrow`, and `event_seen`, absent-array assertions, vanilla `DayEnding`/`DayStarted` trigger-action raises in `time.next_day`, and SVE scenarios 21-23 covering LocationChanged trigger actions, DayEnding mail scheduling, and Enchanted Grove map-action unlocks.
   - Follow-up candidates: Frontier Farm minecart/bridge/desert shortcut coverage once farm-type fixtures exist; direct trigger-action diagnostics if future mods need richer trigger introspection.
 
+- [ ] Active: Slice 17, alternate farm fixtures and Frontier Farm shortcut coverage.
+  - SVE pressure: Frontier Farm profile coverage requires the active save to resolve as an additional farm type before Content Patcher `FarmType: FrontierFarm` conditions and instant shortcut config patches can be proven.
+  - Frobby goal: stage neutral save overrides for modded farm types without mutating source fixtures or assuming SVE ids.
+  - Design spec: `docs/superpowers/specs/2026-05-15-sve-slice-17-frontier-farm-fixtures-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-15-sve-slice-17-frontier-farm-fixtures.md`.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
