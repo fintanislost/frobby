@@ -45,9 +45,8 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":true", result.Text);
-        Assert.Contains("\"assertions_run\":1", result.Text);
-        Assert.Contains("\"assertions_passed\":1", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: true, assertionsRun: 1, assertionsPassed: 1);
         Assert.Contains(life.Calls, call => call.Method == "state.player");
     }
 
@@ -71,10 +70,13 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":false", result.Text);
-        Assert.Contains("assertion 1 state", result.Text);
-        Assert.Contains("money seeded", result.Text);
-        Assert.Contains("state.player.money", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: false, assertionsRun: 1, assertionsPassed: 0);
+        var failures = GetFailures(json);
+        var failure = Assert.Single(failures);
+        Assert.Contains("assertion 1 state", failure);
+        Assert.Contains("money seeded", failure);
+        Assert.Contains("state.player.money", failure);
     }
 
     [Fact]
@@ -102,10 +104,11 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":true", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: true, assertionsRun: 1, assertionsPassed: 1);
         Assert.Contains(life.Calls, call =>
             call.Method == "state.npc"
-            && call.ParamsJson.Contains("\"name\":\"Sophia\"", StringComparison.Ordinal));
+            && CallParamStringEquals(call, "name", "Sophia"));
     }
 
     [Fact]
@@ -146,11 +149,12 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":true", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: true, assertionsRun: 1, assertionsPassed: 1);
         Assert.Contains(life.Calls, call =>
             call.Method == "content.asset"
-            && call.ParamsJson.Contains("\"name\":\"Maps/Custom_TownEast\"", StringComparison.Ordinal)
-            && call.ParamsJson.Contains("\"asset_type\":\"map\"", StringComparison.Ordinal));
+            && CallParamStringEquals(call, "name", "Maps/Custom_TownEast")
+            && CallParamStringEquals(call, "asset_type", "map"));
     }
 
     [Fact]
@@ -187,10 +191,11 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":true", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: true, assertionsRun: 1, assertionsPassed: 1);
         Assert.Contains(life.Calls, call =>
             call.Method == "state.fishing_table"
-            && call.ParamsJson.Contains("\"location\":\"Desert\"", StringComparison.Ordinal));
+            && CallParamStringEquals(call, "location", "Desert"));
     }
 
     [Fact]
@@ -217,8 +222,46 @@ public class RunScenarioAssertionParityTests
         });
 
         Assert.False(result.IsError);
-        Assert.Contains("\"passed\":true", result.Text);
+        var json = ParseResult(result);
+        AssertScenarioResult(json, passed: true, assertionsRun: 1, assertionsPassed: 1);
         Assert.Contains(life.Calls, call => call.Method == "draw.assert_not_contains");
+    }
+
+    private static JsonElement ParseResult(McpToolResult result)
+    {
+        using var doc = JsonDocument.Parse(result.Text);
+        return doc.RootElement.Clone();
+    }
+
+    private static void AssertScenarioResult(
+        JsonElement json,
+        bool passed,
+        int assertionsRun,
+        int assertionsPassed)
+    {
+        Assert.Equal(passed, json.GetProperty("passed").GetBoolean());
+        Assert.Equal(assertionsRun, json.GetProperty("assertions_run").GetInt32());
+        Assert.Equal(assertionsPassed, json.GetProperty("assertions_passed").GetInt32());
+    }
+
+    private static List<string> GetFailures(JsonElement json)
+    {
+        var failures = new List<string>();
+        foreach (var failure in json.GetProperty("failures").EnumerateArray())
+            failures.Add(failure.GetString() ?? "");
+
+        return failures;
+    }
+
+    private static bool CallParamStringEquals((string Method, string ParamsJson) call, string propertyName, string expected)
+    {
+        if (string.IsNullOrWhiteSpace(call.ParamsJson))
+            return false;
+
+        using var doc = JsonDocument.Parse(call.ParamsJson);
+        return doc.RootElement.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.String
+            && value.GetString() == expected;
     }
 
     private static async Task<(McpToolResult Result, RecordingLifecycle Life)> RunScenarioAsync(
