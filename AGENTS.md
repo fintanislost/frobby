@@ -23,8 +23,8 @@ only a fallback for shader, procedural, or full-frame visual behavior.
 - `docs/roadmap.md` is the prioritized project backlog.
 - `docs/milestones/current.md` tracks the current milestone and acceptance
   notes.
-- `docs/wiki/examples.md` points to real scenarios in Frobby, SVE, and Starberg
-  when those sibling repos are available locally.
+- `docs/wiki/examples.md` points to real scenarios in SVE and Starberg when
+  those sibling repos are available locally.
 
 ## Always-Loaded Rules
 

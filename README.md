@@ -213,7 +213,8 @@ JSON-RPC method reference and scenario action shapes.
 
 ```
 .
-├── CLAUDE.md                    # Project constitution (loaded at session start)
+├── AGENTS.md                    # Canonical agent guide and documentation rules
+├── CLAUDE.md                    # Compatibility pointer to AGENTS.md
 ├── .claude/
 │   ├── rules/                   # Modular convention docs, loaded on demand
 │   ├── agents/                  # Specialized subagents (spike-runner, reviewer, sdv-expert)
