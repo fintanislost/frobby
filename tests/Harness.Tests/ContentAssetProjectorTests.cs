@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using SdvTestFramework.Harness.Assets;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
+using StardewValley.GameData;
 using StardewValley.GameData.Locations;
 using Xunit;
 
@@ -118,6 +119,34 @@ public class ContentAssetProjectorTests
         Assert.True(entry["exists"]!.GetValue<bool>());
         Assert.Equal("Town East", entry["value"]!["display_name"]!.GetValue<string>());
         Assert.False(entry["value"]!["can_plant_here"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesAdditionalFarmKeys()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/AdditionalFarms", new Dictionary<string, ModFarmType>
+        {
+            ["Example.Mod/ExampleFarm"] = new(),
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/AdditionalFarms",
+            AssetType = "data",
+            IncludeKeys = true,
+            KeysLimit = 10,
+            EntryKeys = new[] { "Example.Mod/ExampleFarm" },
+        });
+
+        Assert.True(result.Exists);
+        Assert.Equal("data", result.Kind);
+        var keys = Assert.IsType<System.Text.Json.Nodes.JsonArray>(result.Summary["keys"]);
+        Assert.Contains(keys, node => node?.GetValue<string>() == "Example.Mod/ExampleFarm");
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var entry = entries["Example.Mod/ExampleFarm"]!;
+        Assert.True(entry["exists"]!.GetValue<bool>());
+        Assert.NotNull(entry["value"]);
     }
 
     [Fact]

@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Xna.Framework.Graphics;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
+using StardewValley.GameData;
 using StardewValley.GameData.Locations;
 using xTile;
 
@@ -87,6 +88,9 @@ public static class ContentAssetProjector
 
         if (loader.TryLoad<Dictionary<string, LocationData>>(req.Name, out var locationDict) && locationDict is not null)
             return Found(req.Name, "data", locationDict.GetType(), SummarizeDictionary(locationDict, req));
+
+        if (loader.TryLoad<Dictionary<string, ModFarmType>>(req.Name, out var modFarmDict) && modFarmDict is not null)
+            return Found(req.Name, "data", modFarmDict.GetType(), SummarizeDictionary(modFarmDict, req));
 
         return null;
     }
