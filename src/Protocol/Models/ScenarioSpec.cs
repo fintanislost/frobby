@@ -17,6 +17,9 @@ public sealed class ScenarioSpec
     /// <summary>Optional repo-local mod/config profile required by this scenario.</summary>
     public string? Profile { get; set; }
 
+    /// <summary>Optional save-file mutations applied only to staged fixture copies.</summary>
+    public ScenarioSaveOverrides? SaveOverrides { get; set; }
+
     /// <summary>Mods to ensure are loaded for this scenario.</summary>
     public List<string> Mods { get; set; } = new();
 
@@ -44,4 +47,21 @@ public sealed class ScenarioConfig
 
     /// <summary>[width, height] in pixels. Schema enforces exactly two ints.</summary>
     public int[] Resolution { get; set; } = { 1280, 720 };
+}
+
+/// <summary>Scenario-level staged save overrides. Source fixtures are never modified.</summary>
+public sealed class ScenarioSaveOverrides
+{
+    /// <summary>Optional farm-type override for additional/modded farm layouts.</summary>
+    public ScenarioFarmTypeSaveOverride? FarmType { get; set; }
+}
+
+/// <summary>Farm metadata override for a staged save copy.</summary>
+public sealed class ScenarioFarmTypeSaveOverride
+{
+    /// <summary>Farm kind. Currently only "mod" is supported.</summary>
+    public string? WhichFarm { get; set; }
+
+    /// <summary>Opaque additional-farm id, such as "FrontierFarm".</summary>
+    public string? ModFarmId { get; set; }
 }

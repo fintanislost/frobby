@@ -92,6 +92,76 @@ public class ScenarioLoaderTests
     }
 
     [Fact]
+    public void Load_WithSaveOverrides_RoundTripsFarmTypeOverride()
+    {
+        var path = WriteTemp("""
+{
+  "name": "frontier_fixture",
+  "fixture": "m0spike_436515781",
+  "save_overrides": {
+    "farm_type": {
+      "which_farm": "mod",
+      "mod_farm_id": "FrontierFarm"
+    }
+  },
+  "steps": []
+}
+""");
+
+        var spec = ScenarioLoader.Load(path);
+
+        Assert.NotNull(spec.SaveOverrides);
+        Assert.NotNull(spec.SaveOverrides!.FarmType);
+        Assert.Equal("mod", spec.SaveOverrides.FarmType!.WhichFarm);
+        Assert.Equal("FrontierFarm", spec.SaveOverrides.FarmType.ModFarmId);
+    }
+
+    [Fact]
+    public void Load_SaveOverrideFarmTypeWithoutModFarmId_Throws()
+    {
+        var path = WriteTemp("""
+{
+  "name": "bad_frontier_fixture",
+  "fixture": "m0spike_436515781",
+  "save_overrides": {
+    "farm_type": {
+      "which_farm": "mod"
+    }
+  },
+  "steps": []
+}
+""");
+
+        var ex = Assert.Throws<ScenarioLoadException>(() => ScenarioLoader.Load(path));
+
+        Assert.Contains("schema validation", ex.Message);
+        Assert.Contains("mod_farm_id", ex.Message);
+    }
+
+    [Fact]
+    public void Load_SaveOverrideUnsupportedFarmKind_Throws()
+    {
+        var path = WriteTemp("""
+{
+  "name": "bad_frontier_fixture",
+  "fixture": "m0spike_436515781",
+  "save_overrides": {
+    "farm_type": {
+      "which_farm": "standard",
+      "mod_farm_id": "FrontierFarm"
+    }
+  },
+  "steps": []
+}
+""");
+
+        var ex = Assert.Throws<ScenarioLoadException>(() => ScenarioLoader.Load(path));
+
+        Assert.Contains("schema validation", ex.Message);
+        Assert.Contains("which_farm", ex.Message);
+    }
+
+    [Fact]
     public void Load_WaitPlayerProgressionArgs_RoundTrips()
     {
         var path = WriteTemp("""

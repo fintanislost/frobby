@@ -8,6 +8,27 @@
     "name": { "type": "string", "minLength": 1 },
     "fixture": { "type": "string" },
     "profile": { "type": "string", "minLength": 1 },
+    "save_overrides": {
+      "type": "object",
+      "properties": {
+        "farm_type": {
+          "type": "object",
+          "required": ["which_farm", "mod_farm_id"],
+          "properties": {
+            "which_farm": {
+              "type": "string",
+              "enum": ["mod"]
+            },
+            "mod_farm_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "mods": { "type": "array", "items": { "type": "string" } },
     "config": {
       "type": "object",
