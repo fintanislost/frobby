@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Runner.Fixtures;
@@ -167,6 +168,83 @@ public class FixtureStagerTests
     {
         Assert.Equal("myfix", ScenarioFixtureStageName.For("myfix", null));
         Assert.Equal("myfix", ScenarioFixtureStageName.For("myfix", new ScenarioSaveOverrides()));
+    }
+
+    [Fact]
+    public void VariantStager_StagesBaseAndOverriddenFixtureWithoutReplacingBaseFixture()
+    {
+        var repoRoot = MakeTempDir();
+        var sdvSaves = MakeTempDir();
+        try
+        {
+            var src = Path.Combine(repoRoot, "tests", "fixtures", "m0spike_436515781", "save");
+            Directory.CreateDirectory(src);
+            File.WriteAllText(Path.Combine(src, "SaveGameInfo"), "<info/>");
+            File.WriteAllText(
+                Path.Combine(src, "m0spike_436515781"),
+                "<SaveGame><whichFarm>0</whichFarm></SaveGame>");
+
+            var scenarios = new (string Path, ScenarioSpec Spec)[]
+            {
+                ("standard.test.json", new ScenarioSpec
+                {
+                    Name = "standard",
+                    Fixture = "m0spike_436515781",
+                }),
+                ("frontier.test.json", new ScenarioSpec
+                {
+                    Name = "frontier",
+                    Fixture = "m0spike_436515781",
+                    SaveOverrides = FrontierOverride(),
+                }),
+            };
+
+            var result = ScenarioFixtureVariantStager.StageAll(repoRoot, sdvSaves, scenarios, Console.Error);
+
+            Assert.Equal(0, result);
+            var baseMainSave = Path.Combine(
+                sdvSaves,
+                "m0spike_436515781",
+                "m0spike_436515781");
+            Assert.True(File.Exists(baseMainSave));
+            Assert.Contains("<whichFarm>0</whichFarm>", File.ReadAllText(baseMainSave));
+
+            var derived = Directory.GetDirectories(sdvSaves, "m0spike_436515781__frobby_*");
+            var derivedDir = Assert.Single(derived);
+            var derivedName = Path.GetFileName(derivedDir);
+            Assert.Contains(
+                "<whichFarm>FrontierFarm</whichFarm>",
+                File.ReadAllText(Path.Combine(derivedDir, derivedName)));
+        }
+        finally
+        {
+            Directory.Delete(repoRoot, recursive: true);
+            Directory.Delete(sdvSaves, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void VariantStager_ApplyEffectiveFixtureNames_UsesDerivedNameForOverridesOnly()
+    {
+        var scenarios = new List<(string Path, ScenarioSpec Spec)>
+        {
+            ("standard.test.json", new ScenarioSpec
+            {
+                Name = "standard",
+                Fixture = "m0spike_436515781",
+            }),
+            ("frontier.test.json", new ScenarioSpec
+            {
+                Name = "frontier",
+                Fixture = "m0spike_436515781",
+                SaveOverrides = FrontierOverride(),
+            }),
+        };
+
+        ScenarioFixtureVariantStager.ApplyEffectiveFixtureNames(scenarios);
+
+        Assert.Equal("m0spike_436515781", scenarios[0].Spec.Fixture);
+        Assert.StartsWith("m0spike_436515781__frobby_", scenarios[1].Spec.Fixture);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Protocol.Scenarios;
 using SdvTestFramework.Runner.Bitmap;
+using SdvTestFramework.Runner.Fixtures;
 using SdvTestFramework.Runner.Reports;
 using SdvTestFramework.Runner.Scenarios;
 
@@ -281,38 +282,20 @@ public static class RunCommand
             return 0;
         }
 
-        // Stage every unique fixture referenced by the scenario set into SDV's saves dir.
-        // Fixtures live in tests/fixtures/<name>/save/ in the repo; SDV expects them in
-        // Constants.SavesPath (resolved client-side here to HOME/.config/StardewValley/Saves).
-        var fixturesRoot = Path.Combine(Directory.GetCurrentDirectory(), "tests", "fixtures");
+        // Stage every unique fixture variant referenced by the scenario set into SDV's
+        // saves dir before launch. Fixtures live in tests/fixtures/<name>/save/ in the
+        // repo; SDV expects them in Constants.SavesPath (resolved client-side here to
+        // HOME/.config/StardewValley/Saves).
         var sdvSavesDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".config", "StardewValley", "Saves");
-        Directory.CreateDirectory(sdvSavesDir);
-
-        if (Directory.Exists(fixturesRoot))
-        {
-            var seen = new System.Collections.Generic.HashSet<string>();
-            foreach (var (_, spec) in scenarios)
-            {
-                if (string.IsNullOrEmpty(spec.Fixture) || !seen.Add(spec.Fixture)) continue;
-                var src = Path.Combine(fixturesRoot, spec.Fixture, "save");
-                if (!Directory.Exists(src))
-                {
-                    // Fixture not in repo — let scenario execution error via fixture.load
-                    // if the fixture is also missing from SDV's saves dir. Don't fail fast
-                    // here because older fixtures may still live in the user's saves dir
-                    // (e.g. the M0 spike's m0spike save before the T10 migration lands).
-                    continue;
-                }
-                try { SdvTestFramework.Runner.Fixtures.FixtureStager.Stage(spec.Fixture, fixturesRoot, sdvSavesDir); }
-                catch (Exception ex)
-                {
-                    Console.Error.WriteLine($"[stage-error] fixture '{spec.Fixture}': {ex.Message}");
-                    return 2;
-                }
-            }
-        }
+        var stageExit = ScenarioFixtureVariantStager.StageAll(
+            Directory.GetCurrentDirectory(),
+            sdvSavesDir,
+            scenarios,
+            Console.Error);
+        if (stageExit != 0)
+            return stageExit;
 
         // ---- launch SDV + connect ----
         var socket = Path.Combine(Path.GetTempPath(), $"sdv-test-{Guid.NewGuid():N}.sock");
@@ -348,8 +331,10 @@ public static class RunCommand
             {
                 // Stay resident; rerun on *.test.json file changes. Session + reporter + writer
                 // are closed over in the callback so each rerun uses the same SDV subprocess.
-                // Note: in watch mode the run-dir is reused across reruns — screenshots from
-                // later reruns accumulate in the same directory.
+                // Fixture variants are staged before launch, and effective fixture names are
+                // recomputed per run from freshly loaded scenarios. Note: watch mode still does
+                // not restage changed fixture files. The run-dir is reused across reruns —
+                // screenshots from later reruns accumulate in the same directory.
                 await SdvTestFramework.Runner.Watch.WatchLoop.RunAsync(
                     opts.Paths,
                     rerun: async innerCt =>
@@ -404,8 +389,9 @@ public static class RunCommand
     /// <remarks>
     /// Re-discovers <c>*.test.json</c> on every call so watch mode picks up new/deleted files.
     /// Scenario-load errors are tolerant: bad files are skipped with a stderr log + excluded
-    /// from the run. Fixture staging is NOT re-run — fixtures are stable per watch session;
-    /// the caller handles staging once at session start.
+    /// from the run. Fixture staging is NOT re-run — variants are staged once before SDV
+    /// launches, while effective fixture names are recomputed from the loaded scenarios each
+    /// run. Changed fixture files still require a new watch session.
     /// </remarks>
     private static async Task<int> RunOnceAsync(
         JsonRpcSession session,
@@ -441,6 +427,7 @@ public static class RunCommand
             scenarios = scenarios
                 .Where(s => s.Spec.Name.Contains(opts.Filter, StringComparison.OrdinalIgnoreCase))
                 .ToList();
+        ScenarioFixtureVariantStager.ApplyEffectiveFixtureNames(scenarios);
         if (scenarios.Count == 0)
         {
             Console.WriteLine("no scenarios matched");
