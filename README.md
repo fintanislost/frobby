@@ -220,6 +220,7 @@ JSON-RPC method reference and scenario action shapes.
 │   └── commands/                # Custom slash commands (/spike, /harmony-patch, etc.)
 ├── .mcp.json                    # Project-level MCP server config
 ├── docs/
+│   ├── wiki/                    # Task-oriented docs hub and scenario examples
 │   ├── spec.md                  # Framework design and scenario model
 │   ├── milestones/              # Completed/current implementation notes
 │   ├── rpc-schema.md            # JSON-RPC protocol reference
@@ -258,6 +259,9 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 
 ## Documentation Map
 
+- `docs/wiki/index.md` — task-oriented documentation hub for agents and mod
+  developers.
+- `docs/wiki/examples.md` — curated index of real scenario examples.
 - `docs/developer-setup.md` — local setup, environment variables, and headless notes.
 - `docs/dsl-quickstart.md` — C# DSL, HTML reports, text-fit assertions, screenshots,
   bitmap diffing, baselines, and cache cleanup.
