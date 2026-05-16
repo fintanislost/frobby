@@ -1,4 +1,5 @@
 using System.IO;
+using SdvTestFramework.Protocol.Models;
 
 namespace SdvTestFramework.Runner.Fixtures;
 
@@ -13,17 +14,27 @@ public static class FixtureStager
     /// Copy <c>fixturesRoot/name/save/</c> → <c>sdvSavesDir/name/</c> (delete-and-replace).
     /// Called by RunCommand for each scenario's fixture, and by FixtureBuilder for the base.
     /// </summary>
-    public static void Stage(string name, string fixturesRoot, string sdvSavesDir)
+    public static string Stage(
+        string name,
+        string fixturesRoot,
+        string sdvSavesDir,
+        ScenarioSaveOverrides? saveOverrides = null,
+        string? stagedName = null)
     {
         var src = Path.Combine(fixturesRoot, name, "save");
         if (!Directory.Exists(src))
             throw new DirectoryNotFoundException(
                 $"fixture save directory not found: {src}");
 
-        var dst = Path.Combine(sdvSavesDir, name);
+        var destinationName = stagedName ?? name;
+        var dst = Path.Combine(sdvSavesDir, destinationName);
         if (Directory.Exists(dst))
             Directory.Delete(dst, recursive: true);
         CopyRecursive(src, dst);
+
+        RenameMainSaveFile(dst, name, destinationName);
+        FarmTypeSaveOverrideApplier.Apply(Path.Combine(dst, destinationName), saveOverrides?.FarmType);
+        return destinationName;
     }
 
     /// <summary>
@@ -58,12 +69,15 @@ public static class FixtureStager
             Directory.Delete(dst, recursive: true);
         CopyRecursive(sourcePath, dst);
 
-        // SDV's loader expects the save-data file inside the folder to share the folder's
-        // name. The source folder was e.g. "m0spike_436515781" with an inner file of the
-        // same name; after the copy we rename the inner file to match the new fixture name.
         var sourceFolderName = Path.GetFileName(sourcePath.TrimEnd(Path.DirectorySeparatorChar));
-        var srcFile = Path.Combine(dst, sourceFolderName);
-        var dstFile = Path.Combine(dst, name);
+        RenameMainSaveFile(dst, sourceFolderName, name);
+    }
+
+    private static void RenameMainSaveFile(string directory, string sourceName, string destinationName)
+    {
+        // SDV's loader expects the save-data file inside the folder to share the folder's name.
+        var srcFile = Path.Combine(directory, sourceName);
+        var dstFile = Path.Combine(directory, destinationName);
         if (File.Exists(srcFile) && !string.Equals(srcFile, dstFile, System.StringComparison.Ordinal))
             File.Move(srcFile, dstFile);
     }

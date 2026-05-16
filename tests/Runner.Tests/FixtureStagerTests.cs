@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Runner.Fixtures;
 using Xunit;
 
@@ -88,6 +90,86 @@ public class FixtureStagerTests
     }
 
     [Fact]
+    public void Stage_WithFarmTypeOverride_MutatesOnlyStagedCopy()
+    {
+        var fixturesRoot = MakeTempDir();
+        var sdvSaves = MakeTempDir();
+        try
+        {
+            var src = Path.Combine(fixturesRoot, "myfix", "save");
+            Directory.CreateDirectory(src);
+            File.WriteAllText(Path.Combine(src, "SaveGameInfo"), "<info/>");
+            File.WriteAllText(Path.Combine(src, "myfix"), "<SaveGame><whichFarm>0</whichFarm></SaveGame>");
+
+            var stagedName = FixtureStager.Stage(
+                "myfix",
+                fixturesRoot,
+                sdvSaves,
+                FrontierOverride(),
+                stagedName: "myfix__frontier");
+
+            Assert.Equal("myfix__frontier", stagedName);
+            Assert.Equal(
+                "<SaveGame><whichFarm>0</whichFarm></SaveGame>",
+                File.ReadAllText(Path.Combine(src, "myfix")));
+
+            var dst = Path.Combine(sdvSaves, "myfix__frontier");
+            Assert.Equal("<info/>", File.ReadAllText(Path.Combine(dst, "SaveGameInfo")));
+            Assert.False(File.Exists(Path.Combine(dst, "myfix")));
+            Assert.Contains(
+                "<whichFarm>FrontierFarm</whichFarm>",
+                File.ReadAllText(Path.Combine(dst, "myfix__frontier")));
+        }
+        finally
+        {
+            Directory.Delete(fixturesRoot, recursive: true);
+            Directory.Delete(sdvSaves, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Stage_WithFarmTypeOverrideMissingWhichFarm_ThrowsClearError()
+    {
+        var fixturesRoot = MakeTempDir();
+        var sdvSaves = MakeTempDir();
+        try
+        {
+            var src = Path.Combine(fixturesRoot, "myfix", "save");
+            Directory.CreateDirectory(src);
+            File.WriteAllText(Path.Combine(src, "SaveGameInfo"), "<info/>");
+            File.WriteAllText(Path.Combine(src, "myfix"), "<SaveGame></SaveGame>");
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => FixtureStager.Stage("myfix", fixturesRoot, sdvSaves, FrontierOverride()));
+
+            Assert.Contains("whichFarm", ex.Message);
+        }
+        finally
+        {
+            Directory.Delete(fixturesRoot, recursive: true);
+            Directory.Delete(sdvSaves, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ScenarioFixtureStageName_DerivesStableNameForOverrides()
+    {
+        var first = ScenarioFixtureStageName.For("m0spike_436515781", FrontierOverride());
+        var second = ScenarioFixtureStageName.For("m0spike_436515781", FrontierOverride());
+
+        Assert.Equal(first, second);
+        Assert.StartsWith("m0spike_436515781__frobby_", first);
+        Assert.NotEqual("m0spike_436515781", first);
+    }
+
+    [Fact]
+    public void ScenarioFixtureStageName_UsesOriginalNameWithoutOverrides()
+    {
+        Assert.Equal("myfix", ScenarioFixtureStageName.For("myfix", null));
+        Assert.Equal("myfix", ScenarioFixtureStageName.For("myfix", new ScenarioSaveOverrides()));
+    }
+
+    [Fact]
     public void Capture_CopiesFromSdvSavesToFixturesRoot()
     {
         // Inverse of Stage — used by FixtureBuilder after fixture.save succeeds.
@@ -111,5 +193,17 @@ public class FixtureStagerTests
             Directory.Delete(fixturesRoot, recursive: true);
             Directory.Delete(sdvSaves, recursive: true);
         }
+    }
+
+    private static ScenarioSaveOverrides FrontierOverride()
+    {
+        return new ScenarioSaveOverrides
+        {
+            FarmType = new ScenarioFarmTypeSaveOverride
+            {
+                WhichFarm = "mod",
+                ModFarmId = "FrontierFarm",
+            },
+        };
     }
 }
