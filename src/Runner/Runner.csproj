@@ -39,9 +39,6 @@
 
   <ItemGroup>
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-    <!-- ScenarioLoader (moved from Protocol) uses JsonSchema.Net for scenario validation.
-         Runner targets net10.0 so the net8.0-targeted JsonSchema.Net 7.x works fine here. -->
-    <PackageReference Include="JsonSchema.Net" Version="7.0.2" />
   </ItemGroup>
 
   <ItemGroup>
@@ -78,10 +75,8 @@
                      Visible="false" />
   </ItemGroup>
 
-  <!-- Stage harness DLLs. JsonSchema.Net and its transitive deps are NOT staged because
-       SMAPI's assembly rewriter rejects them (they use net8.0-only System.Text.Json APIs
-       not available in the .NET 6 host). The harness never calls ScenarioLoader so those
-       assemblies are never actually loaded at runtime (lazy resolution). -->
+  <!-- Stage only the harness payload DLLs needed at runtime. Scenario validation is owned
+       by Protocol for CLI/MCP callers, but the harness never calls ScenarioLoader. -->
   <Target Name="StageHarnessPayload"
           AfterTargets="Build"
           Inputs="..\Harness\bin\$(Configuration)\net6.0\Harness.dll;..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll;..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll;..\Harness\manifest.json"

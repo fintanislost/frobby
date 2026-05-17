@@ -14,6 +14,14 @@ public class ScenarioLoaderTests
     }
 
     [Fact]
+    public void ScenarioLoader_LivesInProtocolAssembly()
+    {
+        Assert.Equal(
+            "SdvTestFramework.Protocol",
+            typeof(ScenarioLoader).Assembly.GetName().Name);
+    }
+
+    [Fact]
     public void Load_Valid_ReturnsSpec()
     {
         var path = WriteTemp("""
