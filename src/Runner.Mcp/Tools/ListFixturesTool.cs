@@ -17,7 +17,7 @@ public sealed class ListFixturesTool : ITool
         {"type":"object","properties":{"root":{"type":"string","description":"Fixtures root (default: ./tests/fixtures)"}}}
         """).RootElement;
 
-    public Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? lifecycle, CancellationToken ct)
+    public Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
         var root = args.TryGetProperty("root", out var r) && r.ValueKind == JsonValueKind.String
             ? r.GetString()!

@@ -28,8 +28,9 @@ public sealed class RpcCallTool : ITool
         }
         """).RootElement;
 
-    public async Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+    public async Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
+        var life = context.Lifecycle;
         if (!args.TryGetProperty("method", out var m) || m.ValueKind != JsonValueKind.String)
             return McpToolResult.Error("'method' is required");
         if (life is null)

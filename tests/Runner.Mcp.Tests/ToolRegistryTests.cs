@@ -13,7 +13,7 @@ public class ToolRegistryTests
         public string Name { get; init; } = "stub";
         public string Description => "stub";
         public JsonElement InputSchema => JsonDocument.Parse("{\"type\":\"object\"}").RootElement;
-        public Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+        public Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
             => Task.FromResult(McpToolResult.Success(JsonDocument.Parse("{}").RootElement));
     }
 

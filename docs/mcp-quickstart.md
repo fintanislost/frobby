@@ -44,9 +44,15 @@ visible text.
 `run_scenario` evaluates scenario steps plus the shared non-bitmap RPC assertion set:
 `state`, `content.asset`, `state.fishing_context`, `state.fishing_table`,
 `fishing.sample_catch`, `draw.contains`, `draw.not_contains`, `draw.text_contains`,
-and `draw.text_not_contains`. Bitmap assertions, `draw.text_all_within`, streaming
-progress, and complete static HTML reports remain CLI-only via `sdv-test run` or
+and `draw.text_not_contains`. Bitmap assertions, `draw.text_all_within`, and
+complete static HTML reports remain CLI-only via `sdv-test run` or
 `sdv-test run-suite`.
+
+MCP clients that support progress can send `_meta.progressToken` on `tools/call`
+requests for `run_scenario`. Frobby then emits `notifications/progress` after
+scenario setup, each step, each assertion, and cleanup. Progress notifications are
+optional status updates; delivery failures are treated as MCP transport failures,
+and successful final tool results keep the same JSON summary shape.
 
 ## 4. Environment knobs
 

@@ -3,9 +3,9 @@
 ## Summary
 
 `run_scenario` is now capable enough for real scenario iteration through MCP, but it
-still returns only one final result. Long Starberg and SVE scenarios leave the agent
-blind until the tool call completes, which makes slow failures harder to diagnose and
-encourages shorter, less representative tests.
+still returns only one final result. Long mod scenarios leave the agent blind until
+the tool call completes, which makes slow failures harder to diagnose and encourages
+shorter, less representative tests.
 
 This slice adds protocol-native MCP progress notifications for the existing
 `run_scenario` tool. When the client includes a request `_meta.progressToken`, the
@@ -167,7 +167,7 @@ after each completed unit. For example:
 If scenario loading fails before `total` is known, the tool should return its current
 error result without progress notifications. If a step fails, emit progress for the
 failed step with a failure message before breaking to cleanup. Then emit
-`scenario.end` if cleanup is attempted.
+`scenario.end` if cleanup succeeds.
 
 Progress values should be numeric and monotonically increasing. Integer units are
 sufficient for this slice.
@@ -219,7 +219,7 @@ Update:
 - `docs/mcp-quickstart.md`
   - document that `run_scenario` supports MCP progress notifications when clients send
     `_meta.progressToken`
-  - clarify that progress is best-effort and final results stay unchanged
+  - clarify that progress is optional status and final results stay unchanged
 - `docs/roadmap.md`
   - move the Tier 3 progress item to Completed once implementation and tests pass
 
@@ -227,5 +227,5 @@ Update:
 
 - Use integer progress units internally. JSON numbers can represent them directly,
   and scenario work is naturally counted in whole milestones.
-- Use `scenario.end` as the final progress notification. When cleanup is attempted it
+- Use `scenario.end` as the final progress notification. When cleanup succeeds it
   naturally reaches `progress == total`; no separate "complete" notification is needed.

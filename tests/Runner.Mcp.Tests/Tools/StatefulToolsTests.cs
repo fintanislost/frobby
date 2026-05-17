@@ -32,7 +32,10 @@ public class StatefulToolsTests
 
         var tool = new WarpAndAssertDrawTool();
         var args = JsonDocument.Parse("{\"location\":\"SeedShop\",\"x\":4,\"y\":19,\"texture_asset\":\"LooseSprites/Cursors\"}").RootElement;
-        var result = await tool.InvokeAsync(args, life, CancellationToken.None);
+        var result = await tool.InvokeAsync(
+            args,
+            new ToolInvocationContext(life, McpProgressReporter.None),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
         var methods = life.Calls.ConvertAll(c => c.Method);
@@ -58,7 +61,10 @@ public class StatefulToolsTests
 
             var tool = new RunScenarioTool();
             var args = JsonDocument.Parse($"{{\"path\":{JsonSerializer.Serialize(tmp)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, life, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(life, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             Assert.Contains("\"passed\":true", result.Text);

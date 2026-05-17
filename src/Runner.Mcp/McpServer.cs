@@ -146,6 +146,14 @@ public sealed class McpServer
                     return;
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (IOException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             await WriteErrorAsync(writer, req.Id, McpError.InternalError(ex.Message), ct);
@@ -173,14 +181,37 @@ public sealed class McpServer
         }
         var args = p.TryGetProperty("arguments", out var a) ? a : JsonDocument.Parse("{}").RootElement;
 
+        var progress = new McpProgressReporter(
+            TryGetProgressToken(p),
+            (notification, token) => writer.WriteAsync(JsonRpcCodec.Serialize(notification), token));
+        var context = new ToolInvocationContext(_lifecycle, progress);
+
         McpToolResult result;
-        try { result = await tool.InvokeAsync(args, _lifecycle, ct); }
+        try { result = await tool.InvokeAsync(args, context, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (McpProgressWriteException) { throw; }
         catch (Exception ex) { result = McpToolResult.Error($"tool '{name}' threw: {ex.Message}"); }
 
         var wrappedJson = "{\"content\":[{\"type\":\"text\",\"text\":" +
             JsonSerializer.Serialize(result.Text) + "}]" +
             (result.IsError ? ",\"isError\":true" : "") + "}";
         await WriteResultAsync(writer, req.Id, JsonDocument.Parse(wrappedJson).RootElement, ct);
+    }
+
+    private static JsonElement? TryGetProgressToken(JsonElement toolParams)
+    {
+        if (!toolParams.TryGetProperty("_meta", out var meta) ||
+            meta.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!meta.TryGetProperty("progressToken", out var token))
+            return null;
+
+        return token.ValueKind is JsonValueKind.String or JsonValueKind.Number
+            ? token.Clone()
+            : null;
     }
 
     private static Task WriteResultAsync(NdJsonWriter writer, long id, JsonElement result, CancellationToken ct)

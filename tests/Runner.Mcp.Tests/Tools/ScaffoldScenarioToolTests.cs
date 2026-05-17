@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Runner.Mcp;
 using SdvTestFramework.Runner.Mcp.Tools;
 using SdvTestFramework.Protocol.Scenarios;
 using Xunit;
@@ -26,7 +27,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"probe_menu\",\"fixture\":\"m0spike_436515781\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             Assert.True(File.Exists(tmpOut));
@@ -47,7 +51,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"npc_interaction\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -67,7 +74,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"shop_purchase\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -87,7 +97,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"tool_use\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -106,7 +119,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"inventory_check\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -126,7 +142,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"custom_furniture_menu\",\"template\":\"furniture_menu\",\"fixture\":\"m0spike_436515781\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -147,7 +166,10 @@ public class ScaffoldScenarioToolTests
         {
             var tool = new ScaffoldScenarioTool();
             var args = JsonDocument.Parse($"{{\"name\":\"custom_furniture_menu\",\"template\":\"furniture_menu\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             var json = File.ReadAllText(tmpOut);
@@ -173,7 +195,10 @@ public class ScaffoldScenarioToolTests
             {
                 var tmpOut = Path.Combine(tmpDir, $"{template}.test.json");
                 var args = JsonDocument.Parse($"{{\"name\":\"probe\",\"template\":\"{template}\",\"output\":{JsonSerializer.Serialize(tmpOut)}}}").RootElement;
-                var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+                var result = await tool.InvokeAsync(
+                    args,
+                    new ToolInvocationContext(null, McpProgressReporter.None),
+                    CancellationToken.None);
 
                 Assert.False(result.IsError);
                 AssertNoModSpecificTerms(File.ReadAllText(tmpOut));

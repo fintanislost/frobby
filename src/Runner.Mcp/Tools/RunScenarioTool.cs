@@ -36,8 +36,9 @@ public sealed class RunScenarioTool : ITool
          },"required":["path"]}
         """).RootElement;
 
-    public async Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+    public async Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
+        var life = context.Lifecycle;
         if (life is null) return McpToolResult.Error("lifecycle unavailable");
         if (!args.TryGetProperty("path", out var p) || p.ValueKind != JsonValueKind.String)
             return McpToolResult.Error("'path' is required");
@@ -62,6 +63,11 @@ public sealed class RunScenarioTool : ITool
         try { spec = ScenarioLoader.Load(path); }
         catch (System.Exception ex) { return McpToolResult.Error($"load failed: {ex.Message}"); }
 
+        var totalProgress = 1 + spec.Steps.Count + spec.Assertions.Count + 1;
+        if (!string.IsNullOrEmpty(spec.Fixture))
+            totalProgress++;
+        var progress = 0;
+
         var failures = new List<string>();
         var started = Stopwatch.StartNew();
         int run = 0, passed = 0;
@@ -75,6 +81,8 @@ public sealed class RunScenarioTool : ITool
                 Name = spec.Name, Seed = spec.Config.Seed, Fixture = spec.Fixture,
             }, ProtocolJson.Options);
             await life.InvokeAsync("scenario.begin", beginParams, ct);
+            progress++;
+            await context.Progress.ReportAsync(progress, totalProgress, "scenario.begin", ct);
 
             // 2. fixture.load (if any)
             if (!string.IsNullOrEmpty(spec.Fixture))
@@ -82,11 +90,14 @@ public sealed class RunScenarioTool : ITool
                 var fxParams = JsonSerializer.SerializeToElement(
                     new FixtureLoadRequest { Name = spec.Fixture }, ProtocolJson.Options);
                 await life.InvokeAsync("fixture.load", fxParams, ct);
+                progress++;
+                await context.Progress.ReportAsync(progress, totalProgress, $"fixture.load: {spec.Fixture}", ct);
             }
 
             // 3. steps
-            foreach (var step in spec.Steps)
+            for (var i = 0; i < spec.Steps.Count; i++)
             {
+                var step = spec.Steps[i];
                 if (step.Action == "wait.ms")
                 {
                     int ms = 0;
@@ -94,24 +105,68 @@ public sealed class RunScenarioTool : ITool
                         && a.TryGetProperty("ms", out var mel) && mel.TryGetInt32(out var parsed))
                         ms = parsed;
                     if (ms > 0) await Task.Delay(ms, ct);
+                    progress++;
+                    await context.Progress.ReportAsync(
+                        progress,
+                        totalProgress,
+                        $"step {i + 1}/{spec.Steps.Count}: {step.Action}",
+                        ct);
                     continue;
                 }
                 try { await life.InvokeAsync(step.Action, step.Args, ct); }
-                catch (SdvRpcException ex) { failures.Add($"step {step.Action}: {ex.Message}"); goto done; }
+                catch (SdvRpcException ex)
+                {
+                    failures.Add($"step {step.Action}: {ex.Message}");
+                    progress++;
+                    await context.Progress.ReportAsync(
+                        progress,
+                        totalProgress,
+                        $"step {i + 1}/{spec.Steps.Count} failed: {step.Action}",
+                        ct);
+                    goto done;
+                }
+                progress++;
+                await context.Progress.ReportAsync(
+                    progress,
+                    totalProgress,
+                    $"step {i + 1}/{spec.Steps.Count}: {step.Action}",
+                    ct);
             }
 
             // 4. assertions
-            foreach (var assertion in spec.Assertions)
+            for (var i = 0; i < spec.Assertions.Count; i++)
             {
+                var assertion = spec.Assertions[i];
                 run++;
                 var evaluation = await assertionEvaluator.EvaluateAsync(assertion, ct);
                 if (evaluation.Passed) passed++;
                 else failures.Add($"assertion {run} {assertion.Type}: {FormatAssertionFailure(assertion, evaluation.Detail)}");
+                progress++;
+                await context.Progress.ReportAsync(
+                    progress,
+                    totalProgress,
+                    evaluation.Passed
+                        ? $"assertion {i + 1}/{spec.Assertions.Count}: {assertion.Type}"
+                        : $"assertion {i + 1}/{spec.Assertions.Count} failed: {assertion.Type}",
+                    ct);
             }
 
             done:
             // 5. scenario.end
-            try { await life.InvokeAsync("scenario.end", null, ct); } catch { }
+            var cleanupSucceeded = false;
+            try
+            {
+                await life.InvokeAsync("scenario.end", null, ct);
+                cleanupSucceeded = true;
+            }
+            catch (System.OperationCanceledException) { throw; }
+            catch { }
+
+            if (cleanupSucceeded)
+            {
+                progress = totalProgress;
+                await context.Progress.ReportAsync(progress, totalProgress, "scenario.end", ct);
+            }
         }
         catch (SdvRpcException ex) { failures.Add(ex.Message); }
 

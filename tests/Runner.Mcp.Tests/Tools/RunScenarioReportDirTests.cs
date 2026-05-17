@@ -40,7 +40,10 @@ public class RunScenarioReportDirTests
             var tool = new RunScenarioTool();
             var argsJson = $"{{\"path\":{JsonSerializer.Serialize(tmp)},\"report_dir\":{JsonSerializer.Serialize(lifeBaseDir)}}}";
             var args = JsonDocument.Parse(argsJson).RootElement;
-            var result = await tool.InvokeAsync(args, life, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(life, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             Assert.Contains("\"report_dir\"", result.Text);

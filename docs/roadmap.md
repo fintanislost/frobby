@@ -65,10 +65,6 @@ Makes the framework actually usable by other modders + Claude-via-MCP on arbitra
 Makes test failures actionable — especially important when Claude is iterating on a
 broken test.
 
-- [ ] **MCP streaming tool results** (~2 days) — incremental updates for long-running
-  scenarios via MCP. Today `run_scenario` is synchronous; LLM sees nothing until
-  completion. Streaming lets Claude watch step-by-step. Source: M3-MCP out-of-scope.
-
 - [ ] **Consolidate ScenarioLoader's physical home** (~2 hours) — today `ScenarioLoader.cs`
   lives in `src/Runner.Mcp/` with namespace `SdvTestFramework.Protocol.Scenarios`. It was
   moved out of Protocol during Tier 2 smoke because `JsonSchema.Net 7.x` uses net8-only
@@ -108,6 +104,13 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 ---
 
 ## Completed
+
+### 2026-05-17
+
+- **MCP `run_scenario` progress notifications**. Added request-scoped
+  `_meta.progressToken` support for `run_scenario`, emitting protocol-native
+  `notifications/progress` for scenario begin, optional fixture load, each step,
+  each assertion, and scenario cleanup while preserving the final tool result shape.
 
 ### 2026-05-16
 
