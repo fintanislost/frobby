@@ -25,7 +25,7 @@ public sealed class ScaffoldScenarioTool : ITool
          "required":["name"]}
         """).RootElement;
 
-    public Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? lifecycle, CancellationToken ct)
+    public Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
         if (!args.TryGetProperty("name", out var n) || n.ValueKind != JsonValueKind.String)
             return Task.FromResult(McpToolResult.Error("'name' is required"));

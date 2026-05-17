@@ -16,6 +16,6 @@ public interface ITool
     /// <summary>JSON Schema describing the tool's <c>arguments</c> object.</summary>
     JsonElement InputSchema { get; }
 
-    /// <summary>Invoke the tool. <paramref name="lifecycle"/> is null for tools that don't need SDV.</summary>
-    Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? lifecycle, CancellationToken ct);
+    /// <summary>Invoke the tool. Context carries lifecycle plus optional request-scoped MCP utilities.</summary>
+    Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct);
 }

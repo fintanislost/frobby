@@ -15,8 +15,9 @@ public sealed class CaptureStateTool : ITool
     public JsonElement InputSchema { get; } =
         JsonDocument.Parse("{\"type\":\"object\"}").RootElement;
 
-    public async Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+    public async Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
+        var life = context.Lifecycle;
         if (life is null) return McpToolResult.Error("lifecycle unavailable");
 
         try

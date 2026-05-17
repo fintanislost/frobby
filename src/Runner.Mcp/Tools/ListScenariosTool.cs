@@ -17,7 +17,7 @@ public sealed class ListScenariosTool : ITool
         {"type":"object","properties":{"dir":{"type":"string","description":"Directory to scan (default: cwd)"}}}
         """).RootElement;
 
-    public Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? lifecycle, CancellationToken ct)
+    public Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
         var dir = args.TryGetProperty("dir", out var d) && d.ValueKind == JsonValueKind.String
             ? d.GetString()!

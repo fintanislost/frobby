@@ -24,8 +24,9 @@ public sealed class WarpAndAssertDrawTool : ITool
          "required":["location","x","y","texture_asset"]}
         """).RootElement;
 
-    public async Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+    public async Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
+        var life = context.Lifecycle;
         if (life is null) return McpToolResult.Error("lifecycle unavailable");
         string? location = args.TryGetProperty("location", out var l) && l.ValueKind == JsonValueKind.String ? l.GetString() : null;
         if (location is null) return McpToolResult.Error("'location' is required");

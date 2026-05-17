@@ -36,8 +36,9 @@ public sealed class RunScenarioTool : ITool
          },"required":["path"]}
         """).RootElement;
 
-    public async Task<McpToolResult> InvokeAsync(JsonElement args, SdvLifecycle? life, CancellationToken ct)
+    public async Task<McpToolResult> InvokeAsync(JsonElement args, ToolInvocationContext context, CancellationToken ct)
     {
+        var life = context.Lifecycle;
         if (life is null) return McpToolResult.Error("lifecycle unavailable");
         if (!args.TryGetProperty("path", out var p) || p.ValueKind != JsonValueKind.String)
             return McpToolResult.Error("'path' is required");

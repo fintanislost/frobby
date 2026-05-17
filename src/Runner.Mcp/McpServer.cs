@@ -173,8 +173,10 @@ public sealed class McpServer
         }
         var args = p.TryGetProperty("arguments", out var a) ? a : JsonDocument.Parse("{}").RootElement;
 
+        var context = new ToolInvocationContext(_lifecycle, McpProgressReporter.None);
+
         McpToolResult result;
-        try { result = await tool.InvokeAsync(args, _lifecycle, ct); }
+        try { result = await tool.InvokeAsync(args, context, ct); }
         catch (Exception ex) { result = McpToolResult.Error($"tool '{name}' threw: {ex.Message}"); }
 
         var wrappedJson = "{\"content\":[{\"type\":\"text\",\"text\":" +
