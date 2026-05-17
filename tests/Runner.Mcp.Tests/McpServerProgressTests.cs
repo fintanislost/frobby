@@ -66,14 +66,7 @@ public class McpServerProgressTests
         AssertProgress(notifications[2], "scenario-01", progress: 3, total: 4, message: "assertion 1/1: state");
         AssertProgress(notifications[3], "scenario-01", progress: 4, total: 4, message: "scenario.end");
 
-        var final = JsonDocument.Parse(lines[^1]).RootElement;
-        Assert.Equal(9, final.GetProperty("id").GetInt32());
-        var toolText = final.GetProperty("result")
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString()!;
-        using var toolDoc = JsonDocument.Parse(toolText);
-        Assert.True(toolDoc.RootElement.GetProperty("passed").GetBoolean());
+        using var toolDoc = AssertFinalToolResult(lines[^1], id: 9, expectedPassed: true);
     }
 
     [Fact]
@@ -94,8 +87,9 @@ public class McpServerProgressTests
             progressTokenJson: null);
 
         Assert.Single(lines);
-        var final = JsonDocument.Parse(lines[0]).RootElement;
-        Assert.Equal(9, final.GetProperty("id").GetInt32());
+        using var toolDoc = AssertFinalToolResult(lines[0], id: 9, expectedPassed: true);
+        using var finalDoc = JsonDocument.Parse(lines[0]);
+        var final = finalDoc.RootElement;
         Assert.False(final.TryGetProperty("method", out _));
     }
 
@@ -121,20 +115,16 @@ public class McpServerProgressTests
             life,
             progressTokenJson: "\"scenario-fail\"");
 
-        var notifications = ParseNotifications(lines);
-        Assert.Equal(3, notifications.Count);
-        AssertProgress(notifications[0], "scenario-fail", progress: 1, total: 3, message: "scenario.begin");
-        AssertProgress(notifications[1], "scenario-fail", progress: 2, total: 3, message: "step 1/1 failed: player.warp");
-        AssertProgress(notifications[2], "scenario-fail", progress: 3, total: 3, message: "scenario.end");
+        Assert.Equal(4, lines.Length);
+        AssertProgress(ParseNotification(lines[0]), "scenario-fail", progress: 1, total: 3, message: "scenario.begin");
+        AssertProgress(ParseNotification(lines[1]), "scenario-fail", progress: 2, total: 3, message: "step 1/1 failed: player.warp");
+        AssertProgress(ParseNotification(lines[2]), "scenario-fail", progress: 3, total: 3, message: "scenario.end");
+        using var toolDoc = AssertFinalToolResult(lines[3], id: 9, expectedPassed: false);
 
-        var final = JsonDocument.Parse(lines[^1]).RootElement;
-        var toolText = final.GetProperty("result")
-            .GetProperty("content")[0]
-            .GetProperty("text")
-            .GetString()!;
-        using var toolDoc = JsonDocument.Parse(toolText);
-        Assert.False(toolDoc.RootElement.GetProperty("passed").GetBoolean());
-        Assert.Contains("player.warp", toolText);
+        var failures = toolDoc.RootElement.GetProperty("failures");
+        Assert.Equal(JsonValueKind.Array, failures.ValueKind);
+        var failure = Assert.Single(failures.EnumerateArray());
+        Assert.Contains("player.warp", failure.GetRawText());
     }
 
     private static RecordingLifecycle CreateLifecycle()
@@ -204,6 +194,32 @@ public class McpServerProgressTests
         }
 
         return notifications;
+    }
+
+    private static JsonElement ParseNotification(string line)
+    {
+        using var doc = JsonDocument.Parse(line);
+        var root = doc.RootElement;
+        Assert.Equal("notifications/progress", root.GetProperty("method").GetString());
+        return root.Clone();
+    }
+
+    private static JsonDocument AssertFinalToolResult(string line, int id, bool expectedPassed)
+    {
+        using var finalDoc = JsonDocument.Parse(line);
+        var final = finalDoc.RootElement;
+        Assert.Equal("2.0", final.GetProperty("jsonrpc").GetString());
+        Assert.Equal(id, final.GetProperty("id").GetInt32());
+        Assert.False(final.TryGetProperty("error", out _));
+
+        var content = final.GetProperty("result").GetProperty("content")[0];
+        Assert.Equal("text", content.GetProperty("type").GetString());
+        Assert.False(final.GetProperty("result").TryGetProperty("isError", out _));
+
+        var toolText = content.GetProperty("text").GetString()!;
+        var toolDoc = JsonDocument.Parse(toolText);
+        Assert.Equal(expectedPassed, toolDoc.RootElement.GetProperty("passed").GetBoolean());
+        return toolDoc;
     }
 
     private static void AssertProgress(
