@@ -173,7 +173,10 @@ public sealed class McpServer
         }
         var args = p.TryGetProperty("arguments", out var a) ? a : JsonDocument.Parse("{}").RootElement;
 
-        var context = new ToolInvocationContext(_lifecycle, McpProgressReporter.None);
+        var progress = new McpProgressReporter(
+            TryGetProgressToken(p),
+            (notification, token) => writer.WriteAsync(JsonRpcCodec.Serialize(notification), token));
+        var context = new ToolInvocationContext(_lifecycle, progress);
 
         McpToolResult result;
         try { result = await tool.InvokeAsync(args, context, ct); }
@@ -183,6 +186,22 @@ public sealed class McpServer
             JsonSerializer.Serialize(result.Text) + "}]" +
             (result.IsError ? ",\"isError\":true" : "") + "}";
         await WriteResultAsync(writer, req.Id, JsonDocument.Parse(wrappedJson).RootElement, ct);
+    }
+
+    private static JsonElement? TryGetProgressToken(JsonElement toolParams)
+    {
+        if (!toolParams.TryGetProperty("_meta", out var meta) ||
+            meta.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        if (!meta.TryGetProperty("progressToken", out var token))
+            return null;
+
+        return token.ValueKind is JsonValueKind.String or JsonValueKind.Number
+            ? token.Clone()
+            : null;
     }
 
     private static Task WriteResultAsync(NdJsonWriter writer, long id, JsonElement result, CancellationToken ct)

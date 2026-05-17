@@ -3,6 +3,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using SdvTestFramework.Runner.Mcp;
 using SdvTestFramework.Runner.Mcp.Tools;
 using Xunit;
 
@@ -23,7 +24,10 @@ public class IntrospectionToolTests
 
             var tool = new ListScenariosTool();
             var args = JsonDocument.Parse($"{{\"dir\":{JsonSerializer.Serialize(tmp)}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             Assert.Contains("\"name\":\"A\"", result.Text);
@@ -47,7 +51,10 @@ public class IntrospectionToolTests
 
             var tool = new ListFixturesTool();
             var args = JsonDocument.Parse($"{{\"root\":{JsonSerializer.Serialize(Path.Combine(tmp, "tests", "fixtures"))}}}").RootElement;
-            var result = await tool.InvokeAsync(args, lifecycle: null, CancellationToken.None);
+            var result = await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(null, McpProgressReporter.None),
+                CancellationToken.None);
 
             Assert.False(result.IsError);
             Assert.Contains("\"name\":\"myfixture\"", result.Text);

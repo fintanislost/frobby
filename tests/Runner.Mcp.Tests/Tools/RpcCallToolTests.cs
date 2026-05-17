@@ -33,7 +33,10 @@ public class RpcCallToolTests
         var tool = new RpcCallTool();
         var args = JsonDocument.Parse("{\"method\":\"state.player\",\"params\":{}}").RootElement;
 
-        var result = await tool.InvokeAsync(args, life, CancellationToken.None);
+        var result = await tool.InvokeAsync(
+            args,
+            new ToolInvocationContext(life, McpProgressReporter.None),
+            CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Contains("\"tick\":42", result.Text);
@@ -50,7 +53,10 @@ public class RpcCallToolTests
         var tool = new RpcCallTool();
         var args = JsonDocument.Parse("{\"method\":\"freeze.begin\"}").RootElement;
 
-        var result = await tool.InvokeAsync(args, life, CancellationToken.None);
+        var result = await tool.InvokeAsync(
+            args,
+            new ToolInvocationContext(life, McpProgressReporter.None),
+            CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Contains("freeze.begin", result.Text);

@@ -289,7 +289,10 @@ public class RunScenarioAssertionParityTests
             }
             """).RootElement;
 
-            return (await tool.InvokeAsync(args, life, CancellationToken.None), life);
+            return (await tool.InvokeAsync(
+                args,
+                new ToolInvocationContext(life, McpProgressReporter.None),
+                CancellationToken.None), life);
         }
         finally
         {
