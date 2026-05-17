@@ -50,17 +50,23 @@ public class McpServerProgressTests
         }
     }
 
-    private sealed class FailFirstWriteStream : MemoryStream
+    private sealed class FailNthWriteStream : MemoryStream
     {
-        private bool _failed;
+        private readonly int _writeNumberToFail;
+        private int _writeCount;
+
+        public FailNthWriteStream(int writeNumberToFail)
+        {
+            _writeNumberToFail = writeNumberToFail;
+        }
 
         public override ValueTask WriteAsync(
             ReadOnlyMemory<byte> buffer,
             CancellationToken cancellationToken = default)
         {
-            if (!_failed)
+            _writeCount++;
+            if (_writeCount == _writeNumberToFail)
             {
-                _failed = true;
                 throw new IOException("forced progress transport failure");
             }
 
@@ -99,7 +105,7 @@ public class McpServerProgressTests
     [Fact]
     public async Task ToolCall_WhenProgressWriteFails_PropagatesTransportFailure()
     {
-        var stdout = new FailFirstWriteStream();
+        var stdout = new FailNthWriteStream(writeNumberToFail: 1);
 
         await Assert.ThrowsAnyAsync<IOException>(() => RunProbeToolThroughServerAsync(stdout));
     }
@@ -324,6 +330,28 @@ public class McpServerProgressTests
                 progressTokenJson: null));
     }
 
+    [Fact]
+    public async Task RunScenario_WhenScenarioEndProgressWriteFails_PropagatesTransportFailure()
+    {
+        var scenario = """
+        {
+          "name": "progress_cleanup_write_fail",
+          "config": { "seed": 42 },
+          "steps": [],
+          "assertions": []
+        }
+        """;
+
+        var stdout = new FailNthWriteStream(writeNumberToFail: 2);
+
+        await Assert.ThrowsAnyAsync<IOException>(() =>
+            RunScenarioThroughServerAsync(
+                scenario,
+                CreateLifecycle(),
+                progressTokenJson: "\"scenario-cleanup-write-fail\"",
+                stdoutOverride: stdout));
+    }
+
     private static RecordingLifecycle CreateLifecycle()
     {
         var life = new RecordingLifecycle();
@@ -335,7 +363,8 @@ public class McpServerProgressTests
     private static async Task<string[]> RunScenarioThroughServerAsync(
         string scenarioJson,
         RecordingLifecycle life,
-        string? progressTokenJson)
+        string? progressTokenJson,
+        Stream? stdoutOverride = null)
     {
         var path = Path.Combine(Path.GetTempPath(), $"mcp-progress-{Guid.NewGuid():N}.test.json");
         var reportBase = Path.Combine(Path.GetTempPath(), $"mcp-progress-report-{Guid.NewGuid():N}");
@@ -357,15 +386,20 @@ public class McpServerProgressTests
                 "}}";
             var input = Encoding.UTF8.GetBytes(request + "\n");
             using var stdin = new MemoryStream(input);
-            using var stdout = new MemoryStream();
+            var stdout = stdoutOverride ?? new MemoryStream();
 
             var registry = new ToolRegistry();
             registry.Register(new RunScenarioTool());
             var server = new McpServer(registry, life);
             await server.RunAsync(stdin, stdout, CancellationToken.None);
 
-            var output = Encoding.UTF8.GetString(stdout.ToArray());
-            return output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            if (stdout is MemoryStream memory)
+            {
+                var output = Encoding.UTF8.GetString(memory.ToArray());
+                return output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            }
+
+            return [];
         }
         finally
         {

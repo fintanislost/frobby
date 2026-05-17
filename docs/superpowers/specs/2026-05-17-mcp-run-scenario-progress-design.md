@@ -167,7 +167,7 @@ after each completed unit. For example:
 If scenario loading fails before `total` is known, the tool should return its current
 error result without progress notifications. If a step fails, emit progress for the
 failed step with a failure message before breaking to cleanup. Then emit
-`scenario.end` if cleanup is attempted.
+`scenario.end` if cleanup succeeds.
 
 Progress values should be numeric and monotonically increasing. Integer units are
 sufficient for this slice.
