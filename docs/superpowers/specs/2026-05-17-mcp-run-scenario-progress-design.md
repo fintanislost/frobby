@@ -3,9 +3,9 @@
 ## Summary
 
 `run_scenario` is now capable enough for real scenario iteration through MCP, but it
-still returns only one final result. Long Starberg and SVE scenarios leave the agent
-blind until the tool call completes, which makes slow failures harder to diagnose and
-encourages shorter, less representative tests.
+still returns only one final result. Long mod scenarios leave the agent blind until
+the tool call completes, which makes slow failures harder to diagnose and encourages
+shorter, less representative tests.
 
 This slice adds protocol-native MCP progress notifications for the existing
 `run_scenario` tool. When the client includes a request `_meta.progressToken`, the
