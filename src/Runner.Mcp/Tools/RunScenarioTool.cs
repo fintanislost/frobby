@@ -10,6 +10,7 @@ using SdvTestFramework.Protocol.Json;
 using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Protocol.Scenarios;
+using SdvTestFramework.Runner.Mcp.Scenarios;
 
 namespace SdvTestFramework.Runner.Mcp.Tools;
 
@@ -18,10 +19,8 @@ namespace SdvTestFramework.Runner.Mcp.Tools;
 /// the harness step-by-step. Returns a summary similar to <c>ScenarioReport</c>.
 /// </summary>
 /// <remarks>
-/// This executor is deliberately simpler than the full <see cref="ScenarioRunner"/>: it
-/// handles steps + <c>draw.contains</c> assertions via direct RPC but does NOT evaluate
-/// the richer state-DSL assertions (that live in <c>ScenarioRunner.EvaluateAssertionAsync</c>).
-/// Users who need full DSL support should use <c>sdv-test run</c> from the CLI.
+/// This executor shares the non-bitmap RPC assertion evaluator with the CLI runner. Bitmap
+/// assertions and static HTML report generation stay in the CLI path.
 /// </remarks>
 public sealed class RunScenarioTool : ITool
 {
@@ -66,6 +65,7 @@ public sealed class RunScenarioTool : ITool
         var failures = new List<string>();
         var started = Stopwatch.StartNew();
         int run = 0, passed = 0;
+        var assertionEvaluator = new ScenarioAssertionEvaluator(new LifecycleScenarioAssertionRpc(life));
 
         try
         {
@@ -100,25 +100,13 @@ public sealed class RunScenarioTool : ITool
                 catch (SdvRpcException ex) { failures.Add($"step {step.Action}: {ex.Message}"); goto done; }
             }
 
-            // 4. assertions (minimal — MCP run_scenario supports draw.contains only)
+            // 4. assertions
             foreach (var assertion in spec.Assertions)
             {
                 run++;
-                if (assertion.Type == "draw.contains" && assertion.Filter is { } fx)
-                {
-                    try
-                    {
-                        var resp = await life.InvokeAsync("draw.assert_contains",
-                            JsonSerializer.SerializeToElement(new { filter = fx, min_count = assertion.MinCount }, ProtocolJson.Options), ct);
-                        if (resp.TryGetProperty("passed", out var pel) && pel.GetBoolean()) passed++;
-                        else failures.Add($"draw.contains: {assertion.Message ?? "failed"}");
-                    }
-                    catch (SdvRpcException ex) { failures.Add($"draw.contains: {ex.Message}"); }
-                }
-                else
-                {
-                    failures.Add($"assertion type '{assertion.Type}' not evaluated by MCP run_scenario — use the CLI 'sdv-test run' for full DSL support.");
-                }
+                var evaluation = await assertionEvaluator.EvaluateAsync(assertion, ct);
+                if (evaluation.Passed) passed++;
+                else failures.Add($"assertion {run} {assertion.Type}: {FormatAssertionFailure(assertion, evaluation.Detail)}");
             }
 
             done:
@@ -142,5 +130,17 @@ public sealed class RunScenarioTool : ITool
             ["report_index"] = Path.Combine(reportDir.Root, "index.html"),
         };
         return McpToolResult.Success(JsonDocument.Parse(report.ToJsonString()).RootElement);
+    }
+
+    private static string FormatAssertionFailure(ScenarioAssertion assertion, string? detail)
+    {
+        if (!string.IsNullOrWhiteSpace(assertion.Message) && !string.IsNullOrWhiteSpace(detail))
+        {
+            return string.Equals(assertion.Message, detail, System.StringComparison.Ordinal)
+                ? detail
+                : $"{assertion.Message}: {detail}";
+        }
+
+        return detail ?? assertion.Message ?? "failed";
     }
 }

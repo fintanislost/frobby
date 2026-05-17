@@ -86,6 +86,40 @@ public class ScenarioRunnerDslTests
     }
 
     [Fact]
+    public async Task StateAssertion_FailingComparison_ReportsExpressionDetail()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithPlayerJson(socket,
+            "{\"name\":\"Tester\",\"money\":499,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0}}");
+        using var _ = cts;
+        using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "state_failure_detail",
+            Assertions = new()
+            {
+                new ScenarioAssertion
+                {
+                    Type = "state",
+                    Expr = "state.player.money == 500",
+                    Message = "money seeded",
+                },
+            },
+        };
+
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.False(report.Passed);
+        Assert.Contains(report.Failures, failure =>
+            failure.Contains("money seeded", StringComparison.Ordinal)
+            && failure.Contains("state.player.money", StringComparison.Ordinal));
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task StateAssertion_BooleanLiteral_Matches()
     {
         var (cts, server, client) = await StartFakeHarness(SocketPath());

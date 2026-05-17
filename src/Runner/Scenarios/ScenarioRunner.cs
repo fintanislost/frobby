@@ -13,6 +13,7 @@ using SdvTestFramework.Protocol.Json;
 using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Protocol.Reports;
 using SdvTestFramework.Runner.Bitmap;
+using SdvTestFramework.Runner.Mcp.Scenarios;
 using SdvTestFramework.Runner.Reports;
 
 namespace SdvTestFramework.Runner.Scenarios;
@@ -37,6 +38,7 @@ public sealed class ScenarioRunner
     private readonly bool _updateBaselines;
     private readonly RunDirectory? _reportDir;
     private readonly ScreenshotRecorder? _recorder;
+    private readonly ScenarioAssertionEvaluator _assertionEvaluator;
     private readonly DiffFormat _runWideDiffFormat;
     private readonly string _runWideTier;
 
@@ -95,6 +97,7 @@ public sealed class ScenarioRunner
         _updateBaselines = updateBaselines;
         _reportDir = reportDir;
         _recorder = reportDir is not null ? new ScreenshotRecorder(session) : null;
+        _assertionEvaluator = new ScenarioAssertionEvaluator(new JsonRpcSessionScenarioAssertionRpc(session));
         _runWideDiffFormat = runWideDiffFormat;
         _runWideTier = runWideTier;
     }
@@ -319,11 +322,11 @@ public sealed class ScenarioRunner
                 report.AssertionsRun++;
                 var (passed, detail) = await EvaluateAssertionAsync(a, assertionIndex, ct);
                 if (passed) report.AssertionsPassed++;
-                else report.Failures.Add($"{a.Type}: {detail ?? a.Message ?? "failed"}");
+                else report.Failures.Add($"{a.Type}: {FormatAssertionFailure(a, detail)}");
                 report.Assertions.Add(new AssertionOutcome(
                     DescribeAssertion(a),
                     passed,
-                    passed ? a.Message : detail ?? a.Message));
+                    passed ? a.Message : FormatAssertionFailure(a, detail)));
                 assertionIndex++;
             }
 
@@ -2330,6 +2333,18 @@ public sealed class ScenarioRunner
         };
     }
 
+    private static string FormatAssertionFailure(ScenarioAssertion assertion, string? detail)
+    {
+        if (!string.IsNullOrWhiteSpace(assertion.Message) && !string.IsNullOrWhiteSpace(detail))
+        {
+            return string.Equals(assertion.Message, detail, StringComparison.Ordinal)
+                ? detail
+                : $"{assertion.Message}: {detail}";
+        }
+
+        return detail ?? assertion.Message ?? "failed";
+    }
+
     private static string? GetStringArg(JsonElement? args, string name)
         => args is { ValueKind: JsonValueKind.Object } obj
             && obj.TryGetProperty(name, out var value)
@@ -2708,81 +2723,19 @@ public sealed class ScenarioRunner
         switch (a.Type)
         {
             case "draw.contains":
-            {
-                if (a.Filter is null) return (false, null);
-                // Build the assert_contains params. Using raw JSON construction to keep the
-                // filter's shape (arbitrary JsonElement) passing through unchanged.
-                var payload = new
-                {
-                    filter = a.Filter,
-                    min_count = a.MinCount,
-                    message = a.Message,
-                };
-                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
-                var resp = await _session.InvokeAsync("draw.assert_contains", req, ct);
-                if (resp.Error is not null)
-                {
-                    await TryCaptureAssertionFailureAsync(ct);
-                    return (false, null);
-                }
-                if (resp.Result is not { } r) return (false, null);
-                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
-                if (!passed) await TryCaptureAssertionFailureAsync(ct);
-                return (passed, null);
-            }
             case "draw.not_contains":
-            {
-                if (a.Filter is null) return (false, null);
-                var payload = new { filter = a.Filter, message = a.Message };
-                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
-                var resp = await _session.InvokeAsync("draw.assert_not_contains", req, ct);
-                if (resp.Error is not null)
-                {
-                    await TryCaptureAssertionFailureAsync(ct);
-                    return (false, null);
-                }
-                if (resp.Result is not { } r) return (false, null);
-                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
-                if (!passed) await TryCaptureAssertionFailureAsync(ct);
-                return (passed, null);
-            }
             case "draw.text_contains":
-            {
-                if (a.Filter is null) return (false, null);
-                var payload = new
-                {
-                    filter = a.Filter,
-                    min_count = a.MinCount,
-                    max_count = a.MaxCount,
-                    message = a.Message,
-                };
-                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
-                var resp = await _session.InvokeAsync("draw.assert_text_contains", req, ct);
-                if (resp.Error is not null)
-                {
-                    await TryCaptureAssertionFailureAsync(ct);
-                    return (false, resp.Error.Message);
-                }
-                if (resp.Result is not { } r) return (false, null);
-                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
-                if (!passed) await TryCaptureAssertionFailureAsync(ct);
-                return (passed, passed ? null : TextContainsFailureDetail(r));
-            }
             case "draw.text_not_contains":
+            case "content.asset":
+            case "state.fishing_context":
+            case "state.fishing_table":
+            case "fishing.sample_catch":
+            case "state":
             {
-                if (a.Filter is null) return (false, null);
-                var payload = new { filter = a.Filter, message = a.Message };
-                var req = JsonSerializer.SerializeToElement(payload, ProtocolJson.Options);
-                var resp = await _session.InvokeAsync("draw.assert_text_not_contains", req, ct);
-                if (resp.Error is not null)
-                {
+                var result = await _assertionEvaluator.EvaluateAsync(a, ct);
+                if (!result.Passed)
                     await TryCaptureAssertionFailureAsync(ct);
-                    return (false, resp.Error.Message);
-                }
-                if (resp.Result is not { } r) return (false, null);
-                bool passed = r.TryGetProperty("passed", out var p) && p.GetBoolean();
-                if (!passed) await TryCaptureAssertionFailureAsync(ct);
-                return (passed, passed ? null : TextNotContainsFailureDetail(r));
+                return (result.Passed, result.Detail);
             }
             case "draw.text_all_within":
             {
@@ -2809,481 +2762,9 @@ public sealed class ScenarioRunner
                 if (!result.Passed) await TryCaptureAssertionFailureAsync(ct);
                 return (result.Passed, result.FailureMessage);
             }
-            case "content.asset":
-            {
-                var result = await EvaluateContentAssetAssertionAsync(a, ct);
-                if (!result.Passed)
-                    await TryCaptureAssertionFailureAsync(ct);
-                return result;
-            }
-            case "state.fishing_context":
-            case "state.fishing_table":
-            case "fishing.sample_catch":
-            {
-                var result = await EvaluateRpcResultAssertionAsync(a.Type, a, ct);
-                if (!result.Passed)
-                    await TryCaptureAssertionFailureAsync(ct);
-                return result;
-            }
-            case "state":
-            {
-                // Minimal DSL: "state.<method>.<field>[.<subfield>...] == <literal>"
-                //           or "state.<method>.<field>[.<subfield>...] != <literal>"
-                //           or "state.<method>.<array> [not] contains [field] '<literal>'.
-                // RHS literal: single/double-quoted string, integer, or boolean. Anything
-                // more expressive is deferred — scenarios needing richer logic compose
-                // multiple assertions.
-                if (string.IsNullOrWhiteSpace(a.Expr)) return (false, null);
-
-                var containsMatch = System.Text.RegularExpressions.Regex.Match(
-                    a.Expr.Trim(),
-                    @"^state\.(?<method>[A-Za-z_][A-Za-z0-9_]*)\.(?<array>[A-Za-z_][A-Za-z0-9_]*)\s+(?:(?<not>not)\s+)?contains(?:\s+(?<field>[A-Za-z_][A-Za-z0-9_]*))?\s+(?<quote>['""])(?<literal>.*?)\k<quote>$");
-                if (containsMatch.Success)
-                {
-                    var containsMethod = $"state.{containsMatch.Groups["method"].Value}";
-                    var arrayProperty = containsMatch.Groups["array"].Value;
-                    var objectField = containsMatch.Groups["field"].Success ? containsMatch.Groups["field"].Value : null;
-                    var literal = containsMatch.Groups["literal"].Value;
-                    var negatedContains = containsMatch.Groups["not"].Success;
-
-                    var containsResp = await _session.InvokeAsync(containsMethod, a.Params, ct);
-                    if (containsResp.Error is not null || containsResp.Result is not { } containsRoot)
-                    {
-                        await TryCaptureAssertionFailureAsync(ct);
-                        return (false, containsResp.Error?.Message);
-                    }
-
-                    if (!containsRoot.TryGetProperty(arrayProperty, out var array) || array.ValueKind != JsonValueKind.Array)
-                    {
-                        await TryCaptureAssertionFailureAsync(ct);
-                        return (false, $"state.{containsMatch.Groups["method"].Value}.{arrayProperty} was not an array");
-                    }
-
-                    var matched = false;
-                    foreach (var element in array.EnumerateArray())
-                    {
-                        if (objectField is null)
-                        {
-                            matched = element.ValueKind == JsonValueKind.String
-                                && string.Equals(element.GetString(), literal, StringComparison.Ordinal);
-                        }
-                        else
-                        {
-                            matched = element.ValueKind == JsonValueKind.Object
-                                && element.TryGetProperty(objectField, out var field)
-                                && field.ValueKind == JsonValueKind.String
-                                && string.Equals(field.GetString(), literal, StringComparison.Ordinal);
-                        }
-
-                        if (matched)
-                            break;
-                    }
-
-                    var passed = negatedContains ? !matched : matched;
-                    if (!passed) await TryCaptureAssertionFailureAsync(ct);
-                    return (passed, passed ? null : negatedContains
-                        ? $"expected {arrayProperty} not to contain '{literal}'"
-                        : $"expected {arrayProperty} to contain '{literal}'");
-                }
-
-                // Split on the first occurrence of "!=" or "==" — "!=" checked first so that
-                // "a != b" doesn't get parsed as "a !" "= b".
-                bool negated;
-                string[] parts;
-                int neqIdx = a.Expr.IndexOf("!=", StringComparison.Ordinal);
-                int eqIdx = a.Expr.IndexOf("==", StringComparison.Ordinal);
-                if (neqIdx >= 0 && (eqIdx < 0 || neqIdx < eqIdx))
-                {
-                    negated = true;
-                    parts = new[] { a.Expr.Substring(0, neqIdx), a.Expr.Substring(neqIdx + 2) };
-                }
-                else if (eqIdx >= 0)
-                {
-                    negated = false;
-                    parts = new[] { a.Expr.Substring(0, eqIdx), a.Expr.Substring(eqIdx + 2) };
-                }
-                else
-                {
-                    return (false, null);
-                }
-                if (parts.Length != 2) return (false, null);
-
-                var pathTokens = parts[0].Trim().Split('.');
-                var rhs = parts[1].Trim();
-                if (pathTokens.Length < 3 || pathTokens[0] != "state") return (false, null);
-
-                var method = $"state.{pathTokens[1]}";
-                var resp = await _session.InvokeAsync(method, a.Params, ct);
-                if (resp.Error is not null || resp.Result is not { } root)
-                {
-                    await TryCaptureAssertionFailureAsync(ct);
-                    return (false, null);
-                }
-
-                JsonElement cur = root;
-                for (int i = 2; i < pathTokens.Length; i++)
-                {
-                    var token = pathTokens[i];
-                    // Match "field[N]" → {field, index}. Regex is intentionally tight; no nested
-                    // indexes, no slicing — scenarios can compose multiple assertions instead.
-                    var m = System.Text.RegularExpressions.Regex.Match(token, @"^([A-Za-z_][A-Za-z0-9_]*)\[(\d+)\]$");
-                    if (m.Success)
-                    {
-                        var fieldName = m.Groups[1].Value;
-                        var index = int.Parse(m.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
-                        if (cur.ValueKind != JsonValueKind.Object) return (false, null);
-                        if (!cur.TryGetProperty(fieldName, out var arr)) return (false, null);
-                        if (arr.ValueKind != JsonValueKind.Array) return (false, null);
-                        if (index < 0 || index >= arr.GetArrayLength()) return (false, null);
-                        cur = arr[index];
-                    }
-                    else
-                    {
-                        if (cur.ValueKind != JsonValueKind.Object) return (false, null);
-                        if (!cur.TryGetProperty(token, out var nested)) return (false, null);
-                        cur = nested;
-                    }
-                }
-
-                // Quoted string literal
-                if ((rhs.StartsWith('\'') && rhs.EndsWith('\'')) ||
-                    (rhs.StartsWith('"') && rhs.EndsWith('"')))
-                {
-                    var literal = rhs.Substring(1, rhs.Length - 2);
-                    bool eq = cur.ValueKind == JsonValueKind.String && cur.GetString() == literal;
-                    bool result = negated ? !eq : eq;
-                    if (!result) await TryCaptureAssertionFailureAsync(ct);
-                    return (result, null);
-                }
-                // Integer literal
-                if (long.TryParse(rhs, System.Globalization.NumberStyles.Integer,
-                        System.Globalization.CultureInfo.InvariantCulture, out var intLit))
-                {
-                    bool eq = cur.ValueKind == JsonValueKind.Number
-                        && cur.TryGetInt64(out var cv) && cv == intLit;
-                    bool result = negated ? !eq : eq;
-                    if (!result) await TryCaptureAssertionFailureAsync(ct);
-                    return (result, null);
-                }
-                // Boolean literal
-                if (bool.TryParse(rhs, out var boolLit))
-                {
-                    bool eq = (cur.ValueKind == JsonValueKind.True && boolLit)
-                        || (cur.ValueKind == JsonValueKind.False && !boolLit);
-                    bool result = negated ? !eq : eq;
-                    if (!result) await TryCaptureAssertionFailureAsync(ct);
-                    return (result, null);
-                }
-                return (false, null);
-            }
             default:
                 return (false, null);
         }
-    }
-
-    private async Task<(bool Passed, string? Detail)> EvaluateRpcResultAssertionAsync(
-        string method,
-        ScenarioAssertion assertion,
-        CancellationToken ct)
-    {
-        var resp = await _session.InvokeAsync(method, assertion.Params, ct);
-        if (resp.Error is not null)
-            return (false, resp.Error.Message);
-        if (resp.Result is not { } root)
-            return (false, $"{method} returned no result");
-
-        if (string.IsNullOrWhiteSpace(assertion.Expr))
-            return (true, null);
-
-        return EvaluateResultExpression(root, assertion.Expr);
-    }
-
-    private static (bool Passed, string? Detail) EvaluateResultExpression(JsonElement root, string expr)
-    {
-        var trimmed = expr.Trim();
-        var pathPattern = @"[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*";
-        var containsMatch = System.Text.RegularExpressions.Regex.Match(
-            trimmed,
-            $@"^result\.({pathPattern})\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
-        if (containsMatch.Success)
-        {
-            var path = "result." + containsMatch.Groups[1].Value;
-            var objectField = containsMatch.Groups[2].Success ? containsMatch.Groups[2].Value : null;
-            var literal = containsMatch.Groups[4].Value;
-
-            if (!TryResolveResultPath(root, path, out var array))
-                return (false, $"{path} was not found");
-            if (array.ValueKind != JsonValueKind.Array)
-                return (false, $"{path} was not an array");
-
-            foreach (var element in array.EnumerateArray())
-            {
-                if (objectField is null)
-                {
-                    if (element.ValueKind == JsonValueKind.String
-                        && string.Equals(element.GetString(), literal, StringComparison.Ordinal))
-                    {
-                        return (true, null);
-                    }
-                }
-                else if (element.ValueKind == JsonValueKind.Object
-                    && element.TryGetProperty(objectField, out var field)
-                    && field.ValueKind == JsonValueKind.String
-                    && string.Equals(field.GetString(), literal, StringComparison.Ordinal))
-                {
-                    return (true, null);
-                }
-            }
-
-            return (false, $"expected {path} to contain '{literal}'");
-        }
-
-        var neqIdx = trimmed.IndexOf("!=", StringComparison.Ordinal);
-        var eqIdx = trimmed.IndexOf("==", StringComparison.Ordinal);
-        bool negated;
-        string[] parts;
-        if (neqIdx >= 0 && (eqIdx < 0 || neqIdx < eqIdx))
-        {
-            negated = true;
-            parts = new[] { trimmed.Substring(0, neqIdx), trimmed.Substring(neqIdx + 2) };
-        }
-        else if (eqIdx >= 0)
-        {
-            negated = false;
-            parts = new[] { trimmed.Substring(0, eqIdx), trimmed.Substring(eqIdx + 2) };
-        }
-        else
-        {
-            return (false, $"unsupported result expression: {expr}");
-        }
-
-        var lhs = parts[0].Trim();
-        var rhs = parts[1].Trim();
-        if (!TryResolveResultPath(root, lhs, out var value))
-            return (false, $"{lhs} was not found");
-
-        var equal = JsonElementEqualsLiteral(value, rhs);
-        if (equal is null)
-            return (false, $"unsupported literal in result expression: {rhs}");
-
-        var result = negated ? !equal.Value : equal.Value;
-        return (result, result ? null : $"{lhs} did not match {rhs}");
-    }
-
-    private static bool TryResolveResultPath(JsonElement root, string path, out JsonElement value)
-    {
-        value = default;
-        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (tokens.Length == 0 || tokens[0] != "result")
-            return false;
-
-        value = root;
-        for (var index = 1; index < tokens.Length; index++)
-        {
-            if (!TryReadJsonToken(value, tokens[index], out value))
-                return false;
-        }
-
-        return true;
-    }
-
-    private async Task<(bool Passed, string? Detail)> EvaluateContentAssetAssertionAsync(
-        ScenarioAssertion assertion,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(assertion.Asset))
-            return (false, "content.asset requires asset");
-
-        var request = ProtocolJson.ToElement(new ContentAssetRequest
-        {
-            Name = assertion.Asset,
-            AssetType = assertion.AssetType,
-            IncludeKeys = assertion.IncludeKeys ?? false,
-            KeysLimit = assertion.KeysLimit,
-            EntryKeys = assertion.EntryKeys,
-            HashTexture = assertion.HashTexture ?? false,
-        });
-        var resp = await _session.InvokeAsync("content.asset", request, ct);
-        if (resp.Error is not null)
-            return (false, resp.Error.Message);
-        if (resp.Result is not { ValueKind: JsonValueKind.Object } root)
-            return (false, "content.asset returned no result");
-
-        if (!root.TryGetProperty("exists", out var exists)
-            || exists.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
-        {
-            return (false, $"content.asset returned invalid exists for {assertion.Asset}");
-        }
-
-        if (!exists.GetBoolean())
-            return (false, $"{assertion.Asset} is missing");
-
-        if (string.IsNullOrWhiteSpace(assertion.Expr))
-            return (true, null);
-
-        return EvaluateAssetExpression(root, assertion.Expr);
-    }
-
-    private static (bool Passed, string? Detail) EvaluateAssetExpression(JsonElement assetRoot, string expr)
-    {
-        var trimmed = expr.Trim();
-        var containsMatch = System.Text.RegularExpressions.Regex.Match(
-            trimmed,
-            @"^asset\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
-        if (containsMatch.Success)
-        {
-            var path = "asset." + containsMatch.Groups[1].Value;
-            var objectField = containsMatch.Groups[2].Success ? containsMatch.Groups[2].Value : null;
-            var literal = containsMatch.Groups[4].Value;
-
-            if (!TryResolveAssetPath(assetRoot, path, out var array))
-                return (false, $"{path} was not found");
-            if (array.ValueKind != JsonValueKind.Array)
-                return (false, $"{path} was not an array");
-
-            foreach (var element in array.EnumerateArray())
-            {
-                if (objectField is null)
-                {
-                    if (element.ValueKind == JsonValueKind.String
-                        && string.Equals(element.GetString(), literal, StringComparison.Ordinal))
-                    {
-                        return (true, null);
-                    }
-                }
-                else if (element.ValueKind == JsonValueKind.Object
-                    && element.TryGetProperty(objectField, out var field)
-                    && field.ValueKind == JsonValueKind.String
-                    && string.Equals(field.GetString(), literal, StringComparison.Ordinal))
-                {
-                    return (true, null);
-                }
-            }
-
-            return (false, $"expected {path} to contain '{literal}'");
-        }
-
-        var neqIdx = trimmed.IndexOf("!=", StringComparison.Ordinal);
-        var eqIdx = trimmed.IndexOf("==", StringComparison.Ordinal);
-        bool negated;
-        string[] parts;
-        if (neqIdx >= 0 && (eqIdx < 0 || neqIdx < eqIdx))
-        {
-            negated = true;
-            parts = new[] { trimmed.Substring(0, neqIdx), trimmed.Substring(neqIdx + 2) };
-        }
-        else if (eqIdx >= 0)
-        {
-            negated = false;
-            parts = new[] { trimmed.Substring(0, eqIdx), trimmed.Substring(eqIdx + 2) };
-        }
-        else
-        {
-            return (false, $"unsupported content.asset expression: {expr}");
-        }
-
-        var lhs = parts[0].Trim();
-        var rhs = parts[1].Trim();
-        if (!TryResolveAssetPath(assetRoot, lhs, out var value))
-            return (false, $"{lhs} was not found");
-
-        var equal = JsonElementEqualsLiteral(value, rhs);
-        if (equal is null)
-            return (false, $"unsupported literal in content.asset expression: {rhs}");
-
-        var result = negated ? !equal.Value : equal.Value;
-        return (result, result ? null : $"{lhs} did not match {rhs}");
-    }
-
-    private static bool TryResolveAssetPath(JsonElement assetRoot, string path, out JsonElement value)
-    {
-        value = default;
-        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (tokens.Length == 0 || tokens[0] != "asset")
-            return false;
-        if (tokens.Length == 1)
-        {
-            value = assetRoot;
-            return true;
-        }
-        if (assetRoot.ValueKind != JsonValueKind.Object)
-            return false;
-
-        var index = 1;
-        if (tokens[index] == "summary")
-        {
-            if (!assetRoot.TryGetProperty("summary", out value))
-                return false;
-            index++;
-        }
-        else if (assetRoot.TryGetProperty(tokens[index], out value))
-        {
-            index++;
-        }
-        else
-        {
-            if (!assetRoot.TryGetProperty("summary", out value))
-                return false;
-        }
-
-        for (; index < tokens.Length; index++)
-        {
-            if (!TryReadJsonToken(value, tokens[index], out value))
-                return false;
-        }
-
-        return true;
-    }
-
-    private static bool TryReadJsonToken(JsonElement current, string token, out JsonElement value)
-    {
-        value = default;
-        var match = System.Text.RegularExpressions.Regex.Match(token, @"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$");
-        if (!match.Success)
-            return false;
-
-        if (current.ValueKind != JsonValueKind.Object)
-            return false;
-        if (!current.TryGetProperty(match.Groups[1].Value, out value))
-            return false;
-
-        if (!match.Groups[2].Success)
-            return true;
-
-        if (value.ValueKind != JsonValueKind.Array)
-            return false;
-        var index = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
-        if (index < 0 || index >= value.GetArrayLength())
-            return false;
-        value = value[index];
-        return true;
-    }
-
-    private static bool? JsonElementEqualsLiteral(JsonElement value, string rhs)
-    {
-        if ((rhs.StartsWith('\'') && rhs.EndsWith('\'')) ||
-            (rhs.StartsWith('"') && rhs.EndsWith('"')))
-        {
-            var literal = rhs.Substring(1, rhs.Length - 2);
-            return value.ValueKind == JsonValueKind.String
-                && string.Equals(value.GetString(), literal, StringComparison.Ordinal);
-        }
-
-        if (long.TryParse(rhs, System.Globalization.NumberStyles.Integer,
-                System.Globalization.CultureInfo.InvariantCulture, out var intLiteral))
-        {
-            return value.ValueKind == JsonValueKind.Number
-                && value.TryGetInt64(out var actual)
-                && actual == intLiteral;
-        }
-
-        if (bool.TryParse(rhs, out var boolLiteral))
-        {
-            return (value.ValueKind == JsonValueKind.True && boolLiteral)
-                || (value.ValueKind == JsonValueKind.False && !boolLiteral);
-        }
-
-        return null;
     }
 
     private async Task<(bool Passed, string? Detail)> EvaluateTextAllWithinAsync(
@@ -3501,35 +2982,6 @@ public sealed class ScenarioRunner
 
         public override string ToString()
             => $"[{X},{Y},{Width},{Height}]";
-    }
-
-    private static string? TextContainsFailureDetail(JsonElement result)
-    {
-        if (TryGetInt(result, "matched_count", out var matched) &&
-            TryGetInt(result, "min_count", out var min))
-        {
-            if (matched < min)
-                return $"matched {matched} < {min}";
-
-            if (TryGetInt(result, "max_count", out var max) && matched > max)
-                return $"matched {matched} > {max}";
-        }
-        return null;
-    }
-
-    private static string? TextNotContainsFailureDetail(JsonElement result)
-    {
-        if (TryGetInt(result, "matched_count", out var matched))
-            return $"matched {matched}";
-        return null;
-    }
-
-    private static bool TryGetInt(JsonElement obj, string propertyName, out int value)
-    {
-        value = 0;
-        return obj.ValueKind == JsonValueKind.Object
-            && obj.TryGetProperty(propertyName, out var property)
-            && property.TryGetInt32(out value);
     }
 
     /// <summary>

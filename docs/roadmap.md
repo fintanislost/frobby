@@ -65,11 +65,6 @@ Makes the framework actually usable by other modders + Claude-via-MCP on arbitra
 Makes test failures actionable — especially important when Claude is iterating on a
 broken test.
 
-- [ ] **Full DSL assertion eval in MCP `run_scenario`** (~1 day) — today handles
-  steps + `draw.contains` assertions; delegates state-DSL to the CLI runner. Extend to
-  evaluate `state` assertions (reuse `ScenarioRunner`'s logic or refactor into a shared
-  evaluator). Source: M3-MCP out-of-scope list.
-
 - [ ] **MCP streaming tool results** (~2 days) — incremental updates for long-running
   scenarios via MCP. Today `run_scenario` is synchronous; LLM sees nothing until
   completion. Streaming lets Claude watch step-by-step. Source: M3-MCP out-of-scope.
@@ -103,8 +98,6 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 - [ ] StageHarnessPayload generic NuGet-dep staging (~2 hours). Today hardcodes
   `SixLabors.ImageSharp.dll`; future runtime NuGet deps need a generic pattern.
   Source: M2-bitmap T7 build-fix commentary.
-- [ ] Expose `ScenarioRunner` state-DSL evaluator as a reusable library (folds into
-  "Full DSL assertion eval in MCP `run_scenario`" Tier 3 item).
 - [ ] Suppress `Test Run Aborted` cosmetic noise in `ci.sh` (~30 min). `dotnet test
   sdv-test-framework.slnx` tries to run `Runner.Dsl` as a test host (because it
   references `xunit` for `BeforeAfterTestAttribute`), aborts harmlessly, then continues
@@ -115,6 +108,17 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 ---
 
 ## Completed
+
+### 2026-05-16
+
+- **Shared non-bitmap assertion eval for MCP `run_scenario`**. Extracted state,
+  content asset, fishing-result, and draw RPC assertion evaluation into a shared
+  `ScenarioAssertionEvaluator` used by both MCP `run_scenario` and the CLI runner.
+  MCP now evaluates `state`, `content.asset`, `state.fishing_context`,
+  `state.fishing_table`, `fishing.sample_catch`, `draw.contains`,
+  `draw.not_contains`, `draw.text_contains`, and `draw.text_not_contains`; bitmap,
+  `draw.text_all_within`, streaming, and complete static HTML remain CLI-only.
+  Added MCP parity coverage plus a CLI failure-detail regression.
 
 ### 2026-04-29
 

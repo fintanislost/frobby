@@ -41,9 +41,11 @@ The `furniture_menu` scaffold template places custom furniture, interacts with i
 arms draw capture, and includes starter assertions for the expected menu type and
 visible text.
 
-`run_scenario` is intentionally lighter than the CLI runner: it is useful for quick
-agent probes, but full scenario evaluation, rich assertions, bitmap forensics, and
-complete static HTML reports should be run through `sdv-test run` or
+`run_scenario` evaluates scenario steps plus the shared non-bitmap RPC assertion set:
+`state`, `content.asset`, `state.fishing_context`, `state.fishing_table`,
+`fishing.sample_catch`, `draw.contains`, `draw.not_contains`, `draw.text_contains`,
+and `draw.text_not_contains`. Bitmap assertions, `draw.text_all_within`, streaming
+progress, and complete static HTML reports remain CLI-only via `sdv-test run` or
 `sdv-test run-suite`.
 
 ## 4. Environment knobs
