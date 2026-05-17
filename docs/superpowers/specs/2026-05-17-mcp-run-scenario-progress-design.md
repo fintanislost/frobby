@@ -227,5 +227,5 @@ Update:
 
 - Use integer progress units internally. JSON numbers can represent them directly,
   and scenario work is naturally counted in whole milestones.
-- Use `scenario.end` as the final progress notification. When cleanup is attempted it
+- Use `scenario.end` as the final progress notification. When cleanup succeeds it
   naturally reaches `progress == total`; no separate "complete" notification is needed.
