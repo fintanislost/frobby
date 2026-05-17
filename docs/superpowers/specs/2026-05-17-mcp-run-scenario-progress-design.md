@@ -219,7 +219,7 @@ Update:
 - `docs/mcp-quickstart.md`
   - document that `run_scenario` supports MCP progress notifications when clients send
     `_meta.progressToken`
-  - clarify that progress is best-effort and final results stay unchanged
+  - clarify that progress is optional status and final results stay unchanged
 - `docs/roadmap.md`
   - move the Tier 3 progress item to Completed once implementation and tests pass
 

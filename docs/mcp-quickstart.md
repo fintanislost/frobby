@@ -50,8 +50,9 @@ complete static HTML reports remain CLI-only via `sdv-test run` or
 
 MCP clients that support progress can send `_meta.progressToken` on `tools/call`
 requests for `run_scenario`. Frobby then emits `notifications/progress` after
-scenario setup, each step, each assertion, and cleanup. Progress messages are
-best-effort status updates; the final tool result keeps the same JSON summary shape.
+scenario setup, each step, each assertion, and cleanup. Progress notifications are
+optional status updates; delivery failures are treated as MCP transport failures,
+and successful final tool results keep the same JSON summary shape.
 
 ## 4. Environment knobs
 

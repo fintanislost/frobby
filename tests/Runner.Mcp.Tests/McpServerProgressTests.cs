@@ -35,10 +35,13 @@ public class McpServerProgressTests
         public List<(string Method, string ParamsJson)> Calls { get; } = new();
         public Dictionary<string, string> Responses { get; } = new();
         public HashSet<string> FailMethods { get; } = new();
+        public HashSet<string> CancelMethods { get; } = new();
 
         public override Task<JsonElement> InvokeAsync(string method, JsonElement? p, CancellationToken ct)
         {
             Calls.Add((method, p?.GetRawText() ?? ""));
+            if (CancelMethods.Contains(method))
+                throw new OperationCanceledException(ct);
             if (FailMethods.Contains(method))
                 throw new SdvRpcException(method, JsonRpcErrorCode.InternalError, "forced failure");
 
@@ -78,6 +81,19 @@ public class McpServerProgressTests
         Assert.Equal(9, final.GetProperty("id").GetInt32());
         var toolText = final.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
         Assert.Contains("\"ok\":true", toolText);
+    }
+
+    [Fact]
+    public async Task ToolCall_WithNumericProgressToken_PreservesNumericToken()
+    {
+        var lines = await RunProbeToolThroughServerAsync(new MemoryStream(), progressTokenJson: "123");
+
+        var notification = ParseNotification(lines[0]);
+        var parameters = notification.GetProperty("params");
+        var token = parameters.GetProperty("progressToken");
+        Assert.Equal(JsonValueKind.Number, token.ValueKind);
+        Assert.Equal(123, token.GetInt32());
+        Assert.Equal("probe", parameters.GetProperty("message").GetString());
     }
 
     [Fact]
@@ -256,6 +272,58 @@ public class McpServerProgressTests
         using var toolDoc = AssertFinalToolResult(lines[3], id: 9, expectedPassed: false);
     }
 
+    [Fact]
+    public async Task RunScenario_WhenScenarioEndFails_DoesNotReportCleanupSuccess()
+    {
+        var scenario = """
+        {
+          "name": "progress_cleanup_fail",
+          "config": { "seed": 42 },
+          "steps": [],
+          "assertions": []
+        }
+        """;
+
+        var life = CreateLifecycle();
+        life.FailMethods.Add("scenario.end");
+
+        var lines = await RunScenarioThroughServerAsync(
+            scenario,
+            life,
+            progressTokenJson: "\"scenario-cleanup-fail\"");
+
+        Assert.Equal(2, lines.Length);
+        AssertProgress(
+            ParseNotification(lines[0]),
+            "scenario-cleanup-fail",
+            progress: 1,
+            total: 2,
+            message: "scenario.begin");
+        using var toolDoc = AssertFinalToolResult(lines[1], id: 9, expectedPassed: true);
+    }
+
+    [Fact]
+    public async Task RunScenario_WhenScenarioEndIsCanceled_PropagatesCancellation()
+    {
+        var scenario = """
+        {
+          "name": "progress_cleanup_canceled",
+          "config": { "seed": 42 },
+          "steps": [],
+          "assertions": []
+        }
+        """;
+
+        var life = CreateLifecycle();
+        life.CancelMethods.Add("scenario.end");
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            RunScenarioThroughServerAsync(
+                scenario,
+                life,
+                progressTokenJson: null));
+    }
+
     private static RecordingLifecycle CreateLifecycle()
     {
         var life = new RecordingLifecycle();
@@ -308,10 +376,14 @@ public class McpServerProgressTests
         }
     }
 
-    private static async Task<string[]> RunProbeToolThroughServerAsync(Stream stdout)
+    private static async Task<string[]> RunProbeToolThroughServerAsync(
+        Stream stdout,
+        string progressTokenJson = "\"probe-token\"")
     {
         var request =
-            "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"progress_probe\",\"arguments\":{},\"_meta\":{\"progressToken\":\"probe-token\"}}}";
+            "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"progress_probe\",\"arguments\":{},\"_meta\":{\"progressToken\":" +
+            progressTokenJson +
+            "}}}";
         var input = Encoding.UTF8.GetBytes(request + "\n");
         using var stdin = new MemoryStream(input);
 

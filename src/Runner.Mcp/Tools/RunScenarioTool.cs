@@ -153,9 +153,14 @@ public sealed class RunScenarioTool : ITool
 
             done:
             // 5. scenario.end
-            try { await life.InvokeAsync("scenario.end", null, ct); } catch { }
-            progress = totalProgress;
-            await context.Progress.ReportAsync(progress, totalProgress, "scenario.end", ct);
+            try
+            {
+                await life.InvokeAsync("scenario.end", null, ct);
+                progress = totalProgress;
+                await context.Progress.ReportAsync(progress, totalProgress, "scenario.end", ct);
+            }
+            catch (System.OperationCanceledException) { throw; }
+            catch { }
         }
         catch (SdvRpcException ex) { failures.Add(ex.Message); }
 
