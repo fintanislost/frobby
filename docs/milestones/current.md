@@ -238,10 +238,13 @@ Design spec: `docs/superpowers/specs/2026-04-24-m3-mcp-server-design.md`.
 
 **Out of scope (M4):**
 - HTTP transport.
-- MCP resources + prompts (exposing test results as MCP resources, scaffolding as MCP prompts).
+- Dynamic MCP report resources, resource templates, and resource subscriptions.
 - Streaming tool results for long-running scenarios.
 - Richer scaffold templates.
 - Full DSL assertion evaluation in `run_scenario` (state assertions currently delegate to the CLI runner; MCP's `run_scenario` handles steps + draw.contains assertions but not the richer state DSL).
+
+**2026-05-17 cleanup:** the first static MCP resources/prompts slice landed for
+docs, scenario indexes, and workflow prompt templates.
 
 ### Tier 2 texture-hash fallback landed (2026-04-24)
 

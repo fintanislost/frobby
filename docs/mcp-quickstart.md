@@ -54,7 +54,36 @@ scenario setup, each step, each assertion, and cleanup. Progress notifications a
 optional status updates; delivery failures are treated as MCP transport failures,
 and successful final tool results keep the same JSON summary shape.
 
-## 4. Environment knobs
+## 4. Resource surface
+
+Frobby advertises MCP `resources` support and exposes a read-only static context
+surface for agents:
+
+- `frobby://docs/wiki/index` — task-oriented documentation hub.
+- `frobby://docs/wiki/examples` — pointers to real Starberg and SVE scenarios.
+- `frobby://docs/rpc-schema` — JSON-RPC method and scenario action reference.
+- `frobby://docs/mcp-quickstart` — this MCP guide.
+- `frobby://scenarios/list` — Markdown index of repo-local `tests/sdv/*.test.json`
+  scenarios when a scenario directory exists.
+
+Use `resources/list` to discover descriptors and `resources/read` to fetch text.
+This first resource slice is static and read-only; subscriptions, resource
+templates, and dynamic report resources are deferred.
+
+## 5. Prompt surface
+
+Frobby advertises MCP `prompts` support for common agent workflows:
+
+- `create_scenario` — add a JSON scenario for a mod behavior.
+- `debug_failed_scenario` — inspect report artifacts before changing code or tests.
+- `add_mod_ui_coverage` — build click-first, draw-call-first UI coverage.
+- `explain_available_tools` — summarize the Frobby MCP surface.
+
+Use `prompts/list` to inspect prompt arguments and `prompts/get` to retrieve a
+prompt message. Prompt arguments are optional context fields such as `mod_name`,
+`behavior`, `scenario_dir`, `report_dir`, `scenario_name`, and `panel_or_menu`.
+
+## 6. Environment knobs
 
 - `SDV_MODS_PATH` — override the mods dir the harness is deployed to (default `~/.cache/sdv-test-framework/mods`).
 - `SDV_EXTRA_MODS` — platform-path-separator-delimited list of built SMAPI mod folders to copy into the isolated mods dir before launch. Example on Linux: `SDV_EXTRA_MODS=/path/to/Example.Mod/bin/Release/net6.0`.
@@ -66,6 +95,8 @@ and successful final tool results keep the same JSON summary shape.
 - The MCP server lazy-launches SDV on first tool call that needs it. Tools that don't need SDV (`list_*`, `scaffold_scenario`) never trigger launch.
 - Stdio EOF tears down SDV cleanly.
 
-## 5. What's deferred
+## 7. What's deferred
 
-See the M3-MCP design spec (`docs/superpowers/specs/2026-04-24-m3-mcp-server-design.md`) for M4 follow-ups: HTTP transport, MCP resources/prompts, streaming tool results, richer scaffold templates.
+See the M3-MCP design spec (`docs/superpowers/specs/2026-04-24-m3-mcp-server-design.md`)
+for M4 follow-ups: HTTP transport, resource subscriptions/templates, dynamic
+report resources, streaming tool results, richer scaffold templates.

@@ -82,7 +82,6 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
   Source: M3-DSL out-of-scope.
 - [ ] MCP HTTP transport (~2 days). Source: M3-MCP out-of-scope.
   Low priority for local Claude Code; higher if cloud-hosted MCP matters.
-- [ ] MCP resources + prompts (~1 week). Source: M3-MCP out-of-scope.
 - [ ] Windows build parity (~1 week).
 - [ ] Git LFS setup for baselines + fixtures (few hours, once >5 items in either).
   Source: M2-fixture-builder + M2-bitmap out-of-scope.
@@ -107,6 +106,11 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
   `JsonSchema.Net` to 6.0.7 so Protocol remains safe for the net6.0 SMAPI harness,
   and added a regression test proving the loader now lives in
   `SdvTestFramework.Protocol`.
+
+- **MCP static resources and prompts**. Added MCP `resources/list`,
+  `resources/read`, `prompts/list`, and `prompts/get` support for static Frobby
+  docs, scenario indexes, and workflow prompts that guide agents through scenario
+  creation, failed-run debugging, UI coverage, and tool discovery.
 
 - **MCP `run_scenario` progress notifications**. Added request-scoped
   `_meta.progressToken` support for `run_scenario`, emitting protocol-native

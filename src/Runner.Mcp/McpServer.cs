@@ -141,6 +141,22 @@ public sealed class McpServer
                     await DispatchToolCallAsync(writer, req, ct);
                     return;
 
+                case "resources/list":
+                    await WriteResultAsync(writer, req.Id, McpResources.BuildListResult(), ct);
+                    return;
+
+                case "resources/read":
+                    await DispatchResourceReadAsync(writer, req, ct);
+                    return;
+
+                case "prompts/list":
+                    await WriteResultAsync(writer, req.Id, McpPrompts.BuildListResult(), ct);
+                    return;
+
+                case "prompts/get":
+                    await DispatchPromptGetAsync(writer, req, ct);
+                    return;
+
                 default:
                     await WriteErrorAsync(writer, req.Id, McpError.MethodNotFound(req.Method), ct);
                     return;
@@ -196,6 +212,22 @@ public sealed class McpServer
             JsonSerializer.Serialize(result.Text) + "}]" +
             (result.IsError ? ",\"isError\":true" : "") + "}";
         await WriteResultAsync(writer, req.Id, JsonDocument.Parse(wrappedJson).RootElement, ct);
+    }
+
+    private static Task DispatchResourceReadAsync(NdJsonWriter writer, JsonRpcRequest req, CancellationToken ct)
+    {
+        if (!McpResources.TryRead(req.Params, out var result, out var error))
+            return WriteErrorAsync(writer, req.Id, error!, ct);
+
+        return WriteResultAsync(writer, req.Id, result, ct);
+    }
+
+    private static Task DispatchPromptGetAsync(NdJsonWriter writer, JsonRpcRequest req, CancellationToken ct)
+    {
+        if (!McpPrompts.TryGet(req.Params, out var result, out var error))
+            return WriteErrorAsync(writer, req.Id, error!, ct);
+
+        return WriteResultAsync(writer, req.Id, result, ct);
     }
 
     private static JsonElement? TryGetProgressToken(JsonElement toolParams)
