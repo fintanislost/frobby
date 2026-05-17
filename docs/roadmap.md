@@ -65,13 +65,8 @@ Makes the framework actually usable by other modders + Claude-via-MCP on arbitra
 Makes test failures actionable — especially important when Claude is iterating on a
 broken test.
 
-- [ ] **Consolidate ScenarioLoader's physical home** (~2 hours) — today `ScenarioLoader.cs`
-  lives in `src/Runner.Mcp/` with namespace `SdvTestFramework.Protocol.Scenarios`. It was
-  moved out of Protocol during Tier 2 smoke because `JsonSchema.Net 7.x` uses net8-only
-  `System.Text.Json` APIs, and the net6 Harness transitively loaded Protocol → SMAPI
-  rejected the mod. Cleaner fix: pin `JsonSchema.Net` to a net6-compat version (v6.x
-  supports netstandard2.0 + net6.0), restore `ScenarioLoader.cs` to `src/Protocol/Scenarios/`.
-  Source: Tier 2 T5 smoke side-fix.
+_(All current Tier 3 items shipped 2026-05-17. Next: pick from Tier 2 ecosystem
+work or Tier 4 paper cuts.)_
 
 ## Tier 4 — Nice-to-haves / paper cuts
 
@@ -106,6 +101,12 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 ## Completed
 
 ### 2026-05-17
+
+- **ScenarioLoader Protocol consolidation**. Moved `ScenarioLoader` and
+  `ScenarioLoadException` back to `src/Protocol/Scenarios/`, pinned
+  `JsonSchema.Net` to 6.0.7 so Protocol remains safe for the net6.0 SMAPI harness,
+  and added a regression test proving the loader now lives in
+  `SdvTestFramework.Protocol`.
 
 - **MCP `run_scenario` progress notifications**. Added request-scoped
   `_meta.progressToken` support for `run_scenario`, emitting protocol-native

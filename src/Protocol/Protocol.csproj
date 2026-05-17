@@ -14,10 +14,12 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <!-- JsonSchema.Net removed from Protocol — ScenarioLoader moved to Runner/Scenarios.
-       Protocol is shared with the Harness (net6.0 SMAPI mod); SMAPI's assembly rewriter
-       rejects JsonSchema.Net 7.x because it uses net8.0-only System.Text.Json APIs.
-       Runner and Runner.Mcp reference JsonSchema.Net directly at net10.0. -->
+  <ItemGroup>
+    <!-- ScenarioLoader lives in Protocol so CLI and MCP share one scenario-loading
+         implementation. Pin to JsonSchema.Net 6.x because Protocol is loaded by
+         the net6.0 SMAPI harness; 7.x targets newer System.Text.Json APIs. -->
+    <PackageReference Include="JsonSchema.Net" Version="6.0.7" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\..\nuget\README-Protocol.md" Pack="true" PackagePath="README.md" />

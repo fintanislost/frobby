@@ -278,6 +278,10 @@ assembly rewriter rejected the harness mod when staging `Protocol.dll`. Fix: rem
 `JsonSchema.Net` from `Protocol.csproj`, moved `ScenarioLoader` to the runner-side
 projects which target net10.0 and have no SMAPI loading constraint.
 
+**2026-05-17 cleanup:** `ScenarioLoader` moved back to `src/Protocol/Scenarios/` after
+pinning `JsonSchema.Net` to the 6.x line, which includes a netstandard2.0 asset usable by
+the net6.0 harness.
+
 **Out of scope (M4):** shipped pre-built manifest, auto-regeneration on SDV update,
 streaming manifest-build progress, modded-content entries, hash-algorithm agility,
 full 64-char hash (16-char prefix safe for ~5K-entry manifests).

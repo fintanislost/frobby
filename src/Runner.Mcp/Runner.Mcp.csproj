@@ -10,13 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- ScenarioLoader (moved out of Protocol to avoid SMAPI harness incompatibility)
-         requires JsonSchema.Net for scenario validation. Runner.Mcp hosts its own copy
-         of ScenarioLoader.cs to avoid a circular Runner.Mcp -> Runner project dependency. -->
-    <PackageReference Include="JsonSchema.Net" Version="7.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="Runner.Mcp.Tests" />
   </ItemGroup>
 

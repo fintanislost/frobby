@@ -9,7 +9,7 @@ namespace SdvTestFramework.Runner.Tests;
 
 /// <summary>
 /// Tests the `list` command: recursive scan of a directory for <c>*.test.json</c>
-/// files, per-file validation via <see cref="Runner.Scenarios.ScenarioLoader"/>,
+/// files, per-file validation via <see cref="Protocol.Scenarios.ScenarioLoader"/>,
 /// and summary-line reporting. Covers the valid/invalid mix, empty-directory,
 /// not-a-directory, and nested-walk paths.
 /// </summary>
