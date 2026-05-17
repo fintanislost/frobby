@@ -176,6 +176,7 @@ public sealed class RunScenarioTool : ITool
         // the runner CLI would emit it once the user promotes the scenario to a CLI run.
         var report = new JsonObject
         {
+            ["name"] = spec.Name,
             ["passed"] = failures.Count == 0,
             ["assertions_run"] = run,
             ["assertions_passed"] = passed,
@@ -184,7 +185,9 @@ public sealed class RunScenarioTool : ITool
             ["report_dir"] = reportDir.Root,
             ["report_index"] = Path.Combine(reportDir.Root, "index.html"),
         };
-        return McpToolResult.Success(JsonDocument.Parse(report.ToJsonString()).RootElement);
+        var summaryJson = report.ToJsonString();
+        context.Reports.RecordLatestReport(reportDir.Root, summaryJson);
+        return McpToolResult.Success(JsonDocument.Parse(summaryJson).RootElement);
     }
 
     private static string FormatAssertionFailure(ScenarioAssertion assertion, string? detail)

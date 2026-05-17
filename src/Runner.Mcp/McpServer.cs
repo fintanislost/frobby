@@ -17,11 +17,18 @@ public sealed class McpServer
 {
     private readonly ToolRegistry _tools;
     private readonly SdvLifecycle? _lifecycle;
+    private readonly McpReportRegistry _reports;
 
     public McpServer(ToolRegistry tools, SdvLifecycle? lifecycle)
+        : this(tools, lifecycle, reports: null)
+    {
+    }
+
+    internal McpServer(ToolRegistry tools, SdvLifecycle? lifecycle, McpReportRegistry? reports)
     {
         _tools = tools;
         _lifecycle = lifecycle;
+        _reports = reports ?? new McpReportRegistry();
     }
 
     /// <summary>Build the default tool registry — all MVP tools registered.</summary>
@@ -200,7 +207,7 @@ public sealed class McpServer
         var progress = new McpProgressReporter(
             TryGetProgressToken(p),
             (notification, token) => writer.WriteAsync(JsonRpcCodec.Serialize(notification), token));
-        var context = new ToolInvocationContext(_lifecycle, progress);
+        var context = new ToolInvocationContext(_lifecycle, progress, _reports);
 
         McpToolResult result;
         try { result = await tool.InvokeAsync(args, context, ct); }
@@ -214,9 +221,9 @@ public sealed class McpServer
         await WriteResultAsync(writer, req.Id, JsonDocument.Parse(wrappedJson).RootElement, ct);
     }
 
-    private static Task DispatchResourceReadAsync(NdJsonWriter writer, JsonRpcRequest req, CancellationToken ct)
+    private Task DispatchResourceReadAsync(NdJsonWriter writer, JsonRpcRequest req, CancellationToken ct)
     {
-        if (!McpResources.TryRead(req.Params, out var result, out var error))
+        if (!McpResources.TryRead(req.Params, _reports, out var result, out var error))
             return WriteErrorAsync(writer, req.Id, error!, ct);
 
         return WriteResultAsync(writer, req.Id, result, ct);

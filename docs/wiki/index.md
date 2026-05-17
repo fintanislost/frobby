@@ -94,11 +94,15 @@ Useful docs:
 Frobby writes static HTML reports with per-step screenshots, final screenshots,
 assertion details, and `summary.json`. Use stable `--report-dir` paths when you
 want repeated runs to overwrite a known report hub.
+MCP agents can also read the current server process' latest report summary via
+`frobby://reports/latest/summary` and static report artifacts via the latest report
+resource URIs documented in the MCP quickstart.
 
 Useful docs:
 
 - `README.md` - report workflow.
 - `docs/dsl-quickstart.md` - HTML reports, bitmap baselines, cache cleanup.
+- `docs/mcp-quickstart.md` - MCP latest-report resources.
 
 ## MCP And Agent Workflow
 

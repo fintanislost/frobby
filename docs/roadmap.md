@@ -112,6 +112,11 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
   docs, scenario indexes, and workflow prompts that guide agents through scenario
   creation, failed-run debugging, UI coverage, and tool discovery.
 
+- **MCP dynamic latest-report resources**. Added process-local latest report
+  registry support plus `frobby://reports/latest/summary`, `/index`, and
+  `/scenarios` resources so agents can inspect the latest MCP or CLI-style report
+  artifacts through MCP without scraping tool output.
+
 - **MCP `run_scenario` progress notifications**. Added request-scoped
   `_meta.progressToken` support for `run_scenario`, emitting protocol-native
   `notifications/progress` for scenario begin, optional fixture load, each step,

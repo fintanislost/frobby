@@ -56,8 +56,8 @@ and successful final tool results keep the same JSON summary shape.
 
 ## 4. Resource surface
 
-Frobby advertises MCP `resources` support and exposes a read-only static context
-surface for agents:
+Frobby advertises MCP `resources` support and exposes a read-only context surface
+for agents:
 
 - `frobby://docs/wiki/index` — task-oriented documentation hub.
 - `frobby://docs/wiki/examples` — pointers to real Starberg and SVE scenarios.
@@ -65,10 +65,19 @@ surface for agents:
 - `frobby://docs/mcp-quickstart` — this MCP guide.
 - `frobby://scenarios/list` — Markdown index of repo-local `tests/sdv/*.test.json`
   scenarios when a scenario directory exists.
+- `frobby://reports/latest/summary` — JSON summary for the latest report known to
+  this MCP server process. `run_scenario` records its summary here after a run.
+- `frobby://reports/latest/index` — `index.html` for the latest static CLI report
+  when the artifact exists.
+- `frobby://reports/latest/scenarios` — Markdown scenario summary for the latest
+  report, with links to per-scenario report pages when present.
 
 Use `resources/list` to discover descriptors and `resources/read` to fetch text.
-This first resource slice is static and read-only; subscriptions, resource
-templates, and dynamic report resources are deferred.
+Latest-report resources are process-local. If no report has been run or recorded
+in the current MCP process, `resources/read` returns an `InvalidParams` error
+instead of guessing from the filesystem. MCP `run_scenario` records a JSON summary,
+but complete static HTML report artifacts are still produced by CLI paths such as
+`sdv-test run` and `sdv-test run-suite`.
 
 ## 5. Prompt surface
 
@@ -98,5 +107,5 @@ prompt message. Prompt arguments are optional context fields such as `mod_name`,
 ## 7. What's deferred
 
 See the M3-MCP design spec (`docs/superpowers/specs/2026-04-24-m3-mcp-server-design.md`)
-for M4 follow-ups: HTTP transport, resource subscriptions/templates, dynamic
-report resources, streaming tool results, richer scaffold templates.
+for M4 follow-ups: HTTP transport, resource subscriptions/templates, streaming tool
+results, richer scaffold templates.

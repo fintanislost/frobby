@@ -107,6 +107,10 @@ can apply a farm override while selecting the relevant profile:
 The CLI writes reports to `./test-results/<run-id>/` by default. Pass
 `--report-dir <path>` for stable locations, such as
 `/tmp/sdv-test-results-0.1.0/`, when repeated runs should overwrite a known report hub.
+When using the MCP server, agents can discover the latest report through
+`resources/list` and read `frobby://reports/latest/summary`,
+`frobby://reports/latest/index`, or `frobby://reports/latest/scenarios` when the
+current server process has run or recorded a report.
 
 ## Report Workflow
 
