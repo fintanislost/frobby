@@ -14,7 +14,7 @@ internal static class McpCapabilities
     {
         var json = $"{{\"protocolVersion\":\"{ProtocolVersion}\"," +
                    $"\"serverInfo\":{{\"name\":\"{ServerName}\",\"version\":\"{ServerVersion}\"}}," +
-                   $"\"capabilities\":{{\"tools\":{{}}}}}}";
+                   $"\"capabilities\":{{\"tools\":{{}},\"resources\":{{}},\"prompts\":{{}}}}}}";
         return JsonDocument.Parse(json).RootElement.Clone();
     }
 
