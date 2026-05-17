@@ -151,6 +151,31 @@ public class McpServerProgressTests
     }
 
     [Fact]
+    public async Task RunScenario_WithFixture_ReportsFixtureProgress()
+    {
+        var scenario = """
+        {
+          "name": "progress_fixture",
+          "fixture": "seeded-farm",
+          "config": { "seed": 42 },
+          "steps": [],
+          "assertions": []
+        }
+        """;
+
+        var lines = await RunScenarioThroughServerAsync(
+            scenario,
+            CreateLifecycle(),
+            progressTokenJson: "\"scenario-fixture\"");
+
+        Assert.Equal(4, lines.Length);
+        AssertProgress(ParseNotification(lines[0]), "scenario-fixture", progress: 1, total: 3, message: "scenario.begin");
+        AssertProgress(ParseNotification(lines[1]), "scenario-fixture", progress: 2, total: 3, message: "fixture.load: seeded-farm");
+        AssertProgress(ParseNotification(lines[2]), "scenario-fixture", progress: 3, total: 3, message: "scenario.end");
+        using var toolDoc = AssertFinalToolResult(lines[3], id: 9, expectedPassed: true);
+    }
+
+    [Fact]
     public async Task RunScenario_WithStepFailure_EmitsFailedStepProgressAndPassedFalse()
     {
         var scenario = """
@@ -182,6 +207,53 @@ public class McpServerProgressTests
         Assert.Equal(JsonValueKind.Array, failures.ValueKind);
         var failure = Assert.Single(failures.EnumerateArray());
         Assert.Contains("player.warp", failure.GetRawText());
+    }
+
+    [Fact]
+    public async Task RunScenario_WithEarlyStepFailure_CompletesProgressTotal()
+    {
+        var scenario = """
+        {
+          "name": "progress_early_step_fail",
+          "config": { "seed": 42 },
+          "steps": [
+            { "action": "player.warp", "args": { "location": "Farm", "x": 1, "y": 2 } },
+            { "action": "time.advance", "args": { "minutes": 10 } }
+          ],
+          "assertions": [
+            { "type": "state", "expr": "state.player.money == 500", "message": "money seeded" }
+          ]
+        }
+        """;
+
+        var life = CreateLifecycle();
+        life.FailMethods.Add("player.warp");
+
+        var lines = await RunScenarioThroughServerAsync(
+            scenario,
+            life,
+            progressTokenJson: "\"scenario-early-fail\"");
+
+        Assert.Equal(4, lines.Length);
+        AssertProgress(
+            ParseNotification(lines[0]),
+            "scenario-early-fail",
+            progress: 1,
+            total: 5,
+            message: "scenario.begin");
+        AssertProgress(
+            ParseNotification(lines[1]),
+            "scenario-early-fail",
+            progress: 2,
+            total: 5,
+            message: "step 1/2 failed: player.warp");
+        AssertProgress(
+            ParseNotification(lines[2]),
+            "scenario-early-fail",
+            progress: 5,
+            total: 5,
+            message: "scenario.end");
+        using var toolDoc = AssertFinalToolResult(lines[3], id: 9, expectedPassed: false);
     }
 
     private static RecordingLifecycle CreateLifecycle()
