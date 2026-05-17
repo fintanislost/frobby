@@ -14,6 +14,22 @@ namespace SdvTestFramework.Runner.Mcp.Tests;
 
 public class McpServerProgressTests
 {
+    private sealed class ProgressReportingTool : ITool
+    {
+        public string Name => "progress_probe";
+        public string Description => "progress probe";
+        public JsonElement InputSchema => JsonDocument.Parse("{\"type\":\"object\"}").RootElement;
+
+        public async Task<McpToolResult> InvokeAsync(
+            JsonElement args,
+            ToolInvocationContext context,
+            CancellationToken ct)
+        {
+            await context.Progress.ReportAsync(1, 1, "probe", ct);
+            return McpToolResult.Success(JsonDocument.Parse("{\"ok\":true}").RootElement);
+        }
+    }
+
     private sealed class RecordingLifecycle : SdvLifecycle
     {
         public List<(string Method, string ParamsJson)> Calls { get; } = new();
@@ -29,6 +45,47 @@ public class McpServerProgressTests
             var response = Responses.TryGetValue(method, out var json) ? json : "{}";
             return Task.FromResult(JsonDocument.Parse(response).RootElement.Clone());
         }
+    }
+
+    private sealed class FailFirstWriteStream : MemoryStream
+    {
+        private bool _failed;
+
+        public override ValueTask WriteAsync(
+            ReadOnlyMemory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_failed)
+            {
+                _failed = true;
+                throw new IOException("forced progress transport failure");
+            }
+
+            return base.WriteAsync(buffer, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task ToolCall_WithProgressToken_EmitsProgressNotificationBeforeFinalResponse()
+    {
+        var lines = await RunProbeToolThroughServerAsync(new MemoryStream());
+
+        Assert.Equal(2, lines.Length);
+        AssertProgress(ParseNotification(lines[0]), "probe-token", progress: 1, total: 1, message: "probe");
+
+        using var finalDoc = JsonDocument.Parse(lines[1]);
+        var final = finalDoc.RootElement;
+        Assert.Equal(9, final.GetProperty("id").GetInt32());
+        var toolText = final.GetProperty("result").GetProperty("content")[0].GetProperty("text").GetString()!;
+        Assert.Contains("\"ok\":true", toolText);
+    }
+
+    [Fact]
+    public async Task ToolCall_WhenProgressWriteFails_PropagatesTransportFailure()
+    {
+        var stdout = new FailFirstWriteStream();
+
+        await Assert.ThrowsAnyAsync<IOException>(() => RunProbeToolThroughServerAsync(stdout));
     }
 
     [Fact]
@@ -177,6 +234,27 @@ public class McpServerProgressTests
             if (Directory.Exists(reportBase))
                 Directory.Delete(reportBase, recursive: true);
         }
+    }
+
+    private static async Task<string[]> RunProbeToolThroughServerAsync(Stream stdout)
+    {
+        var request =
+            "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"progress_probe\",\"arguments\":{},\"_meta\":{\"progressToken\":\"probe-token\"}}}";
+        var input = Encoding.UTF8.GetBytes(request + "\n");
+        using var stdin = new MemoryStream(input);
+
+        var registry = new ToolRegistry();
+        registry.Register(new ProgressReportingTool());
+        var server = new McpServer(registry, lifecycle: null);
+        await server.RunAsync(stdin, stdout, CancellationToken.None);
+
+        if (stdout is MemoryStream memory)
+        {
+            var output = Encoding.UTF8.GetString(memory.ToArray());
+            return output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        return [];
     }
 
     private static List<JsonElement> ParseNotifications(string[] lines)

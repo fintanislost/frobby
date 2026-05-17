@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
@@ -24,10 +25,10 @@ public sealed class McpProgressReporter
 
     public bool Enabled => _progressToken.HasValue;
 
-    public Task ReportAsync(int progress, int? total, string message, CancellationToken cancellationToken)
+    public async Task ReportAsync(int progress, int? total, string message, CancellationToken cancellationToken)
     {
         if (_progressToken is not { } token)
-            return Task.CompletedTask;
+            return;
 
         var parameters = new JsonObject
         {
@@ -44,6 +45,25 @@ public sealed class McpProgressReporter
             Method = "notifications/progress",
             Params = doc.RootElement.Clone(),
         };
-        return _writeNotificationAsync(notification, cancellationToken);
+        try
+        {
+            await _writeNotificationAsync(notification, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (IOException ex)
+        {
+            throw new McpProgressWriteException("failed to write MCP progress notification", ex);
+        }
+    }
+}
+
+internal sealed class McpProgressWriteException : IOException
+{
+    public McpProgressWriteException(string message, IOException innerException)
+        : base(message, innerException)
+    {
     }
 }

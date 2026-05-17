@@ -146,6 +146,14 @@ public sealed class McpServer
                     return;
             }
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (IOException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             await WriteErrorAsync(writer, req.Id, McpError.InternalError(ex.Message), ct);
@@ -180,6 +188,8 @@ public sealed class McpServer
 
         McpToolResult result;
         try { result = await tool.InvokeAsync(args, context, ct); }
+        catch (OperationCanceledException) { throw; }
+        catch (McpProgressWriteException) { throw; }
         catch (Exception ex) { result = McpToolResult.Error($"tool '{name}' threw: {ex.Message}"); }
 
         var wrappedJson = "{\"content\":[{\"type\":\"text\",\"text\":" +
