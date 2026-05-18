@@ -69,6 +69,84 @@ public class ExtraModDeployerTests
     }
 
     [Fact]
+    public void DeployMany_CleanUnlisted_RemovesPreviouslyManagedMod()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var first = Path.Combine(root, "first");
+        var second = Path.Combine(root, "second");
+        Directory.CreateDirectory(mods);
+        WriteMod(first, "Example.First");
+        WriteMod(second, "Example.Second");
+        try
+        {
+            ExtraModDeployer.DeployMany(mods, new[] { first });
+
+            ExtraModDeployer.DeployMany(mods, new[] { second }, cleanUnlisted: true);
+
+            Assert.False(Directory.Exists(Path.Combine(mods, "Example.First")));
+            Assert.True(Directory.Exists(Path.Combine(mods, "Example.Second")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeployMany_CleanUnlisted_AggressiveRemovesUnmarkedStaleMod()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var current = Path.Combine(root, "current");
+        var stale = Path.Combine(mods, "Example.Stale");
+        Directory.CreateDirectory(mods);
+        WriteMod(current, "Example.Current");
+        WriteMod(stale, "Example.Stale");
+        try
+        {
+            ExtraModDeployer.DeployMany(
+                mods,
+                new[] { current },
+                cleanUnlisted: true,
+                cleanUnmarked: true);
+
+            Assert.False(Directory.Exists(stale));
+            Assert.True(Directory.Exists(Path.Combine(mods, "Example.Current")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeployMany_CleanUnlisted_NonAggressiveKeepsUnmarkedMod()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"extra-mod-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var current = Path.Combine(root, "current");
+        var unmanaged = Path.Combine(mods, "Example.Unmanaged");
+        Directory.CreateDirectory(mods);
+        WriteMod(current, "Example.Current");
+        WriteMod(unmanaged, "Example.Unmanaged");
+        try
+        {
+            ExtraModDeployer.DeployMany(mods, new[] { current }, cleanUnlisted: true);
+
+            Assert.True(Directory.Exists(unmanaged));
+            Assert.True(Directory.Exists(Path.Combine(mods, "Example.Current")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Deploy_SourceAlreadyAtTarget_DoesNotDeleteMod()
     {
         var root = Path.Combine(Path.GetTempPath(), $"extra-mod-{Guid.NewGuid():N}");
@@ -247,5 +325,14 @@ public class ExtraModDeployerTests
             if (Directory.Exists(root))
                 Directory.Delete(root, recursive: true);
         }
+    }
+
+    private static void WriteMod(string path, string uniqueId)
+    {
+        Directory.CreateDirectory(path);
+        File.WriteAllText(
+            Path.Combine(path, "manifest.json"),
+            $$"""{"Name":"{{uniqueId}}","UniqueID":"{{uniqueId}}","EntryDll":"{{uniqueId}}.dll"}""");
+        File.WriteAllText(Path.Combine(path, uniqueId + ".dll"), "not a real dll");
     }
 }

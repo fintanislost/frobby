@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace SdvTestFramework.Protocol;
@@ -10,14 +11,25 @@ namespace SdvTestFramework.Protocol;
 /// </summary>
 public static class ExtraModDeployer
 {
-    public static IReadOnlyList<string> DeployMany(string modsPath, IEnumerable<string> modPaths)
-    {
-        var deployed = new List<string>();
-        foreach (var modPath in modPaths)
-        {
-            if (string.IsNullOrWhiteSpace(modPath))
-                continue;
+    private const string ManagedMarkerFileName = ".sdv-test-framework-managed";
 
+    public static IReadOnlyList<string> DeployMany(
+        string modsPath,
+        IEnumerable<string> modPaths,
+        bool cleanUnlisted = false,
+        bool cleanUnmarked = false)
+    {
+        var paths = modPaths
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (cleanUnlisted)
+            CleanUnlistedMods(modsPath, paths, cleanUnmarked);
+
+        var deployed = new List<string>();
+        foreach (var modPath in paths)
+        {
             deployed.Add(Deploy(modsPath, modPath));
         }
 
@@ -102,6 +114,7 @@ public static class ExtraModDeployer
 
         Directory.CreateDirectory(targetDir);
         CopyDirectory(sourceDir, targetDir);
+        File.WriteAllText(Path.Combine(targetDir, ManagedMarkerFileName), "managed by sdv-test-framework\n");
         return targetDir;
     }
 
@@ -121,6 +134,52 @@ public static class ExtraModDeployer
             value = value.Replace(c, '_');
 
         return value;
+    }
+
+    private static void CleanUnlistedMods(string modsPath, IReadOnlyList<string> requestedModPaths, bool cleanUnmarked)
+    {
+        if (string.IsNullOrWhiteSpace(modsPath) || !Directory.Exists(modsPath))
+            return;
+
+        var keepIds = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "SdvTestFramework.Harness",
+        };
+        foreach (var modPath in requestedModPaths)
+        {
+            var manifest = Path.Combine(NormalizeDirectoryPath(modPath), "manifest.json");
+            keepIds.Add(ReadUniqueId(manifest));
+        }
+
+        foreach (var child in Directory.EnumerateDirectories(modsPath))
+        {
+            var manifest = Path.Combine(child, "manifest.json");
+            if (!File.Exists(manifest))
+                continue;
+
+            var uniqueId = ReadUniqueId(manifest);
+            if (keepIds.Contains(uniqueId))
+                continue;
+
+            var marker = Path.Combine(child, ManagedMarkerFileName);
+            if (!cleanUnmarked && !File.Exists(marker))
+                continue;
+
+            Directory.Delete(child, recursive: true);
+        }
+    }
+
+    private static string ReadUniqueId(string manifestPath)
+    {
+        using var doc = JsonDocument.Parse(File.ReadAllText(manifestPath));
+        if (!doc.RootElement.TryGetProperty("UniqueID", out var idElement)
+            || idElement.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(idElement.GetString()))
+        {
+            throw new InvalidOperationException($"manifest missing non-empty UniqueID: {manifestPath}");
+        }
+
+        return idElement.GetString()!;
     }
 
     private static void ValidateOverlayTargetModId(string targetModId)

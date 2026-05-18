@@ -16,4 +16,5 @@ public sealed class TextDrawFilter
     public int[]? Color { get; set; }
     public int[][]? ColorAny { get; set; }
     public float[]? LayerDepthRange { get; set; }
+    public bool DisarmAfterSnapshot { get; set; }
 }

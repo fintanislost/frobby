@@ -101,6 +101,12 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 
 ### 2026-05-17
 
+- **Managed extra-mod cleanup and freeze/draw hardening**. CLI extra-mod staging
+  now marks Frobby-managed copies and removes stale managed mods before staging
+  the current run. Runner UI text helpers now use an atomic text-find/disarm path
+  and bounded RPC timeouts so stalled draw capture, click/hover, state assertion,
+  next-day, cleanup, or failure-screenshot RPCs fail fast instead of hanging.
+
 - **ScenarioLoader Protocol consolidation**. Moved `ScenarioLoader` and
   `ScenarioLoadException` back to `src/Protocol/Scenarios/`, pinned
   `JsonSchema.Net` to 6.0.7 so Protocol remains safe for the net6.0 SMAPI harness,

@@ -185,6 +185,47 @@ public class RunCommandTests
     }
 
     [Fact]
+    public async Task Run_ExtraModFlag_RemovesPreviouslyManagedStaleMods()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"run-extra-clean-{Guid.NewGuid():N}");
+        var mods = Path.Combine(root, "mods");
+        var scenarios = Path.Combine(root, "scenarios");
+        var extra = Path.Combine(root, "extra");
+        var staleManaged = Path.Combine(mods, "Example.Stale");
+        var unmanaged = Path.Combine(mods, "Example.Unmanaged");
+        Directory.CreateDirectory(mods);
+        Directory.CreateDirectory(scenarios);
+        WriteMod(extra, "Example.Current");
+        WriteMod(staleManaged, "Example.Stale");
+        WriteMod(unmanaged, "Example.Unmanaged");
+        File.WriteAllText(Path.Combine(staleManaged, ".sdv-test-framework-managed"), "old run");
+        try
+        {
+            var outW = new StringWriter();
+            var priorOut = Console.Out;
+            Console.SetOut(outW);
+            int exit;
+            try
+            {
+                exit = await RunCommand.RunAsync(
+                    new ReadOnlyMemory<string>(new[] { "--mods-path", mods, "--extra-mod", extra, scenarios }),
+                    CancellationToken.None);
+            }
+            finally { Console.SetOut(priorOut); }
+
+            Assert.Equal(0, exit);
+            Assert.False(Directory.Exists(staleManaged));
+            Assert.True(Directory.Exists(unmanaged));
+            Assert.True(Directory.Exists(Path.Combine(mods, "Example.Current")));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task Run_ConfigOverlayFlag_AppliesOverlayAfterExtraModDeploy()
     {
         var root = Path.Combine(Path.GetTempPath(), $"run-overlay-{Guid.NewGuid():N}");
@@ -379,5 +420,14 @@ public class RunCommandTests
             Directory.Delete(mods, recursive: true);
             Directory.Delete(scenarios, recursive: true);
         }
+    }
+
+    private static void WriteMod(string path, string uniqueId)
+    {
+        Directory.CreateDirectory(path);
+        File.WriteAllText(
+            Path.Combine(path, "manifest.json"),
+            $$"""{"Name":"{{uniqueId}}","UniqueID":"{{uniqueId}}","EntryDll":"{{uniqueId}}.dll"}""");
+        File.WriteAllText(Path.Combine(path, uniqueId + ".dll"), "not a real dll");
     }
 }

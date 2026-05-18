@@ -184,19 +184,15 @@ public sealed class ModEntry : Mod
         helper.Events.Display.RenderedActiveMenu += (_, _) => renderCapture.OnRenderedActiveMenu();
         helper.Events.GameLoop.UpdateTicked += (_, _) => renderCapture.OnUpdateTicked();
         helper.Events.GameLoop.TimeChanged += this.OnTimeChanged;
-        helper.Events.GameLoop.UpdateTicked += this.OnUpdateTickedDrain;
+        var rpcPump = new GameThreadRpcPump(_gameThread);
+        helper.Events.GameLoop.UpdateTicked += (_, _) => rpcPump.OnUpdateTicked();
+        helper.Events.Display.Rendering += (_, _) => rpcPump.OnRendering();
+        helper.Events.Display.Rendered += (_, _) => rpcPump.OnRendered();
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
 
         this.Monitor.Log(
             "Harness loaded. Console commands: harness_arm, harness_disarm, harness_pin_seed, harness_load, harness_record, harness_record_actions, harness_record_stop. RPC methods: state.player, state.time, state.location, state.locations, state.map_tile, state.tile_actions, state.npc, state.npcs, state.menu, state.shop, state.special_orders, state.fishing_context, state.fishing_table, state.visual_effects, state.event, state.mods. Fishing: state.fishing_context, state.fishing_table, fishing.sample_catch. Content: content.asset. Manipulators: player.warp, player.give_item, player.set_money, player.add_mail, player.add_event_seen, player.set_friendship, player.set_transient_state, festival.start, event.start, event.skip, time.advance, time.set, time.next_day, shop.open, shop.purchase, world.set_weather, world.warp_npc, world.interact_npc, world.place_furniture, world.place_object, world.place_inventory_furniture, world.interact_tile, world.interact_tile_action, input.key, input.text, input.click, input.click_text, input.click_menu_button, input.click_menu_advance, input.click_menu_choice, input.hover, input.hover_text. Combat: combat.attack. Draw: draw.arm, draw.disarm, draw.snapshot, draw.find, draw.assert_contains, draw.assert_not_contains, draw.text_snapshot, draw.text_find, draw.assert_text_contains, draw.assert_text_not_contains. Lifecycle: scenario.begin, scenario.end, fixture.load, fixture.save, game.return_to_title. Determinism: freeze.begin, freeze.end, freeze.status. Bitmap: bitmap.capture, bitmap.capture_next_frame. Diagnostic: diagnostic.build_texture_manifest.",
             LogLevel.Info);
-    }
-
-    private void OnUpdateTickedDrain(object? sender, UpdateTickedEventArgs e)
-    {
-        // Drain pending RPC actions onto the game thread. Each action is already try/caught
-        // at the dispatcher level, so one bad action can't cascade.
-        _gameThread.Drain();
     }
 
     private void OnGameLaunched(object? sender, StardewModdingAPI.Events.GameLaunchedEventArgs e)

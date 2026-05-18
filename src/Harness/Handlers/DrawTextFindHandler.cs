@@ -24,6 +24,8 @@ public static class DrawTextFindHandler
         var filter = RpcParams.Optional<TextDrawFilter>(paramsElement);
         TextDrawFilterMatcher.Validate(filter);
         Recorder.SnapshotTextEvents(out var events, out _);
+        if (filter.DisarmAfterSnapshot)
+            Recorder.Disarm();
 
         var result = new TextDrawFindResult();
         foreach (var e in events.AsSpan())

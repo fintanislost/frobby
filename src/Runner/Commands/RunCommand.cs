@@ -221,12 +221,11 @@ public static class RunCommand
         // SMAPI loads from its default Mods dir unless --mods-path is set; on a dev workstation
         // that's likely the user's full mod collection, which breaks the harness socket path.
         // Precedence: CLI flag → $SDV_MODS_PATH env var → default per-user cache dir.
+        var defaultModsPath = DefaultModsPath();
         var modsPath = opts.ModsPath ?? Environment.GetEnvironmentVariable("SDV_MODS_PATH");
         if (string.IsNullOrEmpty(modsPath))
         {
-            modsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                ".cache", "sdv-test-framework", "mods");
+            modsPath = defaultModsPath;
         }
         Directory.CreateDirectory(modsPath);
         HarnessDeployer.Deploy(modsPath);
@@ -236,7 +235,9 @@ public static class RunCommand
                 modsPath,
                 opts.ExtraMods
                     .Concat(ExtraModDeployer.ParseEnvList(Environment.GetEnvironmentVariable("SDV_EXTRA_MODS")))
-                    .Distinct(StringComparer.Ordinal));
+                    .Distinct(StringComparer.Ordinal),
+                cleanUnlisted: true,
+                cleanUnmarked: PathsEqual(modsPath, defaultModsPath));
             ExtraModDeployer.ApplyConfigOverlays(modsPath, opts.ConfigOverlays);
         }
         catch (Exception ex) when (ex is ArgumentException
@@ -531,4 +532,15 @@ public static class RunCommand
 
     private static string MakeRel(RunDirectory rd, string abs)
         => Path.GetRelativePath(rd.Root, abs).Replace('\\', '/');
+
+    private static string DefaultModsPath()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".cache", "sdv-test-framework", "mods");
+
+    private static bool PathsEqual(string left, string right)
+        => string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 }

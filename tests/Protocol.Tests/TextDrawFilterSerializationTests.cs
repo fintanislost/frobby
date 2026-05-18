@@ -22,6 +22,7 @@ public class TextDrawFilterSerializationTests
             Color = new[] { 255, 176, 0, 255 },
             ColorAny = new[] { new[] { 255, 214, 128, 255 }, new[] { 236, 229, 206, 255 } },
             LayerDepthRange = new[] { 0.9f, 1.0f },
+            DisarmAfterSnapshot = true,
         };
 
         var json = JsonSerializer.Serialize(filter, ProtocolJson.Options);
@@ -36,6 +37,7 @@ public class TextDrawFilterSerializationTests
         Assert.Contains("\"color\":[255,176,0,255]", json);
         Assert.Contains("\"color_any\":[[255,214,128,255],[236,229,206,255]]", json);
         Assert.Contains("\"layer_depth_range\":[0.9,1]", json);
+        Assert.Contains("\"disarm_after_snapshot\":true", json);
     }
 
     [Fact]
@@ -79,5 +81,15 @@ public class TextDrawFilterSerializationTests
         Assert.NotNull(filter.ColorAny);
         Assert.Equal(new[] { 255, 214, 128, 255 }, filter.ColorAny![0]);
         Assert.Equal(new[] { 236, 229, 206, 255 }, filter.ColorAny![1]);
+    }
+
+    [Fact]
+    public void Deserialize_AcceptsDisarmAfterSnapshot()
+    {
+        var filter = JsonSerializer.Deserialize<TextDrawFilter>(
+            "{\"disarm_after_snapshot\":true}",
+            ProtocolJson.Options)!;
+
+        Assert.True(filter.DisarmAfterSnapshot);
     }
 }

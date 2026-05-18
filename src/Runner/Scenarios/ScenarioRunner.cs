@@ -34,6 +34,10 @@ namespace SdvTestFramework.Runner.Scenarios;
 /// </summary>
 public sealed class ScenarioRunner
 {
+    private const int DefaultStepRpcTimeoutMs = 10_000;
+    private const int ScenarioEndCleanupTimeoutMs = 500;
+    private const int AssertionFailureScreenshotTimeoutMs = 500;
+
     private readonly JsonRpcSession _session;
     private readonly bool _updateBaselines;
     private readonly RunDirectory? _reportDir;
@@ -243,7 +247,7 @@ public sealed class ScenarioRunner
                             BoundsWithinRect = uiText.BoundsWithinRect,
                             BoundsIntersectsRect = uiText.BoundsIntersectsRect,
                         });
-                        var resp = await _session.InvokeAsync("input.click_text", clickParams, ct);
+                        var resp = await InvokeUiTextActionRpcAsync(step.Action, "input.click_text", clickParams, uiText.TimeoutMs, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
                     }
@@ -261,7 +265,7 @@ public sealed class ScenarioRunner
                             BoundsWithinRect = uiText.BoundsWithinRect,
                             BoundsIntersectsRect = uiText.BoundsIntersectsRect,
                         });
-                        var resp = await _session.InvokeAsync("input.hover_text", hoverParams, ct);
+                        var resp = await InvokeUiTextActionRpcAsync(step.Action, "input.hover_text", hoverParams, uiText.TimeoutMs, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
                     }
@@ -291,7 +295,7 @@ public sealed class ScenarioRunner
                     }
                     else
                     {
-                        var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
+                        var resp = await InvokeStepRpcAsync(step, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
                     }
@@ -349,7 +353,9 @@ public sealed class ScenarioRunner
                 var endParams = System.Text.Json.JsonSerializer.SerializeToElement(
                     new { assertions_run = report.AssertionsRun, assertions_passed = report.AssertionsPassed },
                     ProtocolJson.Options);
-                await _session.InvokeAsync("scenario.end", endParams, ct);
+                using var endTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                endTimeout.CancelAfter(ScenarioEndCleanupTimeoutMs);
+                await _session.InvokeAsync("scenario.end", endParams, endTimeout.Token);
             }
             catch { /* best-effort cleanup */ }
 
@@ -1662,7 +1668,24 @@ public sealed class ScenarioRunner
         while (true)
         {
             ct.ThrowIfCancellationRequested();
-            var resp = await _session.InvokeAsync(step.Action, step.Args, ct);
+            var remainingMs = settleTimeoutMs - (int)elapsed.ElapsedMilliseconds;
+            if (remainingMs <= 0)
+                throw new TimeoutException($"step '{step.Action}' timed out after {settleTimeoutMs}ms");
+
+            JsonRpcResponse resp;
+            using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                timeout.CancelAfter(remainingMs);
+                try
+                {
+                    resp = await _session.InvokeAsync(step.Action, step.Args, timeout.Token);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    throw new TimeoutException($"step '{step.Action}' timed out after {settleTimeoutMs}ms");
+                }
+            }
+
             if (resp.Error is null)
                 return;
 
@@ -1712,6 +1735,7 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("state.assert requires args.expr");
 
         var message = GetStringArg(step.Args, "message");
+        var timeoutMs = GetIntArg(step.Args, "timeout_ms") ?? DefaultStepRpcTimeoutMs;
         JsonElement? assertionParams = null;
         if (step.Args is { ValueKind: JsonValueKind.Object } obj
             && obj.TryGetProperty("params", out var paramsElement))
@@ -1719,19 +1743,31 @@ public sealed class ScenarioRunner
             assertionParams = paramsElement.Clone();
         }
 
-        var (passed, detail) = await EvaluateAssertionAsync(
-            new ScenarioAssertion
+        (bool passed, string? detail) result;
+        using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
+        {
+            timeout.CancelAfter(timeoutMs);
+            try
             {
-                Type = "state",
-                Expr = expr,
-                Message = message,
-                Params = assertionParams,
-            },
-            assertionIndex: -1,
-            ct);
+                result = await EvaluateAssertionAsync(
+                    new ScenarioAssertion
+                    {
+                        Type = "state",
+                        Expr = expr,
+                        Message = message,
+                        Params = assertionParams,
+                    },
+                    assertionIndex: -1,
+                    timeout.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                throw new TimeoutException($"step 'state.assert' timed out after {timeoutMs}ms");
+            }
+        }
 
-        if (!passed)
-            throw new InvalidOperationException($"step 'state.assert' failed: {message ?? detail ?? expr}");
+        if (!result.passed)
+            throw new InvalidOperationException($"step 'state.assert' failed: {message ?? result.detail ?? expr}");
     }
 
     private async Task InvokeMenuAdvanceAsync(ScenarioStep step, CancellationToken ct)
@@ -2114,36 +2150,91 @@ public sealed class ScenarioRunner
             ct.ThrowIfCancellationRequested();
 
             var armParams = ProtocolJson.ToElement(new DrawArmRequest { Ticks = args.CaptureTicks });
-            var armResp = await _session.InvokeAsync("draw.arm", armParams, ct);
+            var armResp = await InvokeUiTextRpcAsync(step.Action, "draw.arm", armParams, args, elapsed, lastCount, ct);
             if (armResp.Error is { } armError)
                 throw new InvalidOperationException($"step '{step.Action}' failed during draw.arm: {armError.Message}");
 
-            await Task.Delay(args.PollMs, ct);
+            var remainingDelayMs = args.TimeoutMs - (int)elapsed.ElapsedMilliseconds;
+            if (remainingDelayMs <= 0)
+                throw CreateUiTextTimeout(step.Action, args, lastCount);
+            await Task.Delay(System.Math.Min(args.PollMs, remainingDelayMs), ct);
 
-            var findResp = await _session.InvokeAsync("draw.text_find", BuildTextFindParams(args), ct);
+            var findResp = await InvokeUiTextRpcAsync(step.Action, "draw.text_find", BuildTextFindParams(args), args, elapsed, lastCount, ct);
             if (findResp.Error is { } findError)
                 throw new InvalidOperationException($"step '{step.Action}' failed during draw.text_find: {findError.Message}");
 
             lastCount = findResp.Result is { } result ? ReadTextFindCount(result) : 0;
-            await DisarmDrawCaptureAsync(step.Action, ct);
             if (lastCount >= requiredCount)
                 return args;
 
             if (elapsed.ElapsedMilliseconds >= args.TimeoutMs)
-            {
-                throw new TimeoutException(
-                    $"{step.Action} timed out after {args.TimeoutMs}ms waiting for text \"{args.TextLabel}\" " +
-                    $"(matched {lastCount} < {requiredCount})");
-            }
+                throw CreateUiTextTimeout(step.Action, args, lastCount);
         }
     }
 
-    private async Task DisarmDrawCaptureAsync(string action, CancellationToken ct)
+    private async Task<JsonRpcResponse> InvokeUiTextRpcAsync(
+        string action,
+        string method,
+        JsonElement? params_,
+        UiTextStepArgs args,
+        Stopwatch elapsed,
+        int lastCount,
+        CancellationToken ct)
     {
-        var resp = await _session.InvokeAsync("draw.disarm", params_: null, ct);
-        if (resp.Error is { } error)
-            throw new InvalidOperationException($"step '{action}' failed during draw.disarm: {error.Message}");
+        var remainingMs = args.TimeoutMs - (int)elapsed.ElapsedMilliseconds;
+        if (remainingMs <= 0)
+            throw CreateUiTextTimeout(action, args, lastCount);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(remainingMs);
+        try
+        {
+            return await _session.InvokeAsync(method, params_, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw CreateUiTextTimeout(action, args, lastCount);
+        }
     }
+
+    private async Task<JsonRpcResponse> InvokeStepRpcAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var timeoutMs = GetIntArg(step.Args, "timeout_ms") ?? DefaultStepRpcTimeoutMs;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(timeoutMs);
+        try
+        {
+            return await _session.InvokeAsync(step.Action, step.Args, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"step '{step.Action}' timed out after {timeoutMs}ms");
+        }
+    }
+
+    private async Task<JsonRpcResponse> InvokeUiTextActionRpcAsync(
+        string action,
+        string method,
+        JsonElement params_,
+        int timeoutMs,
+        CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(timeoutMs);
+        try
+        {
+            return await _session.InvokeAsync(method, params_, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"step '{action}' timed out after {timeoutMs}ms while invoking {method}");
+        }
+    }
+
+    private static TimeoutException CreateUiTextTimeout(string action, UiTextStepArgs args, int lastCount)
+        => new(
+            $"{action} timed out after {args.TimeoutMs}ms waiting for text \"{args.TextLabel}\" " +
+            $"(matched {lastCount} < {System.Math.Max(args.MinCount, args.Occurrence)})");
 
     private static UiTextStepArgs ParseUiTextArgs(ScenarioStep step)
     {
@@ -2179,6 +2270,7 @@ public sealed class ScenarioRunner
             InRect = args.InRect,
             BoundsWithinRect = args.BoundsWithinRect,
             BoundsIntersectsRect = args.BoundsIntersectsRect,
+            DisarmAfterSnapshot = true,
         });
 
     private static int ReadTextFindCount(JsonElement result)
@@ -2992,11 +3084,18 @@ public sealed class ScenarioRunner
     {
         if (_recorder is null || _reportDir is null || _currentReport is null || _currentSpec is null)
             return;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(AssertionFailureScreenshotTimeoutMs);
         try
         {
             var name = $"assertion-fail-{_assertionFailureCount:D2}";
             _assertionFailureCount++;
-            var path = await _recorder.CaptureAsync(_reportDir, _currentSpec.Name, name, ct);
+            var path = await _recorder.CaptureAsync(
+                _reportDir,
+                _currentSpec.Name,
+                name,
+                timeout.Token,
+                timeoutMs: AssertionFailureScreenshotTimeoutMs);
             if (path is not null)
                 _currentReport.Screenshots.Add(MakeRelativePath(_reportDir, path));
         }

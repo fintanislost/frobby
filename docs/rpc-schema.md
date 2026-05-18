@@ -1902,9 +1902,12 @@ Response (no captured match — GameStateInvalid):
 
 Runner scenario convenience:
 
-- `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` until the label is captured.
+- `{ "action": "ui.wait_text", "args": { "text_matches": "^SUBMIT [A-Z]+$" } }` is a runner-only step, not an RPC method. It repeatedly calls `draw.arm`, waits briefly, and polls `draw.text_find` with `disarm_after_snapshot: true` until the label is captured.
 - `{ "action": "ui.click_text", "args": { "text": "SUBMIT ORDER" } }` performs the same wait and then calls `input.click_text`.
 - `{ "action": "ui.hover_text", "args": { "text_equals": "2.15B g" } }` performs the same wait and then calls `input.hover_text`.
+- Generic runner RPC steps, `state.assert`, `ui.click_text`, and `ui.hover_text`
+  accept `timeout_ms` so a stalled harness call fails the scenario instead of
+  hanging the run. The default per-step RPC timeout is 10000 ms.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
@@ -2298,6 +2301,9 @@ Filter DSL fields (all optional, all ANDed):
 - `color` (`[r, g, b, a]`) — exact match.
 - `color_any` (`[[r, g, b, a], ...]`) — event color must match one listed color.
 - `layer_depth_range` (`[min, max]`) — inclusive on both ends.
+- `disarm_after_snapshot` (bool) — when `true`, atomically disarm draw recording
+  immediately after copying the text buffer. Runner UI helpers use this to avoid
+  a separate `draw.disarm` RPC racing with the next freeze or UI action.
 
 **Implemented in:** `src/Harness/Handlers/DrawTextFindHandler.cs`
 **Tested in:** `tests/Harness.Tests/TextDrawFilterTests.cs`.

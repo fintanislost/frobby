@@ -76,6 +76,10 @@ cache. Use `modSets[].deps` for external dependency mods keyed by SMAPI
 packs. Normal `sdv-test repo run` stages cached copies into the isolated test
 mods directory and does not read the user's live game `Mods` folder unless the
 repo config still contains explicit `${SDV_GAME_MODS}` paths.
+Before `sdv-test run` stages extra mods, it removes stale mods it previously
+staged but that are no longer requested. Custom `--mods-path` directories
+preserve unmarked mods; the default Frobby cache can clean unmarked stale mods
+because it is test-owned.
 
 ### Repo Profiles
 
