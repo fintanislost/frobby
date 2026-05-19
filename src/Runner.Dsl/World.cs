@@ -73,4 +73,30 @@ public static class World
             ?? throw new SdvRpcException("world.interact_tile_action", Protocol.JsonRpcErrorCode.InternalError,
                 "empty world.interact_tile_action response");
     }
+
+    /// <summary>Use an equipped or inventory tool at a tile in the current or named location.</summary>
+    public static async Task<UseToolResult> UseTool(
+        string tool,
+        int x,
+        int y,
+        string? location = null,
+        string? facing = null,
+        int power = 0,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new UseToolRequest
+        {
+            Tool = tool,
+            Location = location,
+            X = x,
+            Y = y,
+            Facing = facing,
+            Power = power,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("world.use_tool", p, ct);
+        return JsonSerializer.Deserialize<UseToolResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("world.use_tool", Protocol.JsonRpcErrorCode.InternalError,
+                "empty world.use_tool response");
+    }
 }

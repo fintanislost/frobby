@@ -524,6 +524,8 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("wait.player requires args.mail_for_tomorrow to be non-empty when supplied");
         if (args.EventSeen is not null && string.IsNullOrWhiteSpace(args.EventSeen))
             throw new InvalidOperationException("wait.player requires args.event_seen to be non-empty when supplied");
+        if (args.SecretNoteSeen is <= 0)
+            throw new InvalidOperationException("wait.player requires args.secret_note_seen > 0");
         if (args.BuffCountGte is < 0)
             throw new InvalidOperationException("wait.player requires args.buff_count_gte >= 0");
         if (args.BuffEffectGte is not null && string.IsNullOrWhiteSpace(args.BuffEffect))
@@ -553,6 +555,7 @@ public sealed class ScenarioRunner
         if (args.MailReceived is not null) filters.Add($"mail_received contains {args.MailReceived}");
         if (args.MailForTomorrow is not null) filters.Add($"mail_for_tomorrow contains {args.MailForTomorrow}");
         if (args.EventSeen is not null) filters.Add($"events_seen contains {args.EventSeen}");
+        if (args.SecretNoteSeen is not null) filters.Add($"secret_notes_seen contains {args.SecretNoteSeen}");
         if (args.BuffCountGte is not null) filters.Add($"buff_count_gte={args.BuffCountGte}");
         if (args.BuffId is not null) filters.Add($"buff_id={args.BuffId}");
         if (args.BuffSource is not null) filters.Add($"buff_source={args.BuffSource}");
@@ -606,7 +609,8 @@ public sealed class ScenarioRunner
     {
         return StringArrayContains(root, "mail_received", args.MailReceived)
             && StringArrayContains(root, "mail_for_tomorrow", args.MailForTomorrow)
-            && StringArrayContains(root, "events_seen", args.EventSeen);
+            && StringArrayContains(root, "events_seen", args.EventSeen)
+            && IntArrayContains(root, "secret_notes_seen", args.SecretNoteSeen);
     }
 
     private static bool BuffFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
@@ -711,10 +715,14 @@ public sealed class ScenarioRunner
     {
         return $"mail_received={CountStringArray(root, "mail_received")} " +
                $"mail_for_tomorrow={CountStringArray(root, "mail_for_tomorrow")} " +
-               $"events_seen={CountStringArray(root, "events_seen")}";
+               $"events_seen={CountStringArray(root, "events_seen")} " +
+               $"secret_notes_seen={CountJsonArray(root, "secret_notes_seen")}";
     }
 
     private static string CountStringArray(JsonElement root, string property)
+        => CountJsonArray(root, property);
+
+    private static string CountJsonArray(JsonElement root, string property)
     {
         return root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.Array
             ? value.GetArrayLength().ToString(CultureInfo.InvariantCulture)
@@ -866,6 +874,24 @@ public sealed class ScenarioRunner
             && value.EnumerateArray().Any(item =>
                 item.ValueKind == JsonValueKind.String
                 && string.Equals(item.GetString(), expected, StringComparison.Ordinal));
+    }
+
+    private static bool IntArrayContains(JsonElement element, string property, int? expected)
+    {
+        if (expected is null)
+            return true;
+
+        if (element.ValueKind != JsonValueKind.Object
+            || !element.TryGetProperty(property, out var value))
+        {
+            return false;
+        }
+
+        return value.ValueKind == JsonValueKind.Array
+            && value.EnumerateArray().Any(item =>
+                item.ValueKind == JsonValueKind.Number
+                && item.TryGetInt32(out var actual)
+                && actual == expected.Value);
     }
 
     private static string FormatSpecialOrderExpectation(WaitSpecialOrderStepArgs args)
@@ -2301,6 +2327,7 @@ public sealed class ScenarioRunner
             "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile_action" => $"Run tile {GetStringArg(step.Args, "property") ?? "action"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.use_tool" => $"Use {GetStringArg(step.Args, "tool") ?? "tool"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -2618,6 +2645,7 @@ public sealed class ScenarioRunner
         public string? MailReceived { get; set; }
         public string? MailForTomorrow { get; set; }
         public string? EventSeen { get; set; }
+        public int? SecretNoteSeen { get; set; }
         public string? BuffId { get; set; }
         public string? BuffSource { get; set; }
         public string? BuffEffect { get; set; }

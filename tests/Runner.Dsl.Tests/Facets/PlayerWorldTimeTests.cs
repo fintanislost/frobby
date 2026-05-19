@@ -65,6 +65,19 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task AddSecretNoteSeen_InvokesPlayerAddSecretNoteSeenWithId()
+    {
+        SdvTestSession.ResetForTests();  // Clear any prior state
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Player.AddSecretNoteSeen(18); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.add_secret_note_seen", inv.Calls[0].Method);
+        Assert.Contains("\"id\":18", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task SetFriendship_InvokesPlayerSetFriendship()
     {
         var inv = new CapturingInvoker();
@@ -199,6 +212,40 @@ public class PlayerWorldTimeTests
         Assert.Equal("MapTileAction", result.TargetType);
         Assert.Equal("TouchAction", result.ActionType);
         Assert.Equal("LoadMap Town 50 114 0", result.Action);
+    }
+
+    [Fact]
+    public async Task UseTool_InvokesWorldUseToolAndDeserializesResult()
+    {
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"tool\":\"Hoe\",\"location\":\"Custom_GrandpasShed\",\"tile\":{\"x\":21,\"y\":12},\"power\":0}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        UseToolResult result;
+        try
+        {
+            result = await World.UseTool(
+                "Hoe",
+                x: 21,
+                y: 12,
+                location: "Custom_GrandpasShed",
+                facing: "up");
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("world.use_tool", inv.Calls[0].Method);
+        Assert.Contains("\"tool\":\"Hoe\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"location\":\"Custom_GrandpasShed\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"x\":21", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":12", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"facing\":\"up\"", inv.Calls[0].ParamsJson);
+        Assert.Equal("Hoe", result.Tool);
+        Assert.Equal("Custom_GrandpasShed", result.Location);
+        Assert.Equal(21, result.Tile.X);
+        Assert.Equal(12, result.Tile.Y);
     }
 
     [Fact]

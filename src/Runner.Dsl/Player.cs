@@ -33,6 +33,14 @@ public static class Player
         await s.InvokeAsync("player.add_mail", p, ct);
     }
 
+    /// <summary>Add secret note id <paramref name="id"/> to the master farmer's seen-note set.</summary>
+    public static async Task AddSecretNoteSeen(int id, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new AddSecretNoteSeenRequest { Id = id }, ProtocolJson.Options);
+        await s.InvokeAsync("player.add_secret_note_seen", p, ct);
+    }
+
     /// <summary>Add numeric event id <paramref name="id"/> to the master farmer's seen-event set.</summary>
     public static async Task AddEventSeen(string id, CancellationToken ct = default)
     {
