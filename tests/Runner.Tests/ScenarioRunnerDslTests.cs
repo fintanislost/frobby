@@ -277,6 +277,35 @@ public class ScenarioRunnerDslTests
     }
 
     [Fact]
+    public async Task StateAssertion_NumberArrayContains_Matches()
+    {
+        var socket = SocketPath();
+        var (cts, server, client) = await StartFakeHarnessWithStateJson(
+            socket,
+            "{\"name\":\"x\",\"money\":0,\"stamina\":0,\"max_stamina\":0,\"health\":0,\"location\":\"Farm\",\"tile\":{\"x\":0,\"y\":0},\"secret_notes_seen\":[18]}",
+            "{\"unique_ids\":[],\"mods\":[]}");
+        using var _ = cts; using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "number_array_contains",
+            Assertions = new()
+            {
+                new ScenarioAssertion { Type = "state", Expr = "state.player.secret_notes_seen contains 18" },
+                new ScenarioAssertion { Type = "state", Expr = "state.player.secret_notes_seen contains 12" },
+            },
+        };
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.Equal(2, report.AssertionsRun);
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Single(report.Failures);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task StateAssertion_StringArrayNotContains_MatchesAbsence()
     {
         var socket = SocketPath();

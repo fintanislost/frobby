@@ -376,7 +376,7 @@ public sealed class ScenarioAssertionEvaluator
         var expr = assertion.Expr.Trim();
         var containsMatch = Regex.Match(
             expr,
-            @"^state\.(?<method>[A-Za-z_][A-Za-z0-9_]*)\.(?<array>[A-Za-z_][A-Za-z0-9_]*)\s+(?:(?<not>not)\s+)?contains(?:\s+(?<field>[A-Za-z_][A-Za-z0-9_]*))?\s+(?<quote>['""])(?<literal>.*?)\k<quote>$");
+            @"^state\.(?<method>[A-Za-z_][A-Za-z0-9_]*)\.(?<array>[A-Za-z_][A-Za-z0-9_]*)\s+(?:(?<not>not)\s+)?contains(?:\s+(?<field>[A-Za-z_][A-Za-z0-9_]*))?\s+(?:(?<quote>['""])(?<quoted_literal>.*?)\k<quote>|(?<bare_literal>-?\d+|true|false))$");
         if (containsMatch.Success)
             return await EvaluateStateContainsAssertionAsync(assertion, containsMatch, cancellationToken);
 
@@ -418,7 +418,11 @@ public sealed class ScenarioAssertionEvaluator
         var method = $"state.{methodName}";
         var arrayProperty = containsMatch.Groups["array"].Value;
         var objectField = containsMatch.Groups["field"].Success ? containsMatch.Groups["field"].Value : null;
-        var literal = containsMatch.Groups["literal"].Value;
+        var quotedLiteral = containsMatch.Groups["quoted_literal"];
+        var literal = quotedLiteral.Success
+            ? quotedLiteral.Value
+            : containsMatch.Groups["bare_literal"].Value;
+        var literalIsQuoted = quotedLiteral.Success;
         var negatedContains = containsMatch.Groups["not"].Success;
 
         var response = await _rpc.InvokeAsync(method, assertion.Params, cancellationToken);
@@ -436,15 +440,13 @@ public sealed class ScenarioAssertionEvaluator
         {
             if (objectField is null)
             {
-                matched = element.ValueKind == JsonValueKind.String
-                    && string.Equals(element.GetString(), literal, StringComparison.Ordinal);
+                matched = JsonElementMatchesContainsLiteral(element, literal, literalIsQuoted);
             }
             else
             {
                 matched = element.ValueKind == JsonValueKind.Object
                     && element.TryGetProperty(objectField, out var field)
-                    && field.ValueKind == JsonValueKind.String
-                    && string.Equals(field.GetString(), literal, StringComparison.Ordinal);
+                    && JsonElementMatchesContainsLiteral(field, literal, literalIsQuoted);
             }
 
             if (matched)
@@ -456,9 +458,36 @@ public sealed class ScenarioAssertionEvaluator
             return ScenarioAssertionEvaluationResult.Pass();
 
         return ScenarioAssertionEvaluationResult.Fail(negatedContains
-            ? $"expected {arrayPath} not to contain '{literal}'"
-            : $"expected {arrayPath} to contain '{literal}'");
+            ? $"expected {arrayPath} not to contain {FormatContainsLiteral(literal, literalIsQuoted)}"
+            : $"expected {arrayPath} to contain {FormatContainsLiteral(literal, literalIsQuoted)}");
     }
+
+    private static bool JsonElementMatchesContainsLiteral(JsonElement element, string literal, bool literalIsQuoted)
+    {
+        if (literalIsQuoted)
+        {
+            return element.ValueKind == JsonValueKind.String
+                && string.Equals(element.GetString(), literal, StringComparison.Ordinal);
+        }
+
+        if (long.TryParse(literal, NumberStyles.Integer, CultureInfo.InvariantCulture, out var intLiteral))
+        {
+            return element.ValueKind == JsonValueKind.Number
+                && element.TryGetInt64(out var actual)
+                && actual == intLiteral;
+        }
+
+        if (bool.TryParse(literal, out var boolLiteral))
+        {
+            return (element.ValueKind == JsonValueKind.True && boolLiteral)
+                || (element.ValueKind == JsonValueKind.False && !boolLiteral);
+        }
+
+        return false;
+    }
+
+    private static string FormatContainsLiteral(string literal, bool literalIsQuoted)
+        => literalIsQuoted ? $"'{literal}'" : literal;
 
     private static bool TryResolveStatePath(
         JsonElement root,
