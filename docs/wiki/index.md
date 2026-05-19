@@ -80,8 +80,9 @@ Useful docs:
 ## World And Content Testing
 
 Use runtime state and content assertions for maps, locations, NPCs, shops,
-special orders, combat, fishing, visual effects, and Content Patcher assets.
-Keep mod-specific ids and coordinates in repo scenarios, not in Frobby source.
+special orders, combat, fishing, visual effects, Stardew tool interactions, and
+Content Patcher assets. Keep mod-specific ids and coordinates in repo scenarios,
+not in Frobby source.
 
 Useful docs:
 
@@ -128,3 +129,6 @@ Useful docs:
 - If text leaks outside a panel, add or restore `draw.text_all_within` coverage.
 - If a content assertion fails for a date-gated asset, cross a real day boundary
   with `time.next_day` so SMAPI/Content Patcher invalidation paths run.
+- If a note-gated dig or other tool-driven action does nothing, first prove the
+  setup with `state.player.secret_notes_seen` or `wait.player.secret_note_seen`,
+  then use `world.use_tool` and assert the runtime side effect separately.

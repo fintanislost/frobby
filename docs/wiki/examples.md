@@ -57,11 +57,13 @@ Use these when adding `draw.text_all_within`, step screenshots,
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/04-sve-content-assets-runtime.test.json`
 - SVE custom location and tile-action warp:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/06-sve-tile-action-warp.test.json`
+- SVE secret-note hoe dig:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/26-sve-secret-note-dig.test.json`
 - SVE Frontier Farm runtime map checks:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/24-sve-frontier-farm-profile.test.json`
 
-Use these when proving Content Patcher maps, data assets, and runtime location
-metadata.
+Use these when proving Content Patcher maps, data assets, Stardew tool-driven
+tile effects, and runtime location metadata.
 
 ## NPCs, Dialogue, Events, And Festivals
 

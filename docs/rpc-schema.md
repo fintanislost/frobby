@@ -117,6 +117,7 @@ Returns the local farmer's current state, including a compact inventory snapshot
       "mail_received": ["button_tut_1"],
       "mail_for_tomorrow": ["HenchmanMarshTonics"],
       "events_seen": ["5532011"],
+      "secret_notes_seen": [18],
       "swimming": true,
       "bathing_clothes": false,
       "is_busy": false,
@@ -152,11 +153,11 @@ Inventory `id` remains the backwards-compatible stable identifier. New tests sho
 prefer `qualified_id` for exact Stardew 1.6 item matching and `item_id` when a
 scenario intentionally wants the raw unqualified id. Metadata fields are omitted
 when Stardew or a mod does not expose them.
-`mail_received`, `mail_for_tomorrow`, and `events_seen` expose the local
-farmer's save-state flags for relationship, event, mail-gated, and pending-mail
-scenario setup/verification. `mail_for_tomorrow` is useful for trigger actions
-that schedule mail during day-ending without running Stardew's full overnight
-sleep/save flow.
+`mail_received`, `mail_for_tomorrow`, `events_seen`, and `secret_notes_seen`
+expose the local farmer's save-state flags for relationship, event, mail-gated,
+pending-mail, and secret-note scenario setup/verification. `mail_for_tomorrow`
+is useful for trigger actions that schedule mail during day-ending without
+running Stardew's full overnight sleep/save flow.
 `swimming`, `bathing_clothes`, `is_busy`, and `can_move` expose transient local
 farmer state for mod behavior that keys off the player's current mode. `buffs`
 contains active buff summaries projected from the live Stardew buff manager. Buff
@@ -1188,6 +1189,36 @@ event ids.
 **Implemented in:** `src/Harness/Handlers/PlayerAddEventSeenHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerAddEventSeenHandlerTests.cs`.
 
+### player.add_secret_note_seen
+
+Adds a secret-note id to the master farmer and local farmer seen-note sets. This
+is a neutral save-state mutator for scenarios that need to set up note-gated
+map interactions or verify that a gameplay action marked a note as seen.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 13, "method": "player.add_secret_note_seen", "params": { "id": 18 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 13, "result": { "ok": true, "tick": 84204 } }
+```
+
+Response (missing `params` or non-positive `id` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 13, "error": { "code": -32602, "message": "params.id must be a positive secret note id" } }
+```
+
+`tick` is `Game1.ticks` at the moment the note flag was added. The handler is
+idempotent: adding a note that is already present does not duplicate it.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** adds `params.id` to `Game1.MasterPlayer.secretNotesSeen` and
+to the local player when the local player is not the master farmer.
+**Implemented in:** `src/Harness/Handlers/PlayerAddSecretNoteSeenHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerAddSecretNoteSeenHandlerTests.cs`.
+
 ### player.set_friendship
 
 Sets the master farmer's relationship state for a named NPC. This is a neutral
@@ -1500,6 +1531,61 @@ follow-up `wait.location` or `wait.ms` step should observe asynchronous effects.
 **Side effects:** calls SDV's `performAction` or `performTouchAction`, which may warp the farmer, open menus, show messages, or mutate game state depending on the map action.
 **Implemented in:** `src/Harness/Handlers/WorldInteractTileActionHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InteractTileActionRequestSerializationTests.cs`, `tests/Harness.Tests/WorldInteractTileActionHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
+
+### world.use_tool
+
+Uses an equipped or inventory tool at a tile in the current location or a named
+location. The initial implementation supports Stardew's hoe path, which is
+useful for player-like tests of dig spots and other tile effects that must run
+through tool behavior instead of direct state mutation.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "world.use_tool",
+     "params": { "tool": "Hoe", "location": "Farm", "x": 21, "y": 12, "facing": "up", "power": 0 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 15, "result": {
+      "ok": true,
+      "tick": 84201,
+      "tool": "Hoe",
+      "location": "Farm",
+      "tile": { "x": 21, "y": 12 },
+      "selected_item_id": "Hoe",
+      "selected_item_qualified_id": "(T)Hoe",
+      "selected_item_name": "Hoe",
+      "selected_item_runtime_type": "Hoe",
+      "selected_tool_index": 0,
+      "invoked": true
+   } }
+```
+
+Response (`tool`, `x`, or `y` missing, unsupported tool, or invalid coordinate — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "world.use_tool currently only supports Hoe" } }
+```
+
+Response (location mismatch or no matching tool available — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32003, "message": "world.use_tool could not find Hoe in the farmer inventory" } }
+```
+
+`facing` is optional and accepts Stardew cardinal directions such as `up`,
+`down`, `left`, and `right`. `power` defaults to `0` and must be non-negative.
+After the RPC, use runtime state waits or assertions to prove the desired side
+effect, such as a spawned object, inventory item, or `secret_notes_seen` flag.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode` and
+`Game1.hasLoadedGame`); the current or requested location must match the
+farmer's current location; the farmer must have the requested tool.
+**Side effects:** selects the matching tool and calls Stardew's tool function at
+the requested tile, so modded tool hooks and native tile effects can run.
+**Implemented in:** `src/Harness/Handlers/WorldUseToolHandler.cs`
+**Tested in:** `tests/Protocol.Tests/UseToolSerializationTests.cs`,
+`tests/Harness.Tests/WorldUseToolHandlerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### combat.attack
 
@@ -1909,7 +1995,7 @@ Runner scenario convenience:
   accept `timeout_ms` so a stalled harness call fails the scenario instead of
   hanging the run. The default per-step RPC timeout is 10000 ms.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
@@ -1951,11 +2037,13 @@ Request shape:
 
 Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
 `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`,
-`mail_received`, `mail_for_tomorrow`, `event_seen`, `buff_id`, `buff_source`,
-`buff_effect`, `buff_effect_gte`, `buff_count_gte`, and
+`mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`,
+`buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and
 `buff_any_effect_gte`; timeout details include the last observed health,
-location, tile, transient state, buff summary, and progression-list counts. Tile
-filters must be supplied as a complete `x`/`y` pair.
+location, tile, transient state, buff summary, and progression-list counts,
+including `secret_notes_seen=<count>`. Tile filters must be supplied as a
+complete `x`/`y` pair. `secret_note_seen` is a positive integer id and matches
+when `state.player.secret_notes_seen` contains that id.
 
 ### wait.special_order runner action
 

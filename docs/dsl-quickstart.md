@@ -78,9 +78,9 @@ Environment knobs:
 
 ## Facet reference
 
-- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `GiveItem(id, count)`
+- `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `AddSecretNoteSeen(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
-- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)`
+- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
@@ -448,6 +448,29 @@ Player progression waits can poll received mail, pending mail, and seen events:
     "poll_ms": 100
   }
 }
+```
+
+They can also poll seen secret notes after setup or a player-like world action:
+
+```json
+{ "action": "player.add_secret_note_seen", "args": { "id": 18 } },
+{
+  "action": "world.use_tool",
+  "args": { "tool": "Hoe", "location": "Farm", "x": 21, "y": 12, "facing": "up" }
+},
+{
+  "action": "wait.player",
+  "args": { "secret_note_seen": 18, "timeout_ms": 10000, "poll_ms": 100 }
+}
+```
+
+In C# DSL tests, the same RPCs are available through `Player.AddSecretNoteSeen`
+and `World.UseTool`:
+
+```csharp
+await Player.AddSecretNoteSeen(18);
+var result = await World.UseTool("Hoe", 21, 12, location: "Farm", facing: "up");
+Assert.True(result.Invoked);
 ```
 
 The same runner wait can target hostile monsters with exact metadata filters:
