@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SdvTestFramework.Scenarios</RootNamespace>
+    <AssemblyName>SdvTestFramework.Scenarios</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Protocol\Protocol.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Runner-side schema validation. Kept out of Protocol because Protocol is loaded
+         by the net6.0 SMAPI harness, which must not inherit JsonSchema.Net's runtime graph. -->
+    <PackageReference Include="JsonSchema.Net" Version="6.0.7" />
+  </ItemGroup>
+</Project>

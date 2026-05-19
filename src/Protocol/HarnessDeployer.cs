@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace SdvTestFramework.Protocol;
@@ -45,6 +46,10 @@ public static class HarnessDeployer
         if (Directory.Exists(payloadDir) && File.Exists(Path.Combine(payloadDir, "manifest.json")))
         {
             Directory.CreateDirectory(targetDir);
+            var payloadFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var src in Directory.EnumerateFiles(payloadDir))
+                payloadFiles.Add(Path.GetFileName(src));
+            RemoveStalePayloadFiles(targetDir, payloadFiles);
             foreach (var src in Directory.EnumerateFiles(payloadDir))
             {
                 var name = Path.GetFileName(src);
@@ -72,6 +77,10 @@ public static class HarnessDeployer
             if (harnessResources.Length == 0) continue;
 
             Directory.CreateDirectory(targetDir);
+            var payloadFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var name in harnessResources)
+                payloadFiles.Add(name.Substring(HarnessResourcePrefix.Length));
+            RemoveStalePayloadFiles(targetDir, payloadFiles);
             foreach (var name in harnessResources)
             {
                 using var stream = asm.GetManifestResourceStream(name)
@@ -89,5 +98,14 @@ public static class HarnessDeployer
             $"No harness payload available. Source-tree cache not found at {payloadDir} " +
             $"and no embedded harness resources found in any loaded assembly. " +
             "Reinstall SdvTestFramework.Cli or rebuild from source.");
+    }
+
+    private static void RemoveStalePayloadFiles(string targetDir, ISet<string> payloadFiles)
+    {
+        foreach (var file in Directory.EnumerateFiles(targetDir))
+        {
+            if (!payloadFiles.Contains(Path.GetFileName(file)))
+                File.Delete(file);
+        }
     }
 }

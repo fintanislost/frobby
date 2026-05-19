@@ -286,7 +286,15 @@ projects which target net10.0 and have no SMAPI loading constraint.
 
 **2026-05-17 cleanup:** `ScenarioLoader` moved back to `src/Protocol/Scenarios/` after
 pinning `JsonSchema.Net` to the 6.x line, which includes a netstandard2.0 asset usable by
-the net6.0 harness.
+the net6.0 harness. Superseded on 2026-05-18 after live SMAPI load verification showed
+Protocol still must not reference the schema-validation package graph.
+
+**2026-05-18 staging follow-up:** `ScenarioLoader` now lives in the runner-side
+`SdvTestFramework.Scenarios` assembly, while Protocol returns to harness-safe RPC and DTO
+contracts only. `StageHarnessPayload` now stages and embeds the complete current harness
+runtime DLL set resolved by MSBuild instead of a hard-coded ImageSharp list, and stale
+package DLLs are removed from generated harness/payload outputs and deployed harness mod
+folders after dependency graph changes.
 
 **Out of scope (M4):** shipped pre-built manifest, auto-regeneration on SDV update,
 streaming manifest-build progress, modded-content entries, hash-algorithm agility,

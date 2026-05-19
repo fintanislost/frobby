@@ -6,6 +6,7 @@
     <!-- Caveat: `dotnet test sdv-test-framework.slnx` treats Runner.Dsl as a test host because it references xUnit for BeforeAfterTestAttribute. Use the concrete test projects or scripts/ci.sh until Runner.Dsl is marked non-test or CI filters test SDK projects. -->
     <Project Path="src/Runner.Dsl/Runner.Dsl.csproj" />
     <Project Path="src/Runner.Mcp/Runner.Mcp.csproj" />
+    <Project Path="src/Scenarios/Scenarios.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Harness.Tests/Harness.Tests.csproj" />

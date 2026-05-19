@@ -1,4 +1,7 @@
+using System;
 using System.IO;
+using System.Linq;
+using SdvTestFramework.Protocol.Models;
 using SdvTestFramework.Protocol.Scenarios;
 using Xunit;
 
@@ -14,11 +17,24 @@ public class ScenarioLoaderTests
     }
 
     [Fact]
-    public void ScenarioLoader_LivesInProtocolAssembly()
+    public void ScenarioLoader_LivesOutsideHarnessLoadedProtocolAssembly()
     {
         Assert.Equal(
-            "SdvTestFramework.Protocol",
+            "SdvTestFramework.Scenarios",
             typeof(ScenarioLoader).Assembly.GetName().Name);
+    }
+
+    [Fact]
+    public void ProtocolAssembly_DoesNotReferenceScenarioLoaderSchemaPackages()
+    {
+        var references = typeof(ScenarioSpec)
+            .Assembly
+            .GetReferencedAssemblies()
+            .Select(name => name.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        Assert.DoesNotContain("JsonSchema.Net", references);
+        Assert.DoesNotContain("Humanizer", references);
     }
 
     [Fact]

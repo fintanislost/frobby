@@ -85,9 +85,6 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 - [ ] Windows build parity (~1 week).
 - [ ] Git LFS setup for baselines + fixtures (few hours, once >5 items in either).
   Source: M2-fixture-builder + M2-bitmap out-of-scope.
-- [ ] StageHarnessPayload generic NuGet-dep staging (~2 hours). Today hardcodes
-  `SixLabors.ImageSharp.dll`; future runtime NuGet deps need a generic pattern.
-  Source: M2-bitmap T7 build-fix commentary.
 - [ ] Suppress `Test Run Aborted` cosmetic noise in `ci.sh` (~30 min). `dotnet test
   sdv-test-framework.slnx` tries to run `Runner.Dsl` as a test host (because it
   references `xunit` for `BeforeAfterTestAttribute`), aborts harmlessly, then continues
@@ -98,6 +95,16 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 ---
 
 ## Completed
+
+### 2026-05-18
+
+- **Harness payload runtime staging and scenario-loader isolation**. Harness
+  builds now reconcile their output against the current project/reference/runtime
+  DLL set, and Runner stages and embeds that generated payload instead of
+  hard-coding `SixLabors.ImageSharp.dll`. `ScenarioLoader` moved to the
+  runner-side `SdvTestFramework.Scenarios` assembly so the harness-loaded
+  Protocol assembly no longer inherits `JsonSchema.Net`/`Humanizer` dependencies.
+  Harness deployment also removes stale files that were present in a prior payload.
 
 ### 2026-05-17
 
@@ -110,8 +117,9 @@ Not important for the LLM-workflow goal but worth logging so they don't get lost
 - **ScenarioLoader Protocol consolidation**. Moved `ScenarioLoader` and
   `ScenarioLoadException` back to `src/Protocol/Scenarios/`, pinned
   `JsonSchema.Net` to 6.0.7 so Protocol remains safe for the net6.0 SMAPI harness,
-  and added a regression test proving the loader now lives in
-  `SdvTestFramework.Protocol`.
+  and added a regression test proving the loader lives in `SdvTestFramework.Protocol`.
+  Superseded on 2026-05-18 after live SMAPI load verification showed Protocol must
+  not reference the schema-validation package graph at all.
 
 - **MCP static resources and prompts**. Added MCP `resources/list`,
   `resources/read`, `prompts/list`, and `prompts/get` support for static Frobby

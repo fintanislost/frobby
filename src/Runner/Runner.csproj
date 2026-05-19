@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Protocol\Protocol.csproj" />
+    <ProjectReference Include="..\Scenarios\Scenarios.csproj" />
     <ProjectReference Include="..\Runner.Mcp\Runner.Mcp.csproj" />
   </ItemGroup>
 
@@ -56,42 +57,34 @@
     <None Include="..\..\nuget\README-Cli.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Embedded harness payload — extracted by HarnessDeployer at first NuGet-installed run.
-         Source-tree devs continue to use the StageHarnessPayload-cached version transparently
-         via HarnessDeployer's source-tree-cache-first lookup order.
-         Build-order dependency on Harness via the existing ProjectReference (ReferenceOutputAssembly=false). -->
-    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\Harness.dll"
-                     LogicalName="harness/Harness.dll"
-                     Visible="false" />
-    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll"
-                     LogicalName="harness/SdvTestFramework.Protocol.dll"
-                     Visible="false" />
-    <EmbeddedResource Include="..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll"
-                     LogicalName="harness/SixLabors.ImageSharp.dll"
-                     Visible="false" />
-    <EmbeddedResource Include="..\Harness\manifest.json"
-                     LogicalName="harness/manifest.json"
-                     Visible="false" />
-  </ItemGroup>
+  <!-- Embedded harness payload — extracted by HarnessDeployer at first NuGet-installed run.
+       Source-tree devs continue to use the StageHarnessPayload-cached version transparently
+       via HarnessDeployer's source-tree-cache-first lookup order.
+       Build-order dependency on Harness via the existing ProjectReference (ReferenceOutputAssembly=false). -->
+  <Target Name="CollectEmbeddedHarnessPayload"
+          BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="ResolveProjectReferences">
+    <ItemGroup>
+      <_EmbeddedHarnessPayload Include="..\Harness\bin\$(Configuration)\net6.0\*.dll" />
+      <_EmbeddedHarnessPayload Include="..\Harness\manifest.json" />
+      <EmbeddedResource Include="@(_EmbeddedHarnessPayload)"
+                        LogicalName="harness/%(Filename)%(Extension)"
+                        Visible="false" />
+    </ItemGroup>
+  </Target>
 
-  <!-- Stage only the harness payload DLLs needed at runtime. Scenario validation is owned
-       by Protocol for CLI/MCP callers, but the harness never calls ScenarioLoader. -->
+  <!-- Stage the complete harness runtime payload for source-tree `sdv-test run`.
+       Keep this generic so future Harness or Protocol NuGet dependencies are staged
+       without another hand-maintained DLL list. -->
   <Target Name="StageHarnessPayload"
-          AfterTargets="Build"
-          Inputs="..\Harness\bin\$(Configuration)\net6.0\Harness.dll;..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll;..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll;..\Harness\manifest.json"
-          Outputs="$(OutDir)harness-payload\Harness.dll;$(OutDir)harness-payload\SdvTestFramework.Protocol.dll;$(OutDir)harness-payload\SixLabors.ImageSharp.dll;$(OutDir)harness-payload\manifest.json">
+          AfterTargets="Build">
+    <ItemGroup>
+      <_StagedHarnessPayload Include="..\Harness\bin\$(Configuration)\net6.0\*.dll" />
+      <_StagedHarnessPayload Include="..\Harness\manifest.json" />
+    </ItemGroup>
+    <RemoveDir Directories="$(OutDir)harness-payload" />
     <MakeDir Directories="$(OutDir)harness-payload" />
-    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\Harness.dll"
-          DestinationFolder="$(OutDir)harness-payload"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\SdvTestFramework.Protocol.dll"
-          DestinationFolder="$(OutDir)harness-payload"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="..\Harness\bin\$(Configuration)\net6.0\SixLabors.ImageSharp.dll"
-          DestinationFolder="$(OutDir)harness-payload"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="..\Harness\manifest.json"
+    <Copy SourceFiles="@(_StagedHarnessPayload)"
           DestinationFolder="$(OutDir)harness-payload"
           SkipUnchangedFiles="true" />
   </Target>

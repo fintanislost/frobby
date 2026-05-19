@@ -15,13 +15,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ScenarioLoader lives in Protocol so CLI and MCP share one scenario-loading
-         implementation. Pin to JsonSchema.Net 6.x because Protocol is loaded by
-         the net6.0 SMAPI harness; 7.x targets newer System.Text.Json APIs. -->
-    <PackageReference Include="JsonSchema.Net" Version="6.0.7" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Include="..\..\nuget\README-Protocol.md" Pack="true" PackagePath="README.md" />
   </ItemGroup>
 

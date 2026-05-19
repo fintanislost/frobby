@@ -30,17 +30,13 @@
        from AppContext.BaseDirectory, which for this test project points here, not there.
        Mirror the payload into our bin dir so deployer-exercising tests work. -->
   <Target Name="StageHarnessPayloadForTests"
-          AfterTargets="Build"
-          Inputs="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\Harness.dll;..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\SdvTestFramework.Protocol.dll;..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\manifest.json"
-          Outputs="$(OutDir)harness-payload\Harness.dll;$(OutDir)harness-payload\SdvTestFramework.Protocol.dll;$(OutDir)harness-payload\manifest.json">
+          AfterTargets="Build">
+    <ItemGroup>
+      <_RunnerTestHarnessPayload Include="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\*" />
+    </ItemGroup>
+    <RemoveDir Directories="$(OutDir)harness-payload" />
     <MakeDir Directories="$(OutDir)harness-payload" />
-    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\Harness.dll"
-          DestinationFolder="$(OutDir)harness-payload"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\SdvTestFramework.Protocol.dll"
-          DestinationFolder="$(OutDir)harness-payload"
-          SkipUnchangedFiles="true" />
-    <Copy SourceFiles="..\..\src\Runner\bin\$(Configuration)\net10.0\harness-payload\manifest.json"
+    <Copy SourceFiles="@(_RunnerTestHarnessPayload)"
           DestinationFolder="$(OutDir)harness-payload"
           SkipUnchangedFiles="true" />
   </Target>
