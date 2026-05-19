@@ -15,6 +15,7 @@ public sealed class PlayerState
     public List<string> MailReceived { get; set; } = new();
     public List<string> MailForTomorrow { get; set; } = new();
     public List<string> EventsSeen { get; set; } = new();
+    public List<int> SecretNotesSeen { get; set; } = new();
     public List<PlayerItemSummary> Items { get; set; } = new();
     public bool Swimming { get; set; }
     public bool BathingClothes { get; set; }
