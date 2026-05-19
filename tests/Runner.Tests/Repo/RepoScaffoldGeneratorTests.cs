@@ -123,8 +123,8 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", repeatText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", scriptText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", repeatText);
-        Assert.Contains("unset FROBBY_ROOT", scriptText);
-        Assert.Contains("unset FROBBY_ROOT", repeatText);
+        Assert.DoesNotContain("unset FROBBY_ROOT", scriptText);
+        Assert.DoesNotContain("unset FROBBY_ROOT", repeatText);
         Assert.Contains("exec dotnet run", scriptText);
         Assert.Contains("exec dotnet run", repeatText);
         Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", scriptText);

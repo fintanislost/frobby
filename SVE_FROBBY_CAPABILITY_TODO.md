@@ -141,13 +141,13 @@ Status key:
   - Implementation plan: `docs/superpowers/plans/2026-05-15-sve-slice-17-frontier-farm-fixtures.md`.
   - Done: scenario `save_overrides.farm_type` stages derived fixture copies, source fixtures stay unchanged, and SVE scenarios 24-25 prove Frontier Farm profile loading plus instant bridge/desert shortcut runtime map changes.
 
-- [ ] Active: Slice 18, Hoe/dig tool-use support for buried rewards.
+- [x] Done: Slice 18, Hoe/dig tool-use support for buried rewards.
   - SVE pressure: SVE relocates Secret Note #18's Desert buried reward through a Harmony patch on Stardew's buried-item check path.
   - Frobby goal: add neutral player-like tool-use support, starting with Hoe, plus secret-note seen-state setup/projection so mods can validate buried rewards without direct state shortcuts.
   - Design spec: `docs/superpowers/specs/2026-05-19-sve-slice-18-hoe-dig-tool-use-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-19-sve-slice-18-hoe-dig-tool-use.md`.
-  - Implementation target: `world.use_tool`, `player.add_secret_note_seen`, `state.player.secret_notes_seen`, runner-side `wait.player.secret_note_seen`, DSL wrappers, docs, and SVE scenario 26.
-  - Candidate SVE proof: add scenario 26 to mark Secret Note #18 seen, hoe tile `(9,43)` in the Desert, then assert `SecretNote18_done` mail and item debris `127`.
+  - Done: `world.use_tool`, `player.add_secret_note_seen`, `state.player.secret_notes_seen`, runner-side `wait.player.secret_note_seen`, numeric `state` contains assertions, DSL wrappers, and docs.
+  - Verified: SVE scenario 26 marks Secret Note #18 seen, hoes tile `(9,43)` in the Desert, then asserts `SecretNote18_done` mail and item debris `127` through the repo-local wrapper.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
