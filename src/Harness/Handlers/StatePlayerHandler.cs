@@ -31,6 +31,7 @@ public static class StatePlayerHandler
             MailReceived = world.MailReceived.ToList(),
             MailForTomorrow = world.MailForTomorrow.ToList(),
             EventsSeen = world.EventsSeen.ToList(),
+            SecretNotesSeen = world.SecretNotesSeen.ToList(),
             Swimming = world.Swimming,
             BathingClothes = world.BathingClothes,
             IsBusy = world.IsBusy,
@@ -78,6 +79,7 @@ internal interface IPlayerStateWorld
     IReadOnlyList<string> MailReceived { get; }
     IReadOnlyList<string> MailForTomorrow { get; }
     IReadOnlyList<string> EventsSeen { get; }
+    IReadOnlyList<int> SecretNotesSeen { get; }
     bool Swimming { get; }
     bool BathingClothes { get; }
     bool IsBusy { get; }
@@ -147,6 +149,7 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
             ReflectionValue.ReadRaw(Player, "mailForTomorrow", "MailForTomorrow"))
             .ToList();
     public IReadOnlyList<string> EventsSeen => Player.eventsSeen.Select(e => e.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToList();
+    public IReadOnlyList<int> SecretNotesSeen => Player.secretNotesSeen.ToList();
     public bool Swimming => ReadBoolValue(Player, "swimming", "Swimming") ?? false;
     public bool BathingClothes => ReadBoolValue(Player, "bathingClothes", "BathingClothes") ?? false;
     public bool IsBusy => ReflectionValue.TryInvokeBool(Player, "isBusy", [], out var busy) && busy;

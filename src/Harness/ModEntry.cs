@@ -61,6 +61,7 @@ public sealed class ModEntry : Mod
         _rpc.Register(PlayerSetMoneyHandler.Method, p => PlayerSetMoneyHandler.Handle(p));
         _rpc.Register(PlayerAddMailHandler.Method, p => PlayerAddMailHandler.Handle(p));
         _rpc.Register(PlayerAddEventSeenHandler.Method, p => PlayerAddEventSeenHandler.Handle(p));
+        _rpc.Register(PlayerAddSecretNoteSeenHandler.Method, p => PlayerAddSecretNoteSeenHandler.Handle(p));
         _rpc.Register(PlayerSetFriendshipHandler.Method, p => PlayerSetFriendshipHandler.Handle(p));
         _rpc.Register(PlayerSetTransientStateHandler.Method, p => PlayerSetTransientStateHandler.Handle(p));
         _rpc.Register(TimeAdvanceHandler.Method, p => TimeAdvanceHandler.Handle(p));

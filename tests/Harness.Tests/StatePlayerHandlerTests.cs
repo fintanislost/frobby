@@ -20,6 +20,7 @@ public class StatePlayerHandlerTests
         Assert.Equal(new[] { "button_tut_1", "custom_mail_gate" }, state.MailReceived);
         Assert.Equal(new[] { "HenchmanMarshTonics", "SusanCooking" }, state.MailForTomorrow);
         Assert.Equal(new[] { "60367", "5532011" }, state.EventsSeen);
+        Assert.Equal(new[] { 18, 25 }, state.SecretNotesSeen);
         Assert.True(state.Swimming);
         Assert.True(state.BathingClothes);
         Assert.False(state.IsBusy);
@@ -66,6 +67,7 @@ public class StatePlayerHandlerTests
         public IReadOnlyList<string> MailReceived { get; } = new[] { "button_tut_1", "custom_mail_gate" };
         public IReadOnlyList<string> MailForTomorrow { get; } = new[] { "HenchmanMarshTonics", "SusanCooking" };
         public IReadOnlyList<string> EventsSeen { get; } = new[] { "60367", "5532011" };
+        public IReadOnlyList<int> SecretNotesSeen { get; } = new[] { 18, 25 };
         public bool Swimming => true;
         public bool BathingClothes => true;
         public bool IsBusy => false;
