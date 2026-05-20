@@ -19,6 +19,7 @@ Frobby files:
 - Modify `src/Protocol/Models/CombatAttackRequest.cs`: add `monster_id` and `label` filters to `CombatTargetCriteria`.
 - Create `src/Harness/Handlers/CombatLabIdentityRegistry.cs`: test-run identity registry for lab-spawned monsters.
 - Create `src/Harness/Handlers/CombatLabResetHandler.cs`: JSON-RPC handler and production world adapter for resetting/creating `Frobby_CombatLab`.
+- Create `src/Harness/Handlers/CombatLabLifecycle.cs`: scenario-end cleanup for lab identity state and the harness-owned temporary lab location.
 - Create `src/Harness/Handlers/CombatLabSpawnMonsterHandler.cs`: JSON-RPC handler and production world adapter for spawning supported vanilla monsters.
 - Modify `src/Harness/Handlers/LocationContentProjector.cs`: project lab identity metadata onto monster summaries.
 - Modify `src/Harness/Handlers/ScenarioEndHandler.cs`: clear lab identity state at scenario end.
@@ -487,6 +488,7 @@ git commit -m "Add combat lab monster identity projection"
 
 **Files:**
 - Create: `src/Harness/Handlers/CombatLabResetHandler.cs`
+- Create: `src/Harness/Handlers/CombatLabLifecycle.cs`
 - Modify: `src/Harness/Handlers/ScenarioEndHandler.cs`
 - Modify: `src/Harness/ModEntry.cs`
 - Create: `tests/Harness.Tests/CombatLabResetHandlerTests.cs`

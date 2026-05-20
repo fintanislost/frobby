@@ -42,11 +42,11 @@ public static class CombatLabResetHandler
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.width must be >= 8");
         if (req.Height < 8)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.height must be >= 8");
-        if (req.PlayerX < 0 || req.PlayerY < 0 || req.PlayerX >= req.Width || req.PlayerY >= req.Height)
+        if (req.PlayerX < 0 || req.PlayerY < 0)
         {
             throw new JsonRpcException(
                 JsonRpcErrorCode.InvalidParams,
-                "params.player_x/player_y must be inside the combat lab bounds");
+                "params.player_x/player_y must be non-negative");
         }
     }
 }
@@ -73,16 +73,30 @@ internal sealed class SdvCombatLabWorld : ICombatLabWorld
         lab.debris.Clear();
         lab.objects.Clear();
 
+        var mapLayer = lab.Map?.Layers.FirstOrDefault();
+        var mapWidth = mapLayer?.LayerWidth ?? request.Width;
+        var mapHeight = mapLayer?.LayerHeight ?? request.Height;
+        ValidatePlayerTileAgainstMap(request, mapWidth, mapHeight);
+
         if (request.WarpPlayer)
             Game1.warpFarmer(CombatLabResetHandler.LocationName, request.PlayerX, request.PlayerY, flip: false);
 
-        var mapLayer = lab.Map?.Layers.FirstOrDefault();
         return BuildResetResult(
             request,
-            mapLayer?.LayerWidth,
-            mapLayer?.LayerHeight,
+            mapWidth,
+            mapHeight,
             clearedMonsters,
             clearedDebris);
+    }
+
+    internal static void ValidatePlayerTileAgainstMap(CombatLabResetRequest request, int mapWidth, int mapHeight)
+    {
+        if (request.PlayerX < 0 || request.PlayerY < 0 || request.PlayerX >= mapWidth || request.PlayerY >= mapHeight)
+        {
+            throw new JsonRpcException(
+                JsonRpcErrorCode.InvalidParams,
+                "params.player_x/player_y must be inside the combat lab map bounds");
+        }
     }
 
     internal static CombatLabResetResult BuildResetResult(

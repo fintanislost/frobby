@@ -30,15 +30,37 @@ public sealed class CombatLabResetHandlerTests
     }
 
     [Fact]
-    public void Handle_PlayerTileOutsideBounds_ThrowsInvalidParams()
+    public void Handle_NegativePlayerTile_ThrowsInvalidParams()
     {
-        var json = JsonDocument.Parse("""{"width":20,"height":14,"player_x":20,"player_y":8}""").RootElement;
+        var json = JsonDocument.Parse("""{"width":20,"height":14,"player_x":-1,"player_y":8}""").RootElement;
 
         var ex = Assert.Throws<JsonRpcException>(() =>
             CombatLabResetHandler.Handle(json, new FakeCombatLabWorld()));
 
         Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
         Assert.Contains("player", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_PlayerTileOutsideRequestedSize_DelegatesToWorldForActualMapBounds()
+    {
+        var world = new FakeCombatLabWorld
+        {
+            Result = new CombatLabResetResult
+            {
+                Location = CombatLabResetHandler.LocationName,
+                PlayerTile = new TilePoint { X = 9, Y = 7 },
+                MapWidth = 120,
+                MapHeight = 60,
+            },
+        };
+        var json = JsonDocument.Parse("""{"width":8,"height":8,"player_x":9,"player_y":7}""").RootElement;
+
+        CombatLabResetHandler.Handle(json, world);
+
+        Assert.True(world.ResetCalled);
+        Assert.Equal(9, world.Request!.PlayerX);
+        Assert.Equal(7, world.Request.PlayerY);
     }
 
     [Fact]
@@ -101,6 +123,37 @@ public sealed class CombatLabResetHandlerTests
         Assert.Equal(3, result.ClearedDebris);
     }
 
+    [Fact]
+    public void ValidatePlayerTileAgainstMap_OutsideActualMap_ThrowsInvalidParams()
+    {
+        var req = new CombatLabResetRequest
+        {
+            PlayerX = 120,
+            PlayerY = 7,
+            Width = 200,
+            Height = 200,
+        };
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            SdvCombatLabWorld.ValidatePlayerTileAgainstMap(req, mapWidth: 120, mapHeight: 60));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("player", ex.Message);
+    }
+
+    [Fact]
+    public void CombatLabLifecycle_Clear_RemovesLocationAndClearsIdentities()
+    {
+        var monster = new object();
+        CombatLabIdentityRegistry.Assign(monster, "target");
+        var world = new FakeCombatLabCleanupWorld();
+
+        CombatLabLifecycle.Clear(world);
+
+        Assert.True(world.RemoveCalled);
+        Assert.False(CombatLabIdentityRegistry.TryGet(monster, out _));
+    }
+
     private sealed class FakeCombatLabWorld : ICombatLabWorld
     {
         public bool IsWorldReady { get; init; } = true;
@@ -120,5 +173,13 @@ public sealed class CombatLabResetHandlerTests
             Request = request;
             return Result;
         }
+    }
+
+    private sealed class FakeCombatLabCleanupWorld : ICombatLabCleanupWorld
+    {
+        public bool RemoveCalled { get; private set; }
+
+        public void RemoveCombatLabLocation()
+            => RemoveCalled = true;
     }
 }
