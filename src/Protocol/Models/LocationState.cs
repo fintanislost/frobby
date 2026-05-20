@@ -134,6 +134,16 @@ public sealed class ResourceClumpSummary
 public sealed class MonsterSummary
 {
     public TilePoint Tile { get; set; } = new();
+
+    /// <summary>Run-local Frobby monster identity. Not save-stable.</summary>
+    public string? MonsterId { get; set; }
+
+    /// <summary>Optional Frobby lab label assigned by tests.</summary>
+    public string? Label { get; set; }
+
+    /// <summary>True when this monster was spawned by the Frobby Combat Lab.</summary>
+    public bool? SpawnedByFrobby { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public int? Health { get; set; }

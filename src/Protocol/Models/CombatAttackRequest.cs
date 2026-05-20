@@ -18,6 +18,8 @@ public sealed class CombatAttackRequest
 public sealed class CombatTargetCriteria
 {
     public string? Location { get; set; }
+    public string? MonsterId { get; set; }
+    public string? Label { get; set; }
     public string? Name { get; set; }
     public string? Type { get; set; }
     public string? SpriteTexture { get; set; }

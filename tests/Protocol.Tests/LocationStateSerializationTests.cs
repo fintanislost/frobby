@@ -82,6 +82,9 @@ public class LocationStateSerializationTests
                 new MonsterSummary
                 {
                     Tile = new TilePoint { X = 44, Y = 31 },
+                    MonsterId = "frobby-monster-1",
+                    Label = "target",
+                    SpawnedByFrobby = true,
                     Name = "Mummy",
                     Type = "Mummy",
                     Health = 2000,
@@ -105,6 +108,6 @@ public class LocationStateSerializationTests
         Assert.Contains("\"furniture\":[{\"tile\":{\"x\":7,\"y\":8},\"id\":\"(F)1302\",\"name\":\"Oak Chair\"}]", json);
         Assert.Contains("\"terrain\":[{\"tile\":{\"x\":12,\"y\":12},\"kind\":\"HoeDirt\"}]", json);
         Assert.Contains("\"resource_clumps\":[{\"tile\":{\"x\":21,\"y\":17},\"kind\":\"ResourceClump\",\"id\":\"602\",\"name\":\"Log\",\"width\":2,\"height\":2,\"health\":10}]", json);
-        Assert.Contains("\"monsters\":[{\"tile\":{\"x\":44,\"y\":31},\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}]", json);
+        Assert.Contains("\"monsters\":[{\"tile\":{\"x\":44,\"y\":31},\"monster_id\":\"frobby-monster-1\",\"label\":\"target\",\"spawned_by_frobby\":true,\"name\":\"Mummy\",\"type\":\"Mummy\",\"health\":2000,\"max_health\":2000,\"damage\":100,\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}]", json);
     }
 }
