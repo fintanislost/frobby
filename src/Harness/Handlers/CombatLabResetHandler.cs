@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
@@ -58,6 +59,8 @@ internal interface ICombatLabWorld
 
 internal sealed class SdvCombatLabWorld : ICombatLabWorld
 {
+    private const string MapAsset = "Maps/Mines/1";
+
     public bool IsWorldReady => Game1.gameMode == Game1.playingGameMode && Game1.hasLoadedGame;
 
     public CombatLabResetResult Reset(CombatLabResetRequest request)
@@ -73,12 +76,28 @@ internal sealed class SdvCombatLabWorld : ICombatLabWorld
         if (request.WarpPlayer)
             Game1.warpFarmer(CombatLabResetHandler.LocationName, request.PlayerX, request.PlayerY, flip: false);
 
+        var mapLayer = lab.Map?.Layers.FirstOrDefault();
+        return BuildResetResult(
+            request,
+            mapLayer?.LayerWidth,
+            mapLayer?.LayerHeight,
+            clearedMonsters,
+            clearedDebris);
+    }
+
+    internal static CombatLabResetResult BuildResetResult(
+        CombatLabResetRequest request,
+        int? mapWidth,
+        int? mapHeight,
+        int clearedMonsters,
+        int clearedDebris)
+    {
         return new CombatLabResetResult
         {
             Location = CombatLabResetHandler.LocationName,
             PlayerTile = new TilePoint { X = request.PlayerX, Y = request.PlayerY },
-            MapWidth = request.Width,
-            MapHeight = request.Height,
+            MapWidth = mapWidth ?? request.Width,
+            MapHeight = mapHeight ?? request.Height,
             ClearedMonsters = clearedMonsters,
             ClearedDebris = clearedDebris,
         };
@@ -89,7 +108,7 @@ internal sealed class SdvCombatLabWorld : ICombatLabWorld
         if (Game1.getLocationFromName(CombatLabResetHandler.LocationName) is { } existing)
             return existing;
 
-        var lab = new GameLocation("Maps/Mines/1", CombatLabResetHandler.LocationName);
+        var lab = new GameLocation(MapAsset, CombatLabResetHandler.LocationName);
         Game1.locations.Add(lab);
         return lab;
     }

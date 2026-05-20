@@ -75,6 +75,32 @@ public sealed class CombatLabResetHandlerTests
         Assert.False(CombatLabIdentityRegistry.TryGet(monster, out _));
     }
 
+    [Fact]
+    public void BuildResetResult_PrefersActualMapDimensionsOverRequestBounds()
+    {
+        var req = new CombatLabResetRequest
+        {
+            PlayerX = 7,
+            PlayerY = 8,
+            Width = 24,
+            Height = 16,
+        };
+
+        var result = SdvCombatLabWorld.BuildResetResult(
+            req,
+            mapWidth: 120,
+            mapHeight: 60,
+            clearedMonsters: 2,
+            clearedDebris: 3);
+
+        Assert.Equal(120, result.MapWidth);
+        Assert.Equal(60, result.MapHeight);
+        Assert.Equal(7, result.PlayerTile.X);
+        Assert.Equal(8, result.PlayerTile.Y);
+        Assert.Equal(2, result.ClearedMonsters);
+        Assert.Equal(3, result.ClearedDebris);
+    }
+
     private sealed class FakeCombatLabWorld : ICombatLabWorld
     {
         public bool IsWorldReady { get; init; } = true;
