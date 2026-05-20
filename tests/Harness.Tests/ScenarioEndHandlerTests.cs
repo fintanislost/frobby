@@ -88,4 +88,20 @@ public class ScenarioEndHandlerTests
 
         Assert.False(ControlledCursor.HasOverride);
     }
+
+    [Fact]
+    public void Handle_ClearsCombatLabIdentityRegistry()
+    {
+        var monster = new object();
+        CombatLabIdentityRegistry.Assign(monster, "slime");
+        var s = ScenarioState.Current;
+        s.Reset();
+        s.IsActive = true;
+        s.Name = "t7";
+        s.StartUtc = System.DateTime.UtcNow;
+
+        ScenarioEndHandler.Handle(null);
+
+        Assert.False(CombatLabIdentityRegistry.TryGet(monster, out _));
+    }
 }

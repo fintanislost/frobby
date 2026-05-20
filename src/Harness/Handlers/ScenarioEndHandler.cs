@@ -38,6 +38,7 @@ public static class ScenarioEndHandler
         // armed, and the next scenario's draw.arm fails with "Already armed."
         Recorder.Disarm();
         ControlledCursor.Clear();
+        CombatLabIdentityRegistry.Clear();
 
         // Optional per-scenario counter snapshot, populated by ScenarioRunner when it calls
         // scenario.end. Missing params → the scenario ran without runner wiring (e.g. hand
