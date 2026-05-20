@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
 using SdvTestFramework.Harness.Rpc;
@@ -72,6 +73,8 @@ internal sealed class SdvCombatLabSpawnWorld : ICombatLabSpawnWorld
             ?? throw new JsonRpcException(
                 JsonRpcErrorCode.GameStateInvalid,
                 "combat_lab.spawn_monster requires combat_lab.reset first");
+        var mapLayer = lab.Map?.Layers.FirstOrDefault();
+        ValidateSpawnTileAgainstMap(request, mapLayer?.LayerWidth, mapLayer?.LayerHeight);
 
         var monster = CreateMonster(request);
         if (request.Health is { } health)
@@ -96,9 +99,22 @@ internal sealed class SdvCombatLabSpawnWorld : ICombatLabSpawnWorld
         };
     }
 
+    internal static void ValidateSpawnTileAgainstMap(CombatLabSpawnMonsterRequest request, int? mapWidth, int? mapHeight)
+    {
+        if (mapWidth is null || mapHeight is null)
+            return;
+
+        if (request.X >= mapWidth || request.Y >= mapHeight)
+        {
+            throw new JsonRpcException(
+                JsonRpcErrorCode.InvalidParams,
+                "combat_lab.spawn_monster tile must be inside the combat lab map bounds");
+        }
+    }
+
     private static Monster CreateMonster(CombatLabSpawnMonsterRequest request)
     {
-        var position = new Vector2(request.X * 64, request.Y * 64);
+        var position = new Vector2(request.X * 64f, request.Y * 64f);
         return request.Kind switch
         {
             "GreenSlime" => new GreenSlime(position, 0),

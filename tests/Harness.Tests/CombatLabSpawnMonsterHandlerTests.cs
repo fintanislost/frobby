@@ -82,6 +82,23 @@ public sealed class CombatLabSpawnMonsterHandlerTests
         Assert.True(CombatLabSpawnMonsterHandler.IsSupportedKind(kind));
     }
 
+    [Fact]
+    public void ValidateSpawnTileAgainstMap_OutsideActualMap_ThrowsInvalidParams()
+    {
+        var req = new CombatLabSpawnMonsterRequest
+        {
+            Kind = "GreenSlime",
+            X = 120,
+            Y = 8,
+        };
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            SdvCombatLabSpawnWorld.ValidateSpawnTileAgainstMap(req, mapWidth: 120, mapHeight: 60));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("map bounds", ex.Message);
+    }
+
     private sealed class FakeCombatLabSpawnWorld : ICombatLabSpawnWorld
     {
         public bool IsWorldReady { get; init; } = true;
