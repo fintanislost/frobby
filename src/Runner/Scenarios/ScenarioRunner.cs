@@ -1087,7 +1087,9 @@ public sealed class ScenarioRunner
 
     private static bool LocationContentElementMatches(JsonElement element, WaitLocationContentStepArgs args)
     {
-        return StringFilterMatches(element, "name", args.Name)
+        return StringFilterMatches(element, "monster_id", args.MonsterId)
+            && StringFilterMatches(element, "label", args.Label)
+            && StringFilterMatches(element, "name", args.Name)
             && StringFilterMatches(element, "type", args.Type)
             && StringFilterMatches(element, "kind", args.Kind)
             && StringFilterMatches(element, "id", args.Id)
@@ -1210,6 +1212,8 @@ public sealed class ScenarioRunner
     private static string FormatLocationContentFilters(WaitLocationContentStepArgs args)
     {
         var filters = new List<string>();
+        if (args.MonsterId is not null) filters.Add($"monster_id={args.MonsterId}");
+        if (args.Label is not null) filters.Add($"label={args.Label}");
         if (args.Name is not null) filters.Add($"name={args.Name}");
         if (args.Type is not null) filters.Add($"type={args.Type}");
         if (args.Kind is not null) filters.Add($"kind={args.Kind}");
@@ -2157,7 +2161,9 @@ public sealed class ScenarioRunner
 
     private static bool CombatTargetMatches(JsonElement monster, CombatTargetCriteria target)
     {
-        return StringFilterMatches(monster, "name", target.Name)
+        return StringFilterMatches(monster, "monster_id", target.MonsterId)
+            && StringFilterMatches(monster, "label", target.Label)
+            && StringFilterMatches(monster, "name", target.Name)
             && StringFilterMatches(monster, "type", target.Type)
             && StringFilterMatches(monster, "sprite_texture", target.SpriteTexture)
             && NumberFilterMatches(monster, "health", null, target.HealthLt, target.HealthLte, target.HealthGt, target.HealthGte)
@@ -2354,6 +2360,8 @@ public sealed class ScenarioRunner
             "freeze.end" => "Resume live frame",
             "state.assert" => $"Assert {GetStringArg(step.Args, "expr") ?? "state"}",
             "fixture.save_reload" => $"Save and reload fixture \"{GetStringArg(step.Args, "name") ?? "current"}\"",
+            "combat_lab.reset" => "Reset Combat Lab",
+            "combat_lab.spawn_monster" => $"Spawn {GetStringArg(step.Args, "kind") ?? "monster"} in Combat Lab",
             "combat.attack" => DescribeCombatAttack(step.Args),
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
@@ -2719,6 +2727,8 @@ public sealed class ScenarioRunner
     {
         public string? Location { get; set; }
         public string? Collection { get; set; }
+        public string? MonsterId { get; set; }
+        public string? Label { get; set; }
         public string? Name { get; set; }
         public string? Type { get; set; }
         public string? Kind { get; set; }
