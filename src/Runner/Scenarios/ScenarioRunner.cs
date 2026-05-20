@@ -1062,6 +1062,11 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("wait.location_content requires args.poll_ms >= 1");
         if ((args.X is null) != (args.Y is null))
             throw new InvalidOperationException("wait.location_content requires both args.x and args.y when filtering by tile");
+        if ((args.MonsterId is not null || args.Label is not null)
+            && !string.Equals(args.Collection, "monsters", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("wait.location_content monster_id and label filters require collection=monsters");
+        }
     }
 
     private static int CountLocationContentMatches(JsonElement root, WaitLocationContentStepArgs args, out int totalCount)

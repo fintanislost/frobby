@@ -320,6 +320,74 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task CombatAttack_TargetSelectorMatchesMonsterIdEachRepeat()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var locationPolls = 0;
+        var attackTargets = new List<string>();
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    if (req.Method == "combat.attack" && req.Params is { } p)
+                    {
+                        attackTargets.Add(p.GetRawText());
+                    }
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse(locationPolls++ == 0
+                            ? "{\"name\":\"Frobby_CombatLab\",\"monsters\":[{\"monster_id\":\"frobby-monster-2\",\"label\":\"target\",\"tile\":{\"x\":99,\"y\":8},\"type\":\"GreenSlime\",\"health\":1},{\"monster_id\":\"frobby-monster-1\",\"label\":\"other\",\"tile\":{\"x\":12,\"y\":8},\"type\":\"GreenSlime\",\"health\":1}]}"
+                            : "{\"name\":\"Frobby_CombatLab\",\"monsters\":[{\"monster_id\":\"frobby-monster-2\",\"label\":\"target\",\"tile\":{\"x\":98,\"y\":8},\"type\":\"GreenSlime\",\"health\":1},{\"monster_id\":\"frobby-monster-1\",\"label\":\"other\",\"tile\":{\"x\":11,\"y\":8},\"type\":\"GreenSlime\",\"health\":1}]}").RootElement,
+                        "combat.attack" => JsonDocument.Parse("{\"ok\":true,\"tick\":1}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "combat_lab_monster_id_retargeting",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "combat.attack",
+                    Args = JsonDocument.Parse("{\"qualified_item_id\":\"(W)4\",\"repeat\":2,\"delay_ticks\":0,\"target\":{\"location\":\"Frobby_CombatLab\",\"monster_id\":\"frobby-monster-1\"}}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+        Assert.Equal(2, attackTargets.Count);
+        Assert.Contains("\"x\":12", attackTargets[0]);
+        Assert.Contains("\"y\":8", attackTargets[0]);
+        Assert.Contains("\"x\":11", attackTargets[1]);
+        Assert.Contains("\"y\":8", attackTargets[1]);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
@@ -1724,7 +1792,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"Frobby_CombatLab\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"monster_id\":\"frobby-monster-2\",\"label\":\"decoy\",\"tile\":{\"x\":13,\"y\":8},\"type\":\"GreenSlime\",\"health\":1},{\"monster_id\":\"frobby-monster-1\",\"label\":\"target\",\"tile\":{\"x\":12,\"y\":8},\"type\":\"GreenSlime\",\"health\":1}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"Frobby_CombatLab\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"monster_id\":\"frobby-monster-1\",\"label\":\"wrong-label\",\"tile\":{\"x\":13,\"y\":8},\"type\":\"GreenSlime\",\"health\":1},{\"monster_id\":\"frobby-monster-2\",\"label\":\"target\",\"tile\":{\"x\":14,\"y\":8},\"type\":\"GreenSlime\",\"health\":1},{\"monster_id\":\"frobby-monster-1\",\"label\":\"target\",\"tile\":{\"x\":12,\"y\":8},\"type\":\"GreenSlime\",\"health\":1}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -1756,6 +1824,58 @@ public class ScenarioRunnerTests
         }, cts.Token);
 
         Assert.True(report.Passed, string.Join("\n", report.Failures));
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitLocationContent_RejectsMonsterIdentityFiltersForNonMonsterCollections()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_object_with_monster_identity_filter",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"FarmHouse\",\"collection\":\"objects\",\"monster_id\":\"frobby-monster-1\",\"min_count\":1,\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        Assert.Contains("monster_id and label filters require collection=monsters", Assert.Single(report.Failures));
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
