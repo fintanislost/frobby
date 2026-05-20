@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace SdvTestFramework.Harness.Handlers;
 
 internal static class CombatLabIdentityRegistry
 {
     private static readonly object Gate = new();
-    private static readonly Dictionary<int, CombatLabMonsterIdentity> Identities = new();
+    private static readonly Dictionary<object, CombatLabMonsterIdentity> Identities = new(ReferenceEqualityComparer.Instance);
     private static int nextId;
 
     internal sealed record CombatLabMonsterIdentity(string MonsterId, string? Label, bool SpawnedByFrobby);
@@ -16,16 +15,15 @@ internal static class CombatLabIdentityRegistry
     {
         ArgumentNullException.ThrowIfNull(monster);
 
-        var key = RuntimeHelpers.GetHashCode(monster);
         lock (Gate)
         {
-            if (Identities.TryGetValue(key, out var existing))
+            if (Identities.TryGetValue(monster, out var existing))
             {
                 if (label is null || string.Equals(existing.Label, label, StringComparison.Ordinal))
                     return existing;
 
                 var renamed = existing with { Label = label };
-                Identities[key] = renamed;
+                Identities[monster] = renamed;
                 return renamed;
             }
 
@@ -33,7 +31,7 @@ internal static class CombatLabIdentityRegistry
                 $"frobby-monster-{++nextId}",
                 label,
                 SpawnedByFrobby: true);
-            Identities.Add(key, identity);
+            Identities.Add(monster, identity);
             return identity;
         }
     }
@@ -42,9 +40,8 @@ internal static class CombatLabIdentityRegistry
     {
         ArgumentNullException.ThrowIfNull(monster);
 
-        var key = RuntimeHelpers.GetHashCode(monster);
         lock (Gate)
-            return Identities.TryGetValue(key, out identity!);
+            return Identities.TryGetValue(monster, out identity!);
     }
 
     internal static void Clear()

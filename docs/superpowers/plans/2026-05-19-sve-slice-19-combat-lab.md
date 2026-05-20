@@ -374,9 +374,10 @@ Expected: fail to compile because `CombatLabIdentityRegistry` does not exist and
 
 Create `src/Harness/Handlers/CombatLabIdentityRegistry.cs`:
 
+Use reference equality for the dictionary key so two distinct monster objects can never collide through an identity hash.
+
 ```csharp
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 
 namespace SdvTestFramework.Harness.Handlers;
 
@@ -388,21 +389,20 @@ internal sealed record CombatLabMonsterIdentity(
 internal static class CombatLabIdentityRegistry
 {
     private static readonly object Gate = new();
-    private static readonly Dictionary<int, CombatLabMonsterIdentity> Identities = new();
+    private static readonly Dictionary<object, CombatLabMonsterIdentity> Identities = new(ReferenceEqualityComparer.Instance);
     private static int _nextId;
 
     public static CombatLabMonsterIdentity Assign(object monster, string? label)
     {
         lock (Gate)
         {
-            var key = RuntimeHelpers.GetHashCode(monster);
-            if (Identities.TryGetValue(key, out var existing))
+            if (Identities.TryGetValue(monster, out var existing))
             {
                 if (label is null || string.Equals(existing.Label, label, StringComparison.Ordinal))
                     return existing;
 
                 var updated = existing with { Label = label };
-                Identities[key] = updated;
+                Identities[monster] = updated;
                 return updated;
             }
 
@@ -410,7 +410,7 @@ internal static class CombatLabIdentityRegistry
                 $"frobby-monster-{++_nextId}",
                 label,
                 SpawnedByFrobby: true);
-            Identities[key] = identity;
+            Identities[monster] = identity;
             return identity;
         }
     }
@@ -418,7 +418,7 @@ internal static class CombatLabIdentityRegistry
     public static bool TryGet(object monster, out CombatLabMonsterIdentity identity)
     {
         lock (Gate)
-            return Identities.TryGetValue(RuntimeHelpers.GetHashCode(monster), out identity!);
+            return Identities.TryGetValue(monster, out identity!);
     }
 
     public static void Clear()

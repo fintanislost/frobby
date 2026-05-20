@@ -38,4 +38,20 @@ public class CombatLabIdentityRegistryTests
         var reassigned = CombatLabIdentityRegistry.Assign(monster, null);
         Assert.Equal("frobby-monster-1", reassigned.MonsterId);
     }
+
+    [Fact]
+    public void Assign_DistinguishesDistinctMonsterInstances()
+    {
+        CombatLabIdentityRegistry.Clear();
+        var firstMonster = FormatterServices.GetUninitializedObject(typeof(StardewValley.Monsters.GreenSlime));
+        var secondMonster = FormatterServices.GetUninitializedObject(typeof(StardewValley.Monsters.GreenSlime));
+
+        var first = CombatLabIdentityRegistry.Assign(firstMonster, "first");
+        var second = CombatLabIdentityRegistry.Assign(secondMonster, "second");
+
+        Assert.Equal("frobby-monster-1", first.MonsterId);
+        Assert.Equal("frobby-monster-2", second.MonsterId);
+        Assert.Equal("first", first.Label);
+        Assert.Equal("second", second.Label);
+    }
 }
