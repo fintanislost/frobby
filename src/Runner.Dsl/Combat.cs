@@ -48,4 +48,32 @@ public static class Combat
         }, ProtocolJson.Options);
         await s.InvokeAsync("combat.attack", p, ct);
     }
+
+    /// <summary>Attack a monster selected from current location state by identity or metadata.</summary>
+    public static async Task AttackTarget(
+        string? monsterId = null,
+        string? label = null,
+        string? location = null,
+        string? type = null,
+        string? qualifiedItemId = null,
+        int repeat = 1,
+        int delayTicks = 0,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new CombatAttackRequest
+        {
+            QualifiedItemId = qualifiedItemId,
+            Repeat = repeat,
+            DelayTicks = delayTicks,
+            Target = new CombatTargetCriteria
+            {
+                MonsterId = monsterId,
+                Label = label,
+                Location = location,
+                Type = type,
+            },
+        }, ProtocolJson.Options);
+        await s.InvokeAsync("combat.attack", p, ct);
+    }
 }

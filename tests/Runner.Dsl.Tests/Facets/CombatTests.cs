@@ -51,4 +51,21 @@ public class CombatTests
         Assert.Contains("\"repeat\":2", inv.Calls[0].ParamsJson);
         Assert.Contains("\"delay_ticks\":1", inv.Calls[0].ParamsJson);
     }
+
+    [Fact]
+    public async Task AttackTarget_InvokesCombatAttackWithLabel()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Combat.AttackTarget(label: "target", location: "Frobby_CombatLab", qualifiedItemId: "(W)4", repeat: 3, delayTicks: 1); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Single(inv.Calls);
+        Assert.Equal("combat.attack", inv.Calls[0].Method);
+        Assert.Contains("\"label\":\"target\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"location\":\"Frobby_CombatLab\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"qualified_item_id\":\"(W)4\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"repeat\":3", inv.Calls[0].ParamsJson);
+    }
 }
