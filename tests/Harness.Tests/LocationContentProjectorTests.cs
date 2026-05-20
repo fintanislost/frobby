@@ -71,6 +71,25 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectMonster_IncludesCombatLabIdentityWhenAssigned()
+    {
+        CombatLabIdentityRegistry.Clear();
+        var monster = new GreenSlime
+        {
+            tile = new Vector2(44, 31),
+            Name = "Crystal Bat",
+        };
+
+        CombatLabIdentityRegistry.Assign(monster, "target");
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+
+        Assert.Equal("frobby-monster-1", summary.MonsterId);
+        Assert.Equal("target", summary.Label);
+        Assert.True(summary.SpawnedByFrobby);
+    }
+
+    [Fact]
     public void ProjectDebris_ReadsItemDebrisFields()
     {
         var debris = new FakeDebris

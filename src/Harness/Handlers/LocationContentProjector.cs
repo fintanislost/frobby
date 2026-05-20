@@ -90,7 +90,7 @@ internal static class LocationContentProjector
     private static MonsterSummary ProjectMonster(object monster)
     {
         var tile = ReadTilePoint(monster);
-        return new MonsterSummary
+        var summary = new MonsterSummary
         {
             Tile = tile,
             Name = ReadString(monster, "Name", "name", "DisplayName", "displayName") ?? monster.GetType().Name,
@@ -100,6 +100,15 @@ internal static class LocationContentProjector
             Damage = ReadInt(monster, "DamageToFarmer", "damageToFarmer", "damage"),
             SpriteTexture = NormalizeAssetName(ReadSpriteTexture(monster)),
         };
+
+        if (CombatLabIdentityRegistry.TryGet(monster, out var identity))
+        {
+            summary.MonsterId = identity.MonsterId;
+            summary.Label = identity.Label;
+            summary.SpawnedByFrobby = identity.SpawnedByFrobby;
+        }
+
+        return summary;
     }
 
     private static DebrisSummary ProjectDebris(object debris)
