@@ -142,6 +142,61 @@ public sealed class CombatLabResetHandlerTests
     }
 
     [Fact]
+    public void ResetPreparedLab_InvalidMapBounds_DoesNotMutateLab()
+    {
+        var req = new CombatLabResetRequest
+        {
+            PlayerX = 120,
+            PlayerY = 7,
+            Width = 200,
+            Height = 200,
+        };
+        var lab = new FakeCombatLabLocation
+        {
+            MapWidth = 120,
+            MapHeight = 60,
+            MonsterCount = 2,
+            DebrisCount = 3,
+        };
+
+        Assert.Throws<JsonRpcException>(() => SdvCombatLabWorld.ResetPreparedLab(req, lab));
+
+        Assert.False(lab.ClearCalled);
+        Assert.False(lab.AddToWorldCalled);
+        Assert.False(lab.WarpPlayerCalled);
+    }
+
+    [Fact]
+    public void ResetPreparedLab_ValidNewLab_ClearsAddsWarpsAndReturnsCounts()
+    {
+        var req = new CombatLabResetRequest
+        {
+            PlayerX = 8,
+            PlayerY = 7,
+            Width = 20,
+            Height = 14,
+            WarpPlayer = true,
+        };
+        var lab = new FakeCombatLabLocation
+        {
+            MapWidth = 120,
+            MapHeight = 60,
+            MonsterCount = 2,
+            DebrisCount = 3,
+        };
+
+        var result = SdvCombatLabWorld.ResetPreparedLab(req, lab);
+
+        Assert.True(lab.ClearCalled);
+        Assert.True(lab.AddToWorldCalled);
+        Assert.True(lab.WarpPlayerCalled);
+        Assert.Equal(120, result.MapWidth);
+        Assert.Equal(60, result.MapHeight);
+        Assert.Equal(2, result.ClearedMonsters);
+        Assert.Equal(3, result.ClearedDebris);
+    }
+
+    [Fact]
     public void CombatLabLifecycle_Clear_RemovesLocationAndClearsIdentities()
     {
         var monster = new object();
@@ -181,5 +236,29 @@ public sealed class CombatLabResetHandlerTests
 
         public void RemoveCombatLabLocation()
             => RemoveCalled = true;
+    }
+
+    private sealed class FakeCombatLabLocation : ICombatLabLocation
+    {
+        public bool IsInWorld { get; set; }
+        public int? MapWidth { get; init; }
+        public int? MapHeight { get; init; }
+        public int MonsterCount { get; init; }
+        public int DebrisCount { get; init; }
+        public bool ClearCalled { get; private set; }
+        public bool AddToWorldCalled { get; private set; }
+        public bool WarpPlayerCalled { get; private set; }
+
+        public void Clear()
+            => ClearCalled = true;
+
+        public void AddToWorld()
+        {
+            AddToWorldCalled = true;
+            IsInWorld = true;
+        }
+
+        public void WarpPlayer(int x, int y)
+            => WarpPlayerCalled = true;
     }
 }
