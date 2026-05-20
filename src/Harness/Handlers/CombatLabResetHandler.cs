@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
@@ -32,8 +33,7 @@ public static class CombatLabResetHandler
                 JsonRpcErrorCode.GameStateInvalid,
                 "no active save - combat_lab.reset requires a loaded world");
 
-        CombatLabIdentityRegistry.Clear();
-        return ProtocolJson.ToElement(world.Reset(req));
+        return ProtocolJson.ToElement(world.Reset(req, CombatLabIdentityRegistry.Clear));
     }
 
     private static void Validate(CombatLabResetRequest req)
@@ -54,7 +54,7 @@ public static class CombatLabResetHandler
 internal interface ICombatLabWorld
 {
     bool IsWorldReady { get; }
-    CombatLabResetResult Reset(CombatLabResetRequest request);
+    CombatLabResetResult Reset(CombatLabResetRequest request, Action afterValidation);
 }
 
 internal sealed class SdvCombatLabWorld : ICombatLabWorld
@@ -63,16 +63,20 @@ internal sealed class SdvCombatLabWorld : ICombatLabWorld
 
     public bool IsWorldReady => Game1.gameMode == Game1.playingGameMode && Game1.hasLoadedGame;
 
-    public CombatLabResetResult Reset(CombatLabResetRequest request)
+    public CombatLabResetResult Reset(CombatLabResetRequest request, Action afterValidation)
     {
-        return ResetPreparedLab(request, GetOrCreateLab());
+        return ResetPreparedLab(request, GetOrCreateLab(), afterValidation);
     }
 
-    internal static CombatLabResetResult ResetPreparedLab(CombatLabResetRequest request, ICombatLabLocation lab)
+    internal static CombatLabResetResult ResetPreparedLab(
+        CombatLabResetRequest request,
+        ICombatLabLocation lab,
+        Action? afterValidation = null)
     {
         var mapWidth = lab.MapWidth ?? request.Width;
         var mapHeight = lab.MapHeight ?? request.Height;
         ValidatePlayerTileAgainstMap(request, mapWidth, mapHeight);
+        afterValidation?.Invoke();
 
         var clearedMonsters = lab.MonsterCount;
         var clearedDebris = lab.DebrisCount;

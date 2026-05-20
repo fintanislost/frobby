@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Protocol;
@@ -61,6 +62,34 @@ public sealed class CombatLabResetHandlerTests
         Assert.True(world.ResetCalled);
         Assert.Equal(9, world.Request!.PlayerX);
         Assert.Equal(7, world.Request.PlayerY);
+    }
+
+    [Fact]
+    public void Handle_WorldRejectsReset_DoesNotClearCombatLabIdentityRegistry()
+    {
+        var monster = new object();
+        CombatLabIdentityRegistry.Assign(monster, "target");
+        var world = new ThrowingCombatLabWorld();
+        var json = JsonDocument.Parse("""{"width":20,"height":14,"player_x":9,"player_y":7}""").RootElement;
+
+        Assert.Throws<JsonRpcException>(() => CombatLabResetHandler.Handle(json, world));
+
+        Assert.True(CombatLabIdentityRegistry.TryGet(monster, out var identity));
+        Assert.Equal("target", identity.Label);
+    }
+
+    [Fact]
+    public void Handle_SuccessfulReset_ClearsCombatLabIdentityRegistryAfterWorldValidation()
+    {
+        var monster = new object();
+        CombatLabIdentityRegistry.Assign(monster, "target");
+        var world = new FakeCombatLabWorld();
+        var json = JsonDocument.Parse("""{"width":20,"height":14,"player_x":9,"player_y":7}""").RootElement;
+
+        CombatLabResetHandler.Handle(json, world);
+
+        Assert.True(world.AfterValidationCalled);
+        Assert.False(CombatLabIdentityRegistry.TryGet(monster, out _));
     }
 
     [Fact]
@@ -213,6 +242,7 @@ public sealed class CombatLabResetHandlerTests
     {
         public bool IsWorldReady { get; init; } = true;
         public bool ResetCalled { get; private set; }
+        public bool AfterValidationCalled { get; private set; }
         public CombatLabResetRequest? Request { get; private set; }
         public CombatLabResetResult Result { get; init; } = new()
         {
@@ -222,11 +252,23 @@ public sealed class CombatLabResetHandlerTests
             MapHeight = 14,
         };
 
-        public CombatLabResetResult Reset(CombatLabResetRequest request)
+        public CombatLabResetResult Reset(CombatLabResetRequest request, Action afterValidation)
         {
             ResetCalled = true;
             Request = request;
+            afterValidation();
+            AfterValidationCalled = true;
             return Result;
+        }
+    }
+
+    private sealed class ThrowingCombatLabWorld : ICombatLabWorld
+    {
+        public bool IsWorldReady => true;
+
+        public CombatLabResetResult Reset(CombatLabResetRequest request, Action afterValidation)
+        {
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "invalid combat lab map bounds");
         }
     }
 
