@@ -43,7 +43,7 @@ public static class WorldExplodeTileHandler
         ValidateTileBounds(location, x, y);
 
         var before = world.CountContent(location);
-        world.Explode(location, x, y, radius, req.DamagePlayer);
+        world.Explode(location, x, y, radius, req.DamagePlayer, req.DamageAmount);
         var after = world.CountContent(location);
 
         return ProtocolJson.ToElement(new ExplodeTileResult
@@ -53,6 +53,7 @@ public static class WorldExplodeTileHandler
             Tile = new TilePoint { X = x, Y = y },
             Radius = radius,
             DamagePlayer = req.DamagePlayer,
+            DamageAmount = req.DamageAmount,
             MonstersBefore = before.MonsterCount,
             MonstersAfter = after.MonsterCount,
             DebrisBefore = before.DebrisCount,
@@ -76,6 +77,8 @@ public static class WorldExplodeTileHandler
         if (req.Radius < 1 || req.Radius > MaxRadius)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 $"params.radius must be between 1 and {MaxRadius}");
+        if (req.DamageAmount is < 0)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.damage_amount must be >= 0");
     }
 
     private static void ValidateTileBounds(ExplodeTileLocation location, int x, int y)
@@ -96,7 +99,7 @@ internal interface IExplodeTileWorld
     string CurrentLocationName { get; }
     ExplodeTileLocation? ResolveLocation(string? location);
     ExplodeTileCounts CountContent(ExplodeTileLocation location);
-    void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer);
+    void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer, int? damageAmount);
 }
 
 internal sealed record ExplodeTileLocation(string Name, int? MapWidth, int? MapHeight, object? NativeLocation = null);
@@ -135,10 +138,10 @@ internal sealed class SdvExplodeTileWorld : IExplodeTileWorld
             native.debris?.Count ?? 0);
     }
 
-    public void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer)
+    public void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer, int? damageAmount)
     {
         var native = RequireNativeLocation(location);
-        InvokeNativeExplosion(native, x, y, radius, damagePlayer);
+        InvokeNativeExplosion(native, x, y, radius, damagePlayer, damageAmount);
     }
 
     private static GameLocation RequireNativeLocation(ExplodeTileLocation location)
@@ -146,7 +149,7 @@ internal sealed class SdvExplodeTileWorld : IExplodeTileWorld
             ?? throw new JsonRpcException(JsonRpcErrorCode.InternalError,
                 "world.explode_tile received a non-Stardew location adapter");
 
-    private static void InvokeNativeExplosion(GameLocation location, int x, int y, int radius, bool damagePlayer)
+    private static void InvokeNativeExplosion(GameLocation location, int x, int y, int radius, bool damagePlayer, int? damageAmount)
     {
         var tile = new Vector2(x, y);
         var farmer = Game1.player;
@@ -158,7 +161,7 @@ internal sealed class SdvExplodeTileWorld : IExplodeTileWorld
 
         foreach (var method in methods)
         {
-            var args = TryBuildExplosionArgs(method, tile, radius, farmer, damagePlayer);
+            var args = TryBuildExplosionArgs(method, tile, radius, farmer, damagePlayer, damageAmount);
             if (args is null)
                 continue;
 
@@ -175,7 +178,8 @@ internal sealed class SdvExplodeTileWorld : IExplodeTileWorld
         Vector2 tile,
         int radius,
         Farmer farmer,
-        bool damagePlayer)
+        bool damagePlayer,
+        int? damageAmount)
     {
         var parameters = method.GetParameters();
         var args = new object?[parameters.Length];
@@ -195,6 +199,13 @@ internal sealed class SdvExplodeTileWorld : IExplodeTileWorld
             {
                 args[i] = radius;
                 assignedRadius = true;
+            }
+            else if (p.ParameterType == typeof(int)
+                && damageAmount is not null
+                && p.Name is not null
+                && p.Name.Contains("damage", StringComparison.OrdinalIgnoreCase))
+            {
+                args[i] = damageAmount.Value;
             }
             else if (p.ParameterType == typeof(Farmer) && !assignedFarmer)
             {

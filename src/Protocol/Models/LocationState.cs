@@ -150,6 +150,9 @@ public sealed class MonsterSummary
     public int? MaxHealth { get; set; }
     public int? Damage { get; set; }
 
+    /// <summary>Optional vanilla monster revive countdown, exposed when the runtime monster has one.</summary>
+    public int? ReviveTimer { get; set; }
+
     /// <summary>Runtime sprite texture asset path when Stardew or the mod exposes one.</summary>
     public string? SpriteTexture { get; set; }
 }

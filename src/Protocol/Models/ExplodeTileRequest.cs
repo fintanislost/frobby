@@ -8,6 +8,7 @@ public sealed class ExplodeTileRequest
     public int? Y { get; set; }
     public int Radius { get; set; } = 2;
     public bool DamagePlayer { get; set; }
+    public int? DamageAmount { get; set; }
 }
 
 /// <summary>Response shape for <c>world.explode_tile</c>.</summary>
@@ -17,6 +18,7 @@ public sealed class ExplodeTileResult : MutatorOk
     public TilePoint Tile { get; set; } = new();
     public int Radius { get; set; }
     public bool DamagePlayer { get; set; }
+    public int? DamageAmount { get; set; }
     public int? MonstersBefore { get; set; }
     public int? MonstersAfter { get; set; }
     public int? DebrisBefore { get; set; }

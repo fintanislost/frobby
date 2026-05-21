@@ -80,7 +80,7 @@ Environment knobs:
 
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `AddSecretNoteSeen(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
-- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)` / `ExplodeTile(x, y, location?, radius?, damagePlayer?)`
+- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)` / `ExplodeTile(x, y, location?, radius?, damagePlayer?, damageAmount?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
@@ -531,7 +531,7 @@ timing:
 
 ```csharp
 await CombatLab.Reset(playerX: 8, playerY: 8);
-var result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2);
+var result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2, damageAmount: 5000);
 Assert.True(result.Invoked);
 ```
 
@@ -548,6 +548,7 @@ The same runner wait can target hostile monsters with exact metadata filters:
     "health": 180,
     "max_health": 180,
     "damage": 32,
+    "revive_timer": 0,
     "sprite_texture": "ExampleMod/Monsters/CrystalBat",
     "min_count": 1,
     "timeout_ms": 10000,
@@ -555,6 +556,10 @@ The same runner wait can target hostile monsters with exact metadata filters:
   }
 }
 ```
+
+For monsters with a downed/revival lifecycle, scenarios can wait on the optional
+`revive_timer` field with the same numeric suffixes as health, for example
+`revive_timer_gt: 0` before triggering an explosion cleanup.
 
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,

@@ -333,7 +333,7 @@ Response (success):
       "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
-      "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
+      "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "revive_timer": null, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
       "terrain": [{ "tile": { "x": 12, "y": 12 }, "kind": "HoeDirt" }]
    } }
@@ -345,9 +345,11 @@ If no location is loaded (e.g. on the title screen) or the requested name is unk
 boulders, meteorites, and mine rocks when Stardew exposes them for the location.
 `monsters` contains hostile creatures and is separate from `npcs`, which remains
 for social/non-hostile NPCs. Monster summaries include runtime `health`,
-`max_health`, `damage`, and `sprite_texture` when Stardew or the mod exposes
-those values. Combat Lab monsters also expose run-local `monster_id`, optional
-`label`, and `spawned_by_frobby`. `debris` contains transient runtime debris
+`max_health`, `damage`, `revive_timer`, and `sprite_texture` when Stardew or the
+mod exposes those values. `revive_timer` is useful for monsters with a downed
+or delayed-revival lifecycle, such as mummies. Combat Lab monsters also expose
+run-local `monster_id`, optional `label`, and `spawned_by_frobby`. `debris`
+contains transient runtime debris
 such as item drops and
 visual debris. Fields are best-effort because Stardew debris can be item-backed,
 animated, or purely visual. Object summaries include stable item metadata plus
@@ -1599,7 +1601,7 @@ Request:
 ```json
 → { "jsonrpc": "2.0", "id": 16, "method": "world.explode_tile",
      "params": { "location": "Frobby_CombatLab", "x": 9, "y": 8,
-                 "radius": 2, "damage_player": false } }
+                 "radius": 2, "damage_player": false, "damage_amount": 5000 } }
 ```
 
 Response (success):
@@ -1611,6 +1613,7 @@ Response (success):
       "tile": { "x": 9, "y": 8 },
       "radius": 2,
       "damage_player": false,
+      "damage_amount": 5000,
       "monsters_before": 1,
       "monsters_after": 0,
       "debris_before": 0,
@@ -1622,6 +1625,11 @@ Response (success):
 Response (`x`, `y`, or `radius` invalid — InvalidParams):
 ```json
 ← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.radius must be between 1 and 10" } }
+```
+
+Response (`damage_amount` invalid — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.damage_amount must be >= 0" } }
 ```
 
 Response (out-of-bounds tile — InvalidParams):
@@ -1636,7 +1644,9 @@ Response (world not ready or unknown location — GameStateInvalid):
 
 Use `wait.location_content` for the assertion that matters, such as waiting for
 a labelled monster to be removed. The count fields are diagnostics for reports
-and debugging.
+and debugging. `damage_amount` is optional; omit it to preserve Stardew's native
+default explosion damage for the resolved overload, or set it when a test needs
+a deterministic high-damage blast while still using native explosion behavior.
 
 **Preconditions:** world loaded; the current or requested location must be
 loaded; `x` and `y` must be in map bounds; `radius` must be between 1 and 10.
@@ -2176,8 +2186,8 @@ Runner scenario convenience:
   has enough matching entries. Supported collections are `objects`,
   `resource_clumps`, `monsters`, `critters`, and `debris`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
-  `max_health`, `damage`, `runtime_type`, `stack`, `quality`, `category`,
-  `sprite_texture`, `big_craftable`, `held_object_id`,
+  `max_health`, `damage`, `revive_timer`, `runtime_type`, `stack`, `quality`,
+  `category`, `sprite_texture`, `big_craftable`, `held_object_id`,
   `held_object_qualified_id`, and `x`/`y` tile. For `objects`, contained-item
   filters can require a matching item inside the object: `contains_item_id`,
   `contains_item_qualified_id`, `contains_item_name`, `contains_item_stack`,
@@ -2185,8 +2195,9 @@ Runner scenario convenience:
   `contains_item_category`. It accepts
   `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
   numeric comparisons are supported with `health_lt`, `health_lte`,
-  `health_gt`, `health_gte`, matching `max_health_*` filters, and matching
-  `damage_*` filters. Debris and object numeric comparisons are supported with
+  `health_gt`, `health_gte`, matching `max_health_*` filters, matching
+  `damage_*` filters, and matching `revive_timer_*` filters. Debris and object
+  numeric comparisons are supported with
   `stack_*`, `quality_*`, and `category_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.

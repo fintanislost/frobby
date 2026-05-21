@@ -2198,7 +2198,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"},{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":90,\"max_health\":90,\"damage\":18,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"revive_timer\":1200,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"},{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"revive_timer\":0,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -2224,7 +2224,7 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "wait.location_content",
-                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"type\":\"Bat\",\"health_gt\":100,\"health_lte\":180,\"max_health_gte\":200,\"damage_lt\":40,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"type\":\"Bat\",\"health_gt\":100,\"health_lte\":180,\"max_health_gte\":200,\"damage_lt\":40,\"revive_timer_gt\":0,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);

@@ -98,6 +98,7 @@ internal static class LocationContentProjector
             Health = ReadInt(monster, "Health", "health"),
             MaxHealth = ReadInt(monster, "MaxHealth", "maxHealth"),
             Damage = ReadInt(monster, "DamageToFarmer", "damageToFarmer", "damage"),
+            ReviveTimer = ReadInt(monster, "reviveTimer", "ReviveTimer"),
             SpriteTexture = NormalizeAssetName(ReadSpriteTexture(monster)),
         };
 

@@ -165,14 +165,15 @@ Status key:
   - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab.md`.
   - Done: `combat_lab.relocate_monster`, neutral monster match criteria, relocated identity semantics with `spawned_by_frobby: false`, DSL helper, tile-state synchronization for relocated runtime monsters, overlap-tolerant target combat, docs, and SVE scenario 28.
   - Verified: SVE scenario 28 lets FTM spawn the fixed Crimson Badlands `ShadowShaman` sentry at `(22,144)`, relocates that exact runtime monster into `Frobby_CombatLab`, attacks by lab label, and waits for the relocated instance to be removed.
-  - Follow-up candidate: mummy-style monsters such as the corrupt mummy may require bomb/explosion support for true removal; keep direct mod monster construction out of scope until a stable cross-mod factory pattern exists.
+  - Follow-up completed in Slice 21: corrupt mummy cleanup now uses neutral explosion support after observing the monster's downed/revive lifecycle state.
 
-- [ ] Active: Slice 21, neutral explosion support.
+- [x] Done: Slice 21, neutral explosion support.
   - SVE pressure: mummy-style monsters and object/terrain effects can require Stardew-native explosion semantics rather than direct deletion or visual-only effects.
   - Frobby goal: add generic `world.explode_tile` so tests can trigger native explosion behavior at a tile without bomb inventory, placement, or fuse timing.
   - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-21-neutral-explosion-rpc-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-21-neutral-explosion-rpc.md`.
-  - In progress: protocol models, harness handler, runner labels, DSL helper, and docs are being added; SVE scenario 29 will prove corrupt-mummy cleanup in `Frobby_CombatLab`.
+  - Done: protocol models, harness handler, runner labels, DSL helper, `damage_amount`, optional monster `revive_timer` projection/waits, docs, and SVE scenario 29.
+  - Verified: headless SVE scenario 29 proved corrupt-mummy cleanup in `Frobby_CombatLab`; scenarios 27 and 28 were rerun as adjacent Combat Lab regressions.
   - Follow-up candidate: player-like bomb placement remains separate once direct explosion support is stable.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions

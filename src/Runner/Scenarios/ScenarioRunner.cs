@@ -1102,6 +1102,7 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(element, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && NumberFilterMatches(element, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte)
             && NumberFilterMatches(element, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte)
+            && NumberFilterMatches(element, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte)
             && StringFilterMatches(element, "runtime_type", args.RuntimeType)
             && NumberFilterMatches(element, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte)
             && NumberFilterMatches(element, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte)
@@ -1227,6 +1228,7 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         AddNumberFilters(filters, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte);
         AddNumberFilters(filters, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte);
+        AddNumberFilters(filters, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte);
         if (args.RuntimeType is not null) filters.Add($"runtime_type={args.RuntimeType}");
         AddNumberFilters(filters, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte);
         AddNumberFilters(filters, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte);
@@ -2756,6 +2758,11 @@ public sealed class ScenarioRunner
         public int? DamageLte { get; set; }
         public int? DamageGt { get; set; }
         public int? DamageGte { get; set; }
+        public int? ReviveTimer { get; set; }
+        public int? ReviveTimerLt { get; set; }
+        public int? ReviveTimerLte { get; set; }
+        public int? ReviveTimerGt { get; set; }
+        public int? ReviveTimerGte { get; set; }
         public string? RuntimeType { get; set; }
         public int? Stack { get; set; }
         public int? StackLt { get; set; }

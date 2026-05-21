@@ -109,6 +109,16 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectMonster_IncludesOptionalReviveTimerWhenPresent()
+    {
+        var monster = new FakeRevivingMonster { reviveTimer = 1200 };
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+
+        Assert.Equal(1200, summary.ReviveTimer);
+    }
+
+    [Fact]
     public void ProjectDebris_ReadsItemDebrisFields()
     {
         var debris = new FakeDebris
@@ -342,6 +352,11 @@ public class LocationContentProjectorTests
         public int MaxHealth;
         public int DamageToFarmer;
         public FakeAnimatedSprite? Sprite;
+    }
+
+    private sealed class FakeRevivingMonster
+    {
+        public int reviveTimer;
     }
 
     private sealed class FakeAnimatedSprite

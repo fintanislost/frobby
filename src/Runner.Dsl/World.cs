@@ -107,6 +107,7 @@ public static class World
         string? location = null,
         int radius = 2,
         bool damagePlayer = false,
+        int? damageAmount = null,
         CancellationToken ct = default)
     {
         var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
@@ -117,6 +118,7 @@ public static class World
             Y = y,
             Radius = radius,
             DamagePlayer = damagePlayer,
+            DamageAmount = damageAmount,
         }, ProtocolJson.Options);
         var resp = await s.InvokeAsync("world.explode_tile", p, ct);
         return JsonSerializer.Deserialize<ExplodeTileResult>(resp, ProtocolJson.Options)

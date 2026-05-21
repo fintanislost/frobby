@@ -108,7 +108,7 @@ public class WorldExplodeTileHandlerTests
             DebrisBefore = 0,
             DebrisAfter = 1,
         };
-        var p = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"radius\":2,\"damage_player\":false}").RootElement;
+        var p = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"radius\":2,\"damage_player\":false,\"damage_amount\":5000}").RootElement;
 
         var result = WorldExplodeTileHandler.Handle(p, world);
         var json = result.GetRawText();
@@ -118,8 +118,10 @@ public class WorldExplodeTileHandlerTests
         Assert.Equal(8, world.InvokedY);
         Assert.Equal(2, world.InvokedRadius);
         Assert.False(world.InvokedDamagePlayer);
+        Assert.Equal(5000, world.InvokedDamageAmount);
         Assert.Contains("\"location\":\"Frobby_CombatLab\"", json);
         Assert.Contains("\"tile\":{\"x\":9,\"y\":8}", json);
+        Assert.Contains("\"damage_amount\":5000", json);
         Assert.Contains("\"monsters_before\":1", json);
         Assert.Contains("\"monsters_after\":0", json);
         Assert.Contains("\"invoked\":true", json);
@@ -173,6 +175,7 @@ public class WorldExplodeTileHandlerTests
             2,
             null,
             false,
+            null,
         });
 
         Assert.NotNull(args);
@@ -182,6 +185,42 @@ public class WorldExplodeTileHandlerTests
         Assert.False((bool)args[3]!);
         Assert.Equal(-1, args[4]);
         Assert.True((bool)args[5]!);
+    }
+
+    [Fact]
+    public void NativeExplosionArgs_UsesExplicitDamageAmountWhenProvided()
+    {
+        var nativeExplode = typeof(GameLocation)
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Single(m =>
+            {
+                if (m.Name != "explode")
+                    return false;
+                var p = m.GetParameters();
+                return p.Length == 6
+                    && p[0].ParameterType == typeof(Vector2)
+                    && p[1].ParameterType == typeof(int)
+                    && p[2].ParameterType == typeof(Farmer)
+                    && p[3].ParameterType == typeof(bool)
+                    && p[4].ParameterType == typeof(int)
+                    && p[5].ParameterType == typeof(bool);
+            });
+        var builder = typeof(SdvExplodeTileWorld).GetMethod(
+            "TryBuildExplosionArgs",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+
+        var args = (object?[]?)builder.Invoke(null, new object?[]
+        {
+            nativeExplode,
+            new Vector2(9, 8),
+            2,
+            null,
+            false,
+            5000,
+        });
+
+        Assert.NotNull(args);
+        Assert.Equal(5000, args[4]);
     }
 
     private sealed class FakeExplodeTileWorld : IExplodeTileWorld
@@ -202,6 +241,7 @@ public class WorldExplodeTileHandlerTests
         public int? InvokedY { get; private set; }
         public int? InvokedRadius { get; private set; }
         public bool? InvokedDamagePlayer { get; private set; }
+        public int? InvokedDamageAmount { get; private set; }
 
         public ExplodeTileLocation? ResolveLocation(string? location)
         {
@@ -219,13 +259,14 @@ public class WorldExplodeTileHandlerTests
                 ? new ExplodeTileCounts(MonstersBefore, DebrisBefore)
                 : new ExplodeTileCounts(MonstersAfter, DebrisAfter);
 
-        public void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer)
+        public void Explode(ExplodeTileLocation location, int x, int y, int radius, bool damagePlayer, int? damageAmount)
         {
             InvokedLocation = location.Name;
             InvokedX = x;
             InvokedY = y;
             InvokedRadius = radius;
             InvokedDamagePlayer = damagePlayer;
+            InvokedDamageAmount = damageAmount;
         }
     }
 }

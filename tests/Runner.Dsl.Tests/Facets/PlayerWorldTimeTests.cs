@@ -261,7 +261,7 @@ public class PlayerWorldTimeTests
         ExplodeTileResult result;
         try
         {
-            result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2, damagePlayer: false);
+            result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2, damagePlayer: false, damageAmount: 5000);
         }
         finally { SdvTestSession.ResetForTests(); }
 
@@ -271,6 +271,7 @@ public class PlayerWorldTimeTests
         Assert.Contains("\"y\":8", inv.Calls[0].ParamsJson);
         Assert.Contains("\"radius\":2", inv.Calls[0].ParamsJson);
         Assert.Contains("\"damage_player\":false", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"damage_amount\":5000", inv.Calls[0].ParamsJson);
         Assert.Equal("Frobby_CombatLab", result.Location);
         Assert.Equal(9, result.Tile.X);
         Assert.Equal(8, result.Tile.Y);
