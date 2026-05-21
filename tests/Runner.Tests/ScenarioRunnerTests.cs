@@ -388,6 +388,77 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task CombatLabRelocateMonster_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"combat-lab-relocate-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var relocateParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "combat_lab.relocate_monster")
+                        relocateParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "combat_lab.relocate_monster" => JsonDocument.Parse("{\"ok\":true,\"monster_id\":\"frobby-monster-1\",\"label\":\"corrupt-mummy\",\"from_location\":\"Custom_CrimsonBadlands\",\"source_tile\":{\"x\":20,\"y\":144},\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"name\":\"Mummy\",\"type\":\"Mummy\",\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"health\":2000,\"max_health\":2000}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "combat_lab_relocate_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "combat_lab.relocate_monster",
+                        Args = JsonDocument.Parse("{\"from_location\":\"Custom_CrimsonBadlands\",\"label\":\"corrupt-mummy\",\"target_x\":9,\"target_y\":8,\"match\":{\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("combat_lab.relocate_monster", calls);
+            Assert.Equal("Custom_CrimsonBadlands", relocateParams.GetProperty("from_location").GetString());
+            Assert.Equal("corrupt-mummy", relocateParams.GetProperty("label").GetString());
+            Assert.Equal("Relocate monster from Custom_CrimsonBadlands to Combat Lab", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
