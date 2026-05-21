@@ -158,12 +158,14 @@ Status key:
   - Verified: SVE scenario 27 resets `Frobby_CombatLab`, spawns a vanilla `GreenSlime`, attacks by lab label, and waits for that exact monster to be removed.
   - Follow-up candidate: add mod monster support after researching stable SVE custom monster construction or relocation.
 
-- [ ] Active: Slice 20, relocate mod-spawned monsters into the Combat Lab.
-  - SVE pressure: SVE/FTM monsters such as the Crimson Badlands corrupt mummy carry runtime mod settings that Frobby should not recreate directly.
+- [x] Done: Slice 20, relocate mod-spawned monsters into the Combat Lab.
+  - SVE pressure: SVE/FTM monsters carry runtime mod settings that Frobby should not recreate directly.
   - Frobby goal: move exactly one already-spawned runtime monster into `Frobby_CombatLab`, assign a run-local identity/label, and test attack/removal there.
   - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab.md`.
-  - Candidate SVE proof: wait for the FTM corrupt mummy at tile `(20,144)`, relocate it into `Frobby_CombatLab`, attack by label, then wait for that exact relocated monster to be removed.
+  - Done: `combat_lab.relocate_monster`, neutral monster match criteria, relocated identity semantics with `spawned_by_frobby: false`, DSL helper, tile-state synchronization for relocated runtime monsters, overlap-tolerant target combat, docs, and SVE scenario 28.
+  - Verified: SVE scenario 28 lets FTM spawn the fixed Crimson Badlands `ShadowShaman` sentry at `(22,144)`, relocates that exact runtime monster into `Frobby_CombatLab`, attacks by lab label, and waits for the relocated instance to be removed.
+  - Follow-up candidate: mummy-style monsters such as the corrupt mummy may require bomb/explosion support for true removal; keep direct mod monster construction out of scope until a stable cross-mod factory pattern exists.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
