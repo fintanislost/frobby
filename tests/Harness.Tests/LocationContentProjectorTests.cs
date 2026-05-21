@@ -90,6 +90,25 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectMonster_IncludesRelocatedCombatLabIdentityAsNotSpawned()
+    {
+        CombatLabIdentityRegistry.Clear();
+        var monster = new GreenSlime
+        {
+            tile = new Vector2(9, 8),
+            Name = "Mummy",
+        };
+
+        CombatLabIdentityRegistry.Assign(monster, "corrupt-mummy", spawnedByFrobby: false);
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+
+        Assert.Equal("frobby-monster-1", summary.MonsterId);
+        Assert.Equal("corrupt-mummy", summary.Label);
+        Assert.False(summary.SpawnedByFrobby);
+    }
+
+    [Fact]
     public void ProjectDebris_ReadsItemDebrisFields()
     {
         var debris = new FakeDebris

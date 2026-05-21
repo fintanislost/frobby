@@ -11,7 +11,7 @@ internal static class CombatLabIdentityRegistry
 
     internal sealed record CombatLabMonsterIdentity(string MonsterId, string? Label, bool SpawnedByFrobby);
 
-    internal static CombatLabMonsterIdentity Assign(object monster, string? label)
+    internal static CombatLabMonsterIdentity Assign(object monster, string? label, bool spawnedByFrobby = true)
     {
         ArgumentNullException.ThrowIfNull(monster);
 
@@ -30,7 +30,7 @@ internal static class CombatLabIdentityRegistry
             var identity = new CombatLabMonsterIdentity(
                 $"frobby-monster-{++nextId}",
                 label,
-                SpawnedByFrobby: true);
+                spawnedByFrobby);
             Identities.Add(monster, identity);
             return identity;
         }
