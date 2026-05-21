@@ -1594,7 +1594,10 @@ the requested tile, so modded tool hooks and native tile effects can run.
 Performs one player-like melee attack in the loaded world. Supply either a
 complete target tile (`x` and `y`) or a cardinal `direction`. If both a complete
 target tile and `direction` are supplied, `direction` wins. Supported directions
-are `up`, `right`, `down`, and `left`.
+are `up`, `right`, `down`, and `left`. If a target tile overlaps the player and
+no explicit direction is supplied, the harness attacks in the farmer's current
+facing direction so moving monsters that collide with the player can still be
+tested.
 
 The harness RPC is intentionally single-shot: it faces the farmer, selects the
 requested melee weapon when `qualified_item_id` is provided, and invokes

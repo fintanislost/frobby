@@ -27,7 +27,7 @@ public static class CombatAttackHandler
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "no active save - combat.attack requires a loaded world");
 
-        var direction = ResolveDirection(req, world.TileX, world.TileY);
+        var direction = ResolveDirection(req, world.TileX, world.TileY, world.FacingDirection);
         var selected = world.SelectWeapon(req.QualifiedItemId);
         world.FaceDirection(direction);
         world.AttackOnce();
@@ -64,7 +64,7 @@ public static class CombatAttackHandler
                 $"unknown direction: {req.Direction}");
     }
 
-    private static string ResolveDirection(CombatAttackRequest req, int playerX, int playerY)
+    private static string ResolveDirection(CombatAttackRequest req, int playerX, int playerY, int facingDirection)
     {
         if (!string.IsNullOrWhiteSpace(req.Direction))
             return NormalizeDirection(req.Direction);
@@ -72,8 +72,7 @@ public static class CombatAttackHandler
         var dx = req.X!.Value - playerX;
         var dy = req.Y!.Value - playerY;
         if (dx == 0 && dy == 0)
-            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                "combat.attack target tile must differ from the player tile");
+            return DirectionName(facingDirection);
 
         if (Math.Abs(dx) > Math.Abs(dy))
             return dx > 0 ? "right" : "left";
@@ -86,6 +85,16 @@ public static class CombatAttackHandler
 
     private static string NormalizeDirection(string direction)
         => direction.Trim().ToLowerInvariant();
+
+    private static string DirectionName(int direction)
+        => direction switch
+        {
+            0 => "up",
+            1 => "right",
+            2 => "down",
+            3 => "left",
+            _ => "down",
+        };
 }
 
 internal interface ICombatAttackWorld
@@ -94,6 +103,7 @@ internal interface ICombatAttackWorld
     int Tick { get; }
     int TileX { get; }
     int TileY { get; }
+    int FacingDirection { get; }
     CombatAttackSelectedItem SelectWeapon(string? qualifiedItemId);
     void FaceDirection(string direction);
     void AttackOnce();
@@ -111,6 +121,7 @@ internal sealed class SdvCombatAttackWorld : ICombatAttackWorld
     public int Tick => Game1.ticks;
     public int TileX => Game1.player.TilePoint.X;
     public int TileY => Game1.player.TilePoint.Y;
+    public int FacingDirection => Game1.player.FacingDirection;
 
     public CombatAttackSelectedItem SelectWeapon(string? qualifiedItemId)
     {

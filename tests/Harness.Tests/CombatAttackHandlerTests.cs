@@ -68,6 +68,21 @@ public class CombatAttackHandlerTests
     }
 
     [Fact]
+    public void Handle_TargetTileOverlappingPlayerUsesCurrentFacingAndAttacksOnce()
+    {
+        var world = new FakeCombatWorld { TileX = 20, TileY = 145, FacingDirection = 0 };
+        var p = JsonDocument.Parse("{\"x\":20,\"y\":145,\"qualified_item_id\":\"(W)4\"}").RootElement;
+
+        var result = CombatAttackHandler.Handle(p, world);
+        var json = result.GetRawText();
+
+        Assert.Equal("up", world.FacedDirection);
+        Assert.Equal(1, world.AttackCount);
+        Assert.Equal("(W)4", world.SelectedQualifiedItemId);
+        Assert.Contains("\"direction\":\"up\"", json);
+    }
+
+    [Fact]
     public void Handle_RepeatGreaterThanOne_ThrowsInvalidParams()
     {
         var p = JsonDocument.Parse("{\"direction\":\"left\",\"repeat\":3}").RootElement;
@@ -95,6 +110,7 @@ public class CombatAttackHandlerTests
         public int Tick { get; set; } = 456;
         public int TileX { get; set; } = 20;
         public int TileY { get; set; } = 145;
+        public int FacingDirection { get; set; } = 2;
         public string? SelectedQualifiedItemId { get; private set; }
         public string? FacedDirection { get; private set; }
         public int AttackCount { get; private set; }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using Microsoft.Xna.Framework;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
@@ -171,6 +172,23 @@ public sealed class CombatLabRelocateMonsterHandlerTests
         Assert.False(identity.SpawnedByFrobby);
     }
 
+    [Fact]
+    public void MoveMonsterToTile_UpdatesTileMemberUsedByProjection()
+    {
+        var monster = new FakeTileMonster
+        {
+            tile = new Vector2(20, 144),
+            Position = new Vector2(20 * 64f, 144 * 64f),
+        };
+
+        SdvCombatLabRelocatableMonster.MoveMonsterToTile(monster, 9, 8);
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+        Assert.Equal(9, summary.Tile.X);
+        Assert.Equal(8, summary.Tile.Y);
+        Assert.Equal(new Vector2(9 * 64f, 8 * 64f), monster.Position);
+    }
+
     private sealed class FakeRelocateWorld : ICombatLabRelocateWorld
     {
         public bool IsWorldReady { get; init; } = true;
@@ -251,5 +269,11 @@ public sealed class CombatLabRelocateMonsterHandlerTests
                 SpriteTexture = summary.SpriteTexture,
             };
         }
+    }
+
+    private sealed class FakeTileMonster
+    {
+        public Vector2 tile;
+        public Vector2 Position { get; set; }
     }
 }

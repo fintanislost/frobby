@@ -389,6 +389,9 @@ monster state before sending the single-shot harness RPC:
 }
 ```
 
+If a retargeted monster moves onto the player's tile, `combat.attack` falls back
+to the farmer's current facing direction instead of failing the scenario.
+
 Then wait for damage instead of sleeping:
 
 ```json

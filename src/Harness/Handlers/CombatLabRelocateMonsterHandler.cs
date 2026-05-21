@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
 using SdvTestFramework.Harness.Rpc;
@@ -187,6 +188,9 @@ internal sealed class SdvCombatLabRelocateLocation : ICombatLabRelocateLocation
 
 internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMonster
 {
+    private const BindingFlags InstanceMemberFlags =
+        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
     public SdvCombatLabRelocatableMonster(Monster monster)
         => Monster = monster;
 
@@ -202,7 +206,72 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
         if (location is not SdvCombatLabRelocateLocation sdvLocation)
             throw new InvalidOperationException("combat_lab.relocate_monster received an incompatible location adapter");
 
-        Monster.Position = new Vector2(x * 64f, y * 64f);
+        MoveMonsterToTile(Monster, x, y);
         Monster.currentLocation = sdvLocation.Location;
+    }
+
+    internal static void MoveMonsterToTile(object monster, int x, int y)
+    {
+        ArgumentNullException.ThrowIfNull(monster);
+
+        var tile = new Vector2(x, y);
+        InvokeTileSetterIfPresent(monster, x, y, tile);
+        SetVectorMemberIfPresent(monster, tile, "tile", "Tile", "tilePoint", "TilePoint");
+
+        var position = new Vector2(x * 64f, y * 64f);
+        if (monster is Monster sdvMonster)
+            sdvMonster.Position = position;
+        else
+            SetVectorMemberIfPresent(monster, position, "Position", "position");
+    }
+
+    private static void InvokeTileSetterIfPresent(object monster, int x, int y, Vector2 tile)
+    {
+        var type = monster.GetType();
+        var setTilePosition = type.GetMethod(
+            "setTilePosition",
+            InstanceMemberFlags,
+            binder: null,
+            types: new[] { typeof(int), typeof(int) },
+            modifiers: null);
+        if (setTilePosition is not null)
+        {
+            setTilePosition.Invoke(monster, new object[] { x, y });
+            return;
+        }
+
+        var setTileLocation = type.GetMethod(
+            "setTileLocation",
+            InstanceMemberFlags,
+            binder: null,
+            types: new[] { typeof(Vector2) },
+            modifiers: null);
+        setTileLocation?.Invoke(monster, new object[] { tile });
+    }
+
+    private static void SetVectorMemberIfPresent(object instance, Vector2 value, params string[] names)
+    {
+        var type = instance.GetType();
+        while (type is not null)
+        {
+            foreach (var name in names)
+            {
+                var property = type.GetProperty(name, InstanceMemberFlags);
+                if (property?.CanWrite == true && property.PropertyType == typeof(Vector2))
+                {
+                    property.SetValue(instance, value);
+                    return;
+                }
+
+                var field = type.GetField(name, InstanceMemberFlags);
+                if (field?.FieldType == typeof(Vector2))
+                {
+                    field.SetValue(instance, value);
+                    return;
+                }
+            }
+
+            type = type.BaseType;
+        }
     }
 }
