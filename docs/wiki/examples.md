@@ -87,12 +87,22 @@ festival maps.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/27-sve-combat-lab-vanilla-monster.test.json`
 - Combat Lab relocated mod monster lifecycle:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/28-sve-combat-lab-relocate-mod-monster.test.json`
+- Combat Lab native explosion cleanup:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/29-sve-combat-lab-explode-mummy.test.json`
 - SVE fishing table and catch sampling:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/16-sve-fishing-core.test.json`
 - SVE world object interaction:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/18-sve-object-piggy-bank-interaction.test.json`
 
 Use these when testing runtime state rather than parsing a mod's content files.
+
+## Explosion Cleanup
+
+Use `world.explode_tile` when a mod feature depends on native Stardew explosion
+behavior, such as mummy cleanup or object blast effects. This keeps the
+assertion focused on world-state behavior without also depending on bomb
+inventory, placement, or fuse timing. Follow it with `wait.location_content` to
+assert the actual world-state change.
 
 ## Save, Reload, And Long-Running State
 

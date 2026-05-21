@@ -80,7 +80,7 @@ Environment knobs:
 
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `AddSecretNoteSeen(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
-- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)`
+- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)` / `ExplodeTile(x, y, location?, radius?, damagePlayer?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
@@ -522,6 +522,16 @@ and `World.UseTool`:
 ```csharp
 await Player.AddSecretNoteSeen(18);
 var result = await World.UseTool("Hoe", 21, 12, location: "Farm", facing: "up");
+Assert.True(result.Invoked);
+```
+
+Use `World.ExplodeTile` when the feature depends on Stardew's native explosion
+behavior, but the test does not need to prove bomb inventory, placement, or fuse
+timing:
+
+```csharp
+await CombatLab.Reset(playerX: 8, playerY: 8);
+var result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2);
 Assert.True(result.Invoked);
 ```
 

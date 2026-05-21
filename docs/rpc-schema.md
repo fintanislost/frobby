@@ -1589,6 +1589,66 @@ the requested tile, so modded tool hooks and native tile effects can run.
 `tests/Harness.Tests/WorldUseToolHandlerTests.cs`, and
 `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
+### world.explode_tile
+
+Triggers Stardew-native explosion behavior at a tile in the current or named
+loaded location. This is a direct deterministic test primitive: it does not
+require a bomb item, fuse timing, inventory state, or player proximity.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 16, "method": "world.explode_tile",
+     "params": { "location": "Frobby_CombatLab", "x": 9, "y": 8,
+                 "radius": 2, "damage_player": false } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 16, "result": {
+      "ok": true,
+      "tick": 123,
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "radius": 2,
+      "damage_player": false,
+      "monsters_before": 1,
+      "monsters_after": 0,
+      "debris_before": 0,
+      "debris_after": 1,
+      "invoked": true
+   } }
+```
+
+Response (`x`, `y`, or `radius` invalid — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.radius must be between 1 and 10" } }
+```
+
+Response (out-of-bounds tile — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "world.explode_tile target tile must be inside the resolved map bounds" } }
+```
+
+Response (world not ready or unknown location — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32003, "message": "world.explode_tile location not found: ExampleMine" } }
+```
+
+Use `wait.location_content` for the assertion that matters, such as waiting for
+a labelled monster to be removed. The count fields are diagnostics for reports
+and debugging.
+
+**Preconditions:** world loaded; the current or requested location must be
+loaded; `x` and `y` must be in map bounds; `radius` must be between 1 and 10.
+**Side effects:** invokes Stardew's native location explosion path at the
+requested tile, which may damage monsters, create debris, remove objects, or
+mutate terrain depending on the active game/mod state.
+**Implemented in:** `src/Harness/Handlers/WorldExplodeTileHandler.cs`
+**Tested in:** `tests/Protocol.Tests/ExplodeTileSerializationTests.cs`,
+`tests/Harness.Tests/WorldExplodeTileHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
+
 ### combat.attack
 
 Performs one player-like melee attack in the loaded world. Supply either a

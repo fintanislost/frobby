@@ -167,6 +167,14 @@ Status key:
   - Verified: SVE scenario 28 lets FTM spawn the fixed Crimson Badlands `ShadowShaman` sentry at `(22,144)`, relocates that exact runtime monster into `Frobby_CombatLab`, attacks by lab label, and waits for the relocated instance to be removed.
   - Follow-up candidate: mummy-style monsters such as the corrupt mummy may require bomb/explosion support for true removal; keep direct mod monster construction out of scope until a stable cross-mod factory pattern exists.
 
+- [ ] Active: Slice 21, neutral explosion support.
+  - SVE pressure: mummy-style monsters and object/terrain effects can require Stardew-native explosion semantics rather than direct deletion or visual-only effects.
+  - Frobby goal: add generic `world.explode_tile` so tests can trigger native explosion behavior at a tile without bomb inventory, placement, or fuse timing.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-21-neutral-explosion-rpc-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-21-neutral-explosion-rpc.md`.
+  - In progress: protocol models, harness handler, runner labels, DSL helper, and docs are being added; SVE scenario 29 will prove corrupt-mummy cleanup in `Frobby_CombatLab`.
+  - Follow-up candidate: player-like bomb placement remains separate once direct explosion support is stable.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
