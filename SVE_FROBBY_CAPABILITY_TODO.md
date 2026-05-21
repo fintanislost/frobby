@@ -158,6 +158,12 @@ Status key:
   - Verified: SVE scenario 27 resets `Frobby_CombatLab`, spawns a vanilla `GreenSlime`, attacks by lab label, and waits for that exact monster to be removed.
   - Follow-up candidate: add mod monster support after researching stable SVE custom monster construction or relocation.
 
+- [ ] Planning: Slice 20, relocate mod-spawned monsters into the Combat Lab.
+  - SVE pressure: SVE/FTM monsters such as the Crimson Badlands corrupt mummy carry runtime mod settings that Frobby should not recreate directly.
+  - Frobby goal: move exactly one already-spawned runtime monster into `Frobby_CombatLab`, assign a run-local identity/label, and test attack/removal there.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab-design.md`.
+  - Candidate SVE proof: wait for the FTM corrupt mummy at tile `(20,144)`, relocate it into `Frobby_CombatLab`, attack by label, then wait for that exact relocated monster to be removed.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
