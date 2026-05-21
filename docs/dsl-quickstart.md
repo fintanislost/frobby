@@ -431,6 +431,29 @@ arena and lets JSON scenarios target a specific monster by lab label:
 C# DSL tests can use `CombatLab.Reset`, `CombatLab.SpawnMonster`, and
 `Combat.AttackTarget` for the same flow.
 
+For mod-spawned monsters, let the mod create the monster first and then relocate
+that exact runtime instance into the lab:
+
+```json
+{
+  "action": "combat_lab.relocate_monster",
+  "args": {
+    "from_location": "Custom_CrimsonBadlands",
+    "label": "corrupt-mummy",
+    "target_x": 9,
+    "target_y": 8,
+    "match": {
+      "x": 20,
+      "y": 144,
+      "sprite_texture": "Characters/Monsters/CorruptMummy"
+    }
+  }
+}
+```
+
+The relocation action moves the existing monster object. It does not construct a
+mod monster or parse mod spawn data.
+
 Player health waits are also runner-side polling over `state.player`:
 
 ```json

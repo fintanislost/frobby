@@ -1692,6 +1692,55 @@ tracks run-local identity metadata until scenario end or the next lab reset.
 `tests/Runner.Tests/ScenarioRunnerTests.cs`, and
 `tests/Runner.Dsl.Tests/Facets/CombatLabTests.cs`.
 
+### combat_lab.relocate_monster
+
+Moves one already-spawned runtime monster into `Frobby_CombatLab` and assigns a
+run-local Frobby identity. This isolates mod-created monsters without Frobby
+constructing or parsing mod monster definitions.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "combat_lab.relocate_monster", "params": { "from_location": "Custom_CrimsonBadlands", "label": "corrupt-mummy", "target_x": 9, "target_y": 8, "match": { "x": 20, "y": 144, "sprite_texture": "Characters/Monsters/CorruptMummy", "health": 2000, "max_health": 2000 } } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 18, "result": {
+      "ok": true,
+      "monster_id": "frobby-monster-1",
+      "label": "corrupt-mummy",
+      "from_location": "Custom_CrimsonBadlands",
+      "source_tile": { "x": 20, "y": 144 },
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "name": "Mummy",
+      "type": "Mummy",
+      "sprite_texture": "Characters/Monsters/CorruptMummy",
+      "health": 2000,
+      "max_health": 2000
+   } }
+```
+
+`match` filters are exact and use the same observable metadata exposed by
+`state.location.monsters`. The top-level `match.x` and `match.y` filters compare
+against `state.location.monsters[].tile.x` / `tile.y`; the remaining filters
+compare against `monster_id`, `label`, `name`, `type`, `sprite_texture`,
+`health`, `max_health`, and `damage`. The handler rejects zero matches and
+multiple matches so scenarios must identify exactly one source monster before
+mutation.
+
+**Preconditions:** world loaded; call `combat_lab.reset` before relocating; the
+source location must be loaded; target tile must be inside the lab map.
+**Side effects:** removes the matching monster object from the source location,
+moves it into `Frobby_CombatLab`, and binds run-local identity metadata with
+`spawned_by_frobby: false`.
+**Implemented in:** `src/Harness/Handlers/CombatLabRelocateMonsterHandler.cs`
+**Tested in:** `tests/Protocol.Tests/CombatLabSerializationTests.cs`,
+`tests/Harness.Tests/CombatLabRelocateMonsterHandlerTests.cs`,
+`tests/Harness.Tests/CombatLabMonsterMatcherTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/CombatLabTests.cs`.
+
 ### input.key
 
 Sends a MonoGame key press to the currently active top-level menu (`Game1.activeClickableMenu`). `params.key` is required and is parsed case-insensitively as `Microsoft.Xna.Framework.Input.Keys`.
