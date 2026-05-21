@@ -189,6 +189,42 @@ public sealed class CombatLabRelocateMonsterHandlerTests
         Assert.Equal(new Vector2(9 * 64f, 8 * 64f), monster.Position);
     }
 
+    [Fact]
+    public void MoveMonsterToTile_UpdatesAllTileMembersUsedByProjection()
+    {
+        var monster = new FakeMultiTileMonster
+        {
+            TilePoint = new Vector2(20, 144),
+            tile = new Vector2(20, 144),
+            Position = new Vector2(20 * 64f, 144 * 64f),
+        };
+
+        SdvCombatLabRelocatableMonster.MoveMonsterToTile(monster, 9, 8);
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+        Assert.Equal(9, summary.Tile.X);
+        Assert.Equal(8, summary.Tile.Y);
+        Assert.Equal(new Vector2(9, 8), monster.TilePoint);
+        Assert.Equal(new Vector2(9, 8), monster.tile);
+    }
+
+    [Fact]
+    public void MoveMonsterToTile_UpdatesPointTileMemberUsedByProjection()
+    {
+        var monster = new FakePointTileMonster
+        {
+            TilePoint = new Point(20, 144),
+            Position = new Vector2(20 * 64f, 144 * 64f),
+        };
+
+        SdvCombatLabRelocatableMonster.MoveMonsterToTile(monster, 9, 8);
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+        Assert.Equal(9, summary.Tile.X);
+        Assert.Equal(8, summary.Tile.Y);
+        Assert.Equal(new Point(9, 8), monster.TilePoint);
+    }
+
     private sealed class FakeRelocateWorld : ICombatLabRelocateWorld
     {
         public bool IsWorldReady { get; init; } = true;
@@ -274,6 +310,19 @@ public sealed class CombatLabRelocateMonsterHandlerTests
     private sealed class FakeTileMonster
     {
         public Vector2 tile;
+        public Vector2 Position { get; set; }
+    }
+
+    private sealed class FakeMultiTileMonster
+    {
+        public Vector2 TilePoint { get; set; }
+        public Vector2 tile;
+        public Vector2 Position { get; set; }
+    }
+
+    private sealed class FakePointTileMonster
+    {
+        public Point TilePoint { get; set; }
         public Vector2 Position { get; set; }
     }
 }

@@ -215,8 +215,8 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
         ArgumentNullException.ThrowIfNull(monster);
 
         var tile = new Vector2(x, y);
-        InvokeTileSetterIfPresent(monster, x, y, tile);
-        SetVectorMemberIfPresent(monster, tile, "tile", "Tile", "tilePoint", "TilePoint");
+        InvokeTileSettersIfPresent(monster, x, y, tile);
+        SetTileMembersIfPresent(monster, tile, "TilePoint", "tilePoint", "tile", "Tile");
 
         var position = new Vector2(x * 64f, y * 64f);
         if (monster is Monster sdvMonster)
@@ -225,7 +225,7 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
             SetVectorMemberIfPresent(monster, position, "Position", "position");
     }
 
-    private static void InvokeTileSetterIfPresent(object monster, int x, int y, Vector2 tile)
+    private static void InvokeTileSettersIfPresent(object monster, int x, int y, Vector2 tile)
     {
         var type = monster.GetType();
         var setTilePosition = type.GetMethod(
@@ -235,10 +235,7 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
             types: new[] { typeof(int), typeof(int) },
             modifiers: null);
         if (setTilePosition is not null)
-        {
             setTilePosition.Invoke(monster, new object[] { x, y });
-            return;
-        }
 
         var setTileLocation = type.GetMethod(
             "setTileLocation",
@@ -247,6 +244,34 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
             types: new[] { typeof(Vector2) },
             modifiers: null);
         setTileLocation?.Invoke(monster, new object[] { tile });
+    }
+
+    private static void SetTileMembersIfPresent(object instance, Vector2 value, params string[] names)
+    {
+        var point = new Point((int)value.X, (int)value.Y);
+        var type = instance.GetType();
+        while (type is not null)
+        {
+            foreach (var name in names)
+            {
+                var property = type.GetProperty(name, InstanceMemberFlags);
+                if (property?.CanWrite == true)
+                {
+                    if (property.PropertyType == typeof(Vector2))
+                        property.SetValue(instance, value);
+                    else if (property.PropertyType == typeof(Point))
+                        property.SetValue(instance, point);
+                }
+
+                var field = type.GetField(name, InstanceMemberFlags);
+                if (field?.FieldType == typeof(Vector2))
+                    field.SetValue(instance, value);
+                else if (field?.FieldType == typeof(Point))
+                    field.SetValue(instance, point);
+            }
+
+            type = type.BaseType;
+        }
     }
 
     private static void SetVectorMemberIfPresent(object instance, Vector2 value, params string[] names)
@@ -260,15 +285,12 @@ internal sealed class SdvCombatLabRelocatableMonster : ICombatLabRelocatableMons
                 if (property?.CanWrite == true && property.PropertyType == typeof(Vector2))
                 {
                     property.SetValue(instance, value);
-                    return;
+                    continue;
                 }
 
                 var field = type.GetField(name, InstanceMemberFlags);
                 if (field?.FieldType == typeof(Vector2))
-                {
                     field.SetValue(instance, value);
-                    return;
-                }
             }
 
             type = type.BaseType;
