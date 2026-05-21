@@ -249,6 +249,35 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task ExplodeTile_InvokesWorldExplodeTileAndDeserializesResult()
+    {
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"radius\":2,\"damage_player\":false,\"monsters_before\":1,\"monsters_after\":0,\"debris_before\":0,\"debris_after\":1,\"invoked\":true}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        ExplodeTileResult result;
+        try
+        {
+            result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2, damagePlayer: false);
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("world.explode_tile", inv.Calls[0].Method);
+        Assert.Contains("\"location\":\"Frobby_CombatLab\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"x\":9", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":8", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"radius\":2", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"damage_player\":false", inv.Calls[0].ParamsJson);
+        Assert.Equal("Frobby_CombatLab", result.Location);
+        Assert.Equal(9, result.Tile.X);
+        Assert.Equal(8, result.Tile.Y);
+        Assert.True(result.Invoked);
+    }
+
+    [Fact]
     public async Task InputKey_InvokesInputKey()
     {
         var inv = new CapturingInvoker();
