@@ -406,6 +406,31 @@ Then wait for damage instead of sleeping:
 }
 ```
 
+For isolated combat hardening, use the Combat Lab. It creates a clean test-only
+arena and lets JSON scenarios target a specific monster by lab label:
+
+```json
+{ "action": "combat_lab.reset", "args": { "player_x": 8, "player_y": 8, "warp_player": true } }
+```
+
+```json
+{ "action": "combat_lab.spawn_monster", "args": { "kind": "GreenSlime", "label": "target", "x": 9, "y": 8, "health": 1 } }
+```
+
+```json
+{
+  "action": "combat.attack",
+  "args": {
+    "qualified_item_id": "(W)4",
+    "repeat": 1,
+    "target": { "location": "Frobby_CombatLab", "label": "target" }
+  }
+}
+```
+
+C# DSL tests can use `CombatLab.Reset`, `CombatLab.SpawnMonster`, and
+`Combat.AttackTarget` for the same flow.
+
 Player health waits are also runner-side polling over `state.player`:
 
 ```json

@@ -333,7 +333,7 @@ Response (success):
       "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
-      "monsters": [{ "tile": { "x": 44, "y": 31 }, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
+      "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
       "terrain": [{ "tile": { "x": 12, "y": 12 }, "kind": "HoeDirt" }]
    } }
@@ -346,7 +346,9 @@ boulders, meteorites, and mine rocks when Stardew exposes them for the location.
 `monsters` contains hostile creatures and is separate from `npcs`, which remains
 for social/non-hostile NPCs. Monster summaries include runtime `health`,
 `max_health`, `damage`, and `sprite_texture` when Stardew or the mod exposes
-those values. `debris` contains transient runtime debris such as item drops and
+those values. Combat Lab monsters also expose run-local `monster_id`, optional
+`label`, and `spawned_by_frobby`. `debris` contains transient runtime debris
+such as item drops and
 visual debris. Fields are best-effort because Stardew debris can be item-backed,
 animated, or purely visual. Object summaries include stable item metadata plus
 runtime details such as `runtime_type`, `big_craftable`, `ready_for_harvest`,
@@ -1630,6 +1632,65 @@ observe damage instead of sleeping.
 `tests/Harness.Tests/CombatAttackHandlerTests.cs`,
 `tests/Runner.Tests/ScenarioRunnerTests.cs`, and
 `tests/Runner.Dsl.Tests/Facets/CombatTests.cs`.
+
+### combat_lab.reset
+
+Creates or resets the test-only `Frobby_CombatLab` location. This is a neutral
+dev room for combat tests; it is active only in harness-driven test runs and
+should not be used by production mods.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 16, "method": "combat_lab.reset", "params": { "player_x": 8, "player_y": 8, "width": 20, "height": 14, "warp_player": true } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 16, "result": {
+      "ok": true,
+      "location": "Frobby_CombatLab",
+      "player_tile": { "x": 8, "y": 8 },
+      "map_width": 20,
+      "map_height": 14,
+      "cleared_monsters": 0,
+      "cleared_debris": 0
+   } }
+```
+
+### combat_lab.spawn_monster
+
+Spawns a supported vanilla monster in `Frobby_CombatLab` and assigns a run-local
+identity. Supported first-slice kinds are `GreenSlime` and `Bat`.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 17, "method": "combat_lab.spawn_monster", "params": { "kind": "GreenSlime", "label": "target", "x": 9, "y": 8, "health": 1 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 17, "result": {
+      "ok": true,
+      "monster_id": "frobby-monster-1",
+      "label": "target",
+      "kind": "GreenSlime",
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "health": 1,
+      "max_health": 24
+   } }
+```
+
+**Preconditions:** world loaded; call `combat_lab.reset` before spawning.
+**Side effects:** creates test monsters in the temporary Combat Lab location and
+tracks run-local identity metadata until scenario end or the next lab reset.
+**Implemented in:** `src/Harness/Handlers/CombatLabResetHandler.cs` and
+`src/Harness/Handlers/CombatLabSpawnMonsterHandler.cs`
+**Tested in:** `tests/Protocol.Tests/CombatLabSerializationTests.cs`,
+`tests/Harness.Tests/CombatLabResetHandlerTests.cs`,
+`tests/Harness.Tests/CombatLabSpawnMonsterHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/CombatLabTests.cs`.
 
 ### input.key
 

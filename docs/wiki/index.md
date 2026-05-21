@@ -83,6 +83,8 @@ Use runtime state and content assertions for maps, locations, NPCs, shops,
 special orders, combat, fishing, visual effects, Stardew tool interactions, and
 Content Patcher assets. Keep mod-specific ids and coordinates in repo scenarios,
 not in Frobby source.
+Combat coverage includes player-like melee attacks, monster/debris state, and
+the test-only Combat Lab for isolated monster identity/removal checks.
 
 Useful docs:
 

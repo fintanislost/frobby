@@ -149,10 +149,11 @@ Status key:
   - Done: `world.use_tool`, `player.add_secret_note_seen`, `state.player.secret_notes_seen`, runner-side `wait.player.secret_note_seen`, numeric `state` contains assertions, DSL wrappers, and docs.
   - Verified: SVE scenario 26 marks Secret Note #18 seen, hoes tile `(9,43)` in the Desert, then asserts `SecretNote18_done` mail and item debris `127` through the repo-local wrapper.
 
-- [ ] Planning: Slice 19, vanilla-first Combat Lab for monster identity and lifecycle hardening.
+- [ ] Active: Slice 19, vanilla-first Combat Lab for monster identity and lifecycle hardening.
   - SVE pressure: existing combat scenarios can prove matching monster state changes, but crowded or moving combat locations make it hard to prove a specific monster instance was removed.
   - Frobby goal: add a neutral test-only combat dev room that can reset a clean arena, spawn vanilla monsters, assign stable run-local monster identities, and let scenarios attack/wait by identity or lab label.
   - Design spec: `docs/superpowers/specs/2026-05-19-sve-slice-19-combat-lab-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-19-sve-slice-19-combat-lab.md`.
   - Candidate SVE proof: reset `Frobby_CombatLab`, spawn a vanilla `GreenSlime`, attack by `monster_id` or label, then wait for that exact monster to be removed.
   - Follow-up candidate: add mod monster support after the vanilla lab proves identity, movement, removal, and optional drop observation.
 

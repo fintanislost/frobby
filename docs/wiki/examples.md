@@ -83,6 +83,8 @@ festival maps.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/08-sve-custom-shop-inventory-items.test.json`
 - SVE combat damage:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/12-sve-combat-monster-damage.test.json`
+- Combat Lab vanilla monster lifecycle:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/27-sve-combat-lab-vanilla-monster.test.json`
 - SVE fishing table and catch sampling:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/16-sve-fishing-core.test.json`
 - SVE world object interaction:
