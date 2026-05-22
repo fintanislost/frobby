@@ -174,7 +174,14 @@ Status key:
   - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-21-neutral-explosion-rpc.md`.
   - Done: protocol models, harness handler, runner labels, DSL helper, `damage_amount`, optional monster `revive_timer` projection/waits, docs, and SVE scenario 29.
   - Verified: headless SVE scenario 29 proved corrupt-mummy cleanup in `Frobby_CombatLab`; scenarios 27 and 28 were rerun as adjacent Combat Lab regressions.
-  - Follow-up candidate: player-like bomb placement remains separate once direct explosion support is stable.
+  - Follow-up moved to Slice 22: player-like bomb placement and fuse timing.
+
+- [ ] Active: Slice 22, player-like inventory object placement and bomb fuse flow.
+  - SVE pressure: direct explosions prove cleanup semantics, but mod UI/testing also needs the player-like path where an inventory object is placed, ticks naturally, and produces game-state effects.
+  - Frobby goal: add generic `world.place_inventory_object` plus timed object observation such as `minutes_until_ready`, without adding bomb-specific or SVE-specific framework code.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-22-player-like-bomb-placement-design.md`.
+  - Planned proof: SVE scenario 30 will place a real inventory bomb in `Frobby_CombatLab`, wait through fuse behavior, and validate corrupt-mummy removal without calling `world.explode_tile`.
+  - Follow-up candidate: input-level hotbar/click placement after semantic inventory-object placement is stable.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
