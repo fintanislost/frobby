@@ -325,6 +325,42 @@ Placed object interactions can be staged without touching the player's inventory
 }
 ```
 
+Use `world.place_inventory_object` when the test needs player-like placement
+from inventory rather than direct setup:
+
+```json
+{ "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
+{
+  "action": "world.place_inventory_object",
+  "args": {
+    "id": "(O)287",
+    "location": "Frobby_CombatLab",
+    "x": 9,
+    "y": 8
+  }
+},
+{
+  "action": "wait.location_content",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "collection": "objects",
+    "qualified_id": "(O)287",
+    "minutes_until_ready_gt": 0,
+    "min_count": 1,
+    "timeout_ms": 5000,
+    "poll_ms": 100
+  }
+}
+```
+
+In C# DSL tests, call:
+
+```csharp
+await Player.GiveItem("(O)287");
+var placed = await World.PlaceInventoryObject("(O)287", 9, 8, location: "Frobby_CombatLab");
+Assert.True(placed.Placed);
+```
+
 Transient debris and combat drops are exposed through the same wait:
 
 ```json

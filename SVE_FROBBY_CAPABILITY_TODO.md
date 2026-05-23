@@ -180,6 +180,7 @@ Status key:
   - SVE pressure: direct explosions prove cleanup semantics, but mod UI/testing also needs the player-like path where an inventory object is placed, ticks naturally, and produces game-state effects.
   - Frobby goal: add generic `world.place_inventory_object` plus timed object observation such as `minutes_until_ready`, without adding bomb-specific or SVE-specific framework code.
   - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-22-player-like-bomb-placement-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-22-sve-slice-22-player-like-bomb-placement.md`.
   - Planned proof: SVE scenario 30 will place a real inventory bomb in `Frobby_CombatLab`, wait through fuse behavior, and validate corrupt-mummy removal without calling `world.explode_tile`.
   - Follow-up candidate: input-level hotbar/click placement after semantic inventory-object placement is stable.
 

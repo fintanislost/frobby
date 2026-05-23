@@ -104,6 +104,11 @@ assertion focused on world-state behavior without also depending on bomb
 inventory, placement, or fuse timing. Follow it with `wait.location_content` to
 assert the actual world-state change.
 
+Use `world.place_inventory_object` when a scenario needs to validate inventory
+consumption and native object placement, such as a placed bomb's fuse. Follow it
+with `wait.location_content` against `objects` and `minutes_until_ready_*`, then
+wait for the object to disappear or for the resulting world-state effect.
+
 ## Save, Reload, And Long-Running State
 
 - Starberg save/reload smoke:

@@ -330,7 +330,7 @@ Response (success):
         { "source": { "x": 64, "y": 15 }, "target_location": "ExampleTown", "target": { "x": 8, "y": 10 } }
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
-      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
+      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "minutes_until_ready": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
       "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "revive_timer": null, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
@@ -354,9 +354,10 @@ such as item drops and
 visual debris. Fields are best-effort because Stardew debris can be item-backed,
 animated, or purely visual. Object summaries include stable item metadata plus
 runtime details such as `runtime_type`, `big_craftable`, `ready_for_harvest`,
-and held-object fields when Stardew exposes them. Tests should filter only on
-fields relevant to the scenario. Optional object, monster, and debris metadata
-fields may be empty or null when the runtime type does not expose them.
+`minutes_until_ready`, and held-object fields when Stardew exposes them. Tests
+should filter only on fields relevant to the scenario. Optional object,
+monster, and debris metadata fields may be empty or null when the runtime type
+does not expose them.
 Container objects include `is_chest`, `item_count`, `items_truncated`, and an
 `items` array. Contained item summaries expose `slot`, `id`, `item_id`,
 `qualified_id`, `name`, `stack`, `quality`, `category`, and `runtime_type`.
@@ -2186,8 +2187,9 @@ Runner scenario convenience:
   has enough matching entries. Supported collections are `objects`,
   `resource_clumps`, `monsters`, `critters`, and `debris`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
-  `max_health`, `damage`, `revive_timer`, `runtime_type`, `stack`, `quality`,
-  `category`, `sprite_texture`, `big_craftable`, `held_object_id`,
+  `max_health`, `damage`, `revive_timer`, `runtime_type`,
+  `minutes_until_ready`, `stack`, `quality`, `category`, `sprite_texture`,
+  `big_craftable`, `held_object_id`,
   `held_object_qualified_id`, and `x`/`y` tile. For `objects`, contained-item
   filters can require a matching item inside the object: `contains_item_id`,
   `contains_item_qualified_id`, `contains_item_name`, `contains_item_stack`,
@@ -2197,7 +2199,7 @@ Runner scenario convenience:
   numeric comparisons are supported with `health_lt`, `health_lte`,
   `health_gt`, `health_gte`, matching `max_health_*` filters, matching
   `damage_*` filters, and matching `revive_timer_*` filters. Debris and object
-  numeric comparisons are supported with
+  numeric comparisons are supported with `minutes_until_ready_*`,
   `stack_*`, `quality_*`, and `category_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
@@ -2332,6 +2334,53 @@ Response:
 **Side effects:** removes the matched inventory item from its source slot and adds it to the target location's furniture collection.
 **Implemented in:** `src/Harness/Handlers/WorldPlaceInventoryFurnitureHandler.cs`
 **Tested in:** `tests/Protocol.Tests/PlaceInventoryFurnitureRequestSerializationTests.cs` + `tests/Harness.Tests/WorldPlaceInventoryFurnitureHandlerTests.cs`.
+
+### world.place_inventory_object
+
+Places one existing inventory object into the player's current location through
+Stardew's native object placement path. This is for player-like placement flows;
+use `world.place_object` for direct setup and `world.explode_tile` for direct
+explosion semantics.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 22, "method": "world.place_inventory_object",
+     "params": { "id": "(O)287", "location": "Frobby_CombatLab", "x": 9, "y": 8, "slot": 12, "facing": "right" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 22, "result": {
+      "ok": true,
+      "tick": 123456,
+      "id": "287",
+      "qualified_id": "(O)287",
+      "name": "Bomb",
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "source_slot": 12,
+      "stack_before": 2,
+      "stack_after": 1,
+      "runtime_type": "Object",
+      "placed": true
+   } }
+```
+
+`location` is a current-location guard, not a remote placement target. Warp the
+farmer to the target location first. `id` may match `QualifiedItemId` or
+`ItemId`; scenarios should prefer qualified ids. `slot` is optional and should
+only be used when the inventory contains multiple matching ids.
+
+**Preconditions:** world loaded; matching inventory item exists; selected item
+is a `StardewValley.Object`; current location matches `location` when supplied.
+**Side effects:** invokes native object placement and consumes one active
+inventory item through Stardew's player inventory path. Placement may create a
+timed object such as a bomb.
+**Implemented in:** `src/Harness/Handlers/WorldPlaceInventoryObjectHandler.cs`
+**Tested in:** `tests/Protocol.Tests/PlaceInventoryObjectSerializationTests.cs`,
+`tests/Harness.Tests/WorldPlaceInventoryObjectHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### draw.arm
 
