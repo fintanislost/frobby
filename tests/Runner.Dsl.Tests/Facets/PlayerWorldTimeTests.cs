@@ -279,6 +279,37 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task PlaceInventoryObject_InvokesWorldPlaceInventoryObjectAndDeserializesResult()
+    {
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"source_slot\":12,\"stack_before\":2,\"stack_after\":1,\"runtime_type\":\"Object\",\"placed\":true}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        PlaceInventoryObjectResult result;
+        try
+        {
+            result = await World.PlaceInventoryObject("(O)287", 9, 8, location: "Frobby_CombatLab", slot: 12, facing: "right");
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("world.place_inventory_object", inv.Calls[0].Method);
+        Assert.Contains("\"id\":\"(O)287\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"location\":\"Frobby_CombatLab\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"x\":9", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":8", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"slot\":12", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"facing\":\"right\"", inv.Calls[0].ParamsJson);
+        Assert.Equal("Bomb", result.Name);
+        Assert.Equal("Frobby_CombatLab", result.Location);
+        Assert.Equal(9, result.Tile.X);
+        Assert.Equal(8, result.Tile.Y);
+        Assert.True(result.Placed);
+    }
+
+    [Fact]
     public async Task InputKey_InvokesInputKey()
     {
         var inv = new CapturingInvoker();

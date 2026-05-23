@@ -531,6 +531,79 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WorldPlaceInventoryObject_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"place-inventory-object-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var placeParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "world.place_inventory_object")
+                        placeParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "world.place_inventory_object" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"source_slot\":12,\"stack_before\":2,\"stack_after\":1,\"runtime_type\":\"Object\",\"placed\":true}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "place_inventory_object_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "world.place_inventory_object",
+                        Args = JsonDocument.Parse("{\"id\":\"(O)287\",\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("world.place_inventory_object", calls);
+            Assert.Equal("(O)287", placeParams.GetProperty("id").GetString());
+            Assert.Equal("Frobby_CombatLab", placeParams.GetProperty("location").GetString());
+            Assert.Equal(9, placeParams.GetProperty("x").GetInt32());
+            Assert.Equal(8, placeParams.GetProperty("y").GetInt32());
+            Assert.Equal("Place inventory object (O)287 at Frobby_CombatLab (9,8)", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();

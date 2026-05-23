@@ -2340,6 +2340,7 @@ public sealed class ScenarioRunner
             "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.place_inventory_object" => $"Place inventory object {GetStringArg(step.Args, "id") ?? "object"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile_action" => $"Run tile {GetStringArg(step.Args, "property") ?? "action"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.use_tool" => $"Use {GetStringArg(step.Args, "tool") ?? "tool"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
