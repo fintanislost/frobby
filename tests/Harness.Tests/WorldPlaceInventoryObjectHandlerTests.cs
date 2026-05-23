@@ -148,6 +148,7 @@ public class WorldPlaceInventoryObjectHandlerTests
         Assert.Equal(5, result.StackBefore);
         Assert.Equal(4, result.StackAfter);
         Assert.Equal(7, world.PlacedSlot);
+        Assert.Equal(7, world.ConsumedSlot);
     }
 
     [Fact]
@@ -204,6 +205,7 @@ public class WorldPlaceInventoryObjectHandlerTests
         Assert.True(result.Placed);
         Assert.Equal("right", world.FacedDirection);
         Assert.Equal(12, world.PlacedSlot);
+        Assert.Equal(12, world.ConsumedSlot);
         Assert.Equal(9, world.PlacedX);
         Assert.Equal(8, world.PlacedY);
     }
@@ -217,6 +219,7 @@ public class WorldPlaceInventoryObjectHandlerTests
         public bool PlacementSucceeds { get; init; } = true;
         public string? FacedDirection { get; private set; }
         public int? PlacedSlot { get; private set; }
+        public int? ConsumedSlot { get; private set; }
         public int? PlacedX { get; private set; }
         public int? PlacedY { get; private set; }
 
@@ -232,10 +235,14 @@ public class WorldPlaceInventoryObjectHandlerTests
             if (!PlacementSucceeds)
                 return false;
 
+            return true;
+        }
+
+        public void ConsumeObject(IInventoryObjectItem item)
+        {
+            ConsumedSlot = item.Slot;
             if (item is FakeInventoryObjectItem fake)
                 fake.Stack = System.Math.Max(0, (fake.Stack ?? 0) - 1);
-
-            return true;
         }
     }
 

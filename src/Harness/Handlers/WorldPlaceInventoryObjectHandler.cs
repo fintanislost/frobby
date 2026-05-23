@@ -51,6 +51,7 @@ public static class WorldPlaceInventoryObjectHandler
         if (!world.PlaceObject(item, x, y))
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 $"world.place_inventory_object could not place {req.Id} at tile {x},{y}");
+        world.ConsumeObject(item);
 
         return ProtocolJson.ToElement(new PlaceInventoryObjectResult
         {
@@ -119,6 +120,7 @@ internal interface IInventoryObjectPlacementWorld
     IReadOnlyList<IInventoryObjectItem> Items { get; }
     void FaceDirection(string direction);
     bool PlaceObject(IInventoryObjectItem item, int x, int y);
+    void ConsumeObject(IInventoryObjectItem item);
 }
 
 internal interface IInventoryObjectItem
@@ -171,6 +173,16 @@ internal sealed class SdvInventoryObjectPlacementWorld : IInventoryObjectPlaceme
         return obj.placementAction(CurrentLocationObject, x * Game1.tileSize, y * Game1.tileSize, Game1.player);
     }
 
+    public void ConsumeObject(IInventoryObjectItem item)
+    {
+        if (item is not SdvInventoryObjectItem)
+            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                "world.place_inventory_object can only consume live inventory items");
+
+        Game1.player.CurrentToolIndex = item.Slot;
+        Game1.player.reduceActiveItemByOne();
+    }
+
     private static int DirectionToStardew(string direction)
         => direction switch
         {
@@ -201,6 +213,17 @@ internal sealed class SdvInventoryObjectItem : IInventoryObjectItem
     public string ItemId => Item.ItemId ?? string.Empty;
     public string Name => Item.DisplayName ?? Item.Name ?? string.Empty;
     public string RuntimeType => Item.GetType().Name;
-    public int? Stack => Item.Stack;
+    public int? Stack
+    {
+        get
+        {
+            if (Slot < 0 || Slot >= Game1.player.Items.Count)
+                return null;
+
+            return ReferenceEquals(Game1.player.Items[Slot], Item)
+                ? Item.Stack
+                : null;
+        }
+    }
     public bool IsObject => Item is SObject;
 }
