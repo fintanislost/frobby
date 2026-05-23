@@ -236,6 +236,22 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectObject_IncludesOptionalMinutesUntilReadyWhenPresent()
+    {
+        var obj = new FakeTimedLocationObject
+        {
+            Name = "Bomb",
+            ItemId = "287",
+            QualifiedItemId = "(O)287",
+            minutesUntilReady = 2,
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(9, 8), obj);
+
+        Assert.Equal(2, summary.MinutesUntilReady);
+    }
+
+    [Fact]
     public void ProjectObject_ReadsHeldObjectMetadata()
     {
         var obj = new FakeLocationObject
@@ -403,6 +419,14 @@ public class LocationContentProjectorTests
         public FakeValueWrapper<bool>? bigCraftable;
         public FakeValueWrapper<bool>? readyForHarvest;
         public FakeValueWrapper<FakeHeldObject>? heldObject;
+    }
+
+    private sealed class FakeTimedLocationObject
+    {
+        public string Name = string.Empty;
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
+        public int minutesUntilReady;
     }
 
     private sealed class FakeHeldObject

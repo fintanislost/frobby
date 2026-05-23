@@ -62,6 +62,8 @@ public sealed class ObjectSummary
     public string RuntimeType { get; set; } = string.Empty;
     public bool BigCraftable { get; set; }
     public bool? ReadyForHarvest { get; set; }
+    /// <summary>Optional object lifecycle countdown, exposed when Stardew or a mod provides one.</summary>
+    public int? MinutesUntilReady { get; set; }
     public string? HeldObjectId { get; set; }
     public string? HeldObjectQualifiedId { get; set; }
     public string? HeldObjectName { get; set; }

@@ -1104,6 +1104,7 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(element, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte)
             && NumberFilterMatches(element, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte)
             && StringFilterMatches(element, "runtime_type", args.RuntimeType)
+            && NumberFilterMatches(element, "minutes_until_ready", args.MinutesUntilReady, args.MinutesUntilReadyLt, args.MinutesUntilReadyLte, args.MinutesUntilReadyGt, args.MinutesUntilReadyGte)
             && NumberFilterMatches(element, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte)
             && NumberFilterMatches(element, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte)
             && NumberFilterMatches(element, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte)
@@ -1230,6 +1231,7 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte);
         AddNumberFilters(filters, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte);
         if (args.RuntimeType is not null) filters.Add($"runtime_type={args.RuntimeType}");
+        AddNumberFilters(filters, "minutes_until_ready", args.MinutesUntilReady, args.MinutesUntilReadyLt, args.MinutesUntilReadyLte, args.MinutesUntilReadyGt, args.MinutesUntilReadyGte);
         AddNumberFilters(filters, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte);
         AddNumberFilters(filters, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte);
         AddNumberFilters(filters, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte);
@@ -2764,6 +2766,11 @@ public sealed class ScenarioRunner
         public int? ReviveTimerGt { get; set; }
         public int? ReviveTimerGte { get; set; }
         public string? RuntimeType { get; set; }
+        public int? MinutesUntilReady { get; set; }
+        public int? MinutesUntilReadyLt { get; set; }
+        public int? MinutesUntilReadyLte { get; set; }
+        public int? MinutesUntilReadyGt { get; set; }
+        public int? MinutesUntilReadyGte { get; set; }
         public int? Stack { get; set; }
         public int? StackLt { get; set; }
         public int? StackLte { get; set; }

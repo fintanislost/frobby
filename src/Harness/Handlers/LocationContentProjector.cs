@@ -165,6 +165,7 @@ internal static class LocationContentProjector
             RuntimeType = obj.GetType().Name,
             BigCraftable = ReadBool(obj, "bigCraftable", "BigCraftable") ?? false,
             ReadyForHarvest = ReadBool(obj, "readyForHarvest", "ReadyForHarvest"),
+            MinutesUntilReady = ReadInt(obj, "minutesUntilReady", "MinutesUntilReady"),
             HeldObjectId = ReadString(heldObject, "ItemId", "itemId"),
             HeldObjectQualifiedId = ReadString(heldObject, "QualifiedItemId", "qualifiedItemId"),
             HeldObjectName = ReadString(heldObject, "Name", "name", "DisplayName", "displayName"),
