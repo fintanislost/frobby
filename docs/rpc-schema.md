@@ -1999,7 +1999,8 @@ Request:
     "location": "Frobby_CombatLab",
     "x": 9,
     "y": 9,
-    "button": "left"
+    "button": "left",
+    "allow_event_input": false
   }
 }
 ```
@@ -2028,11 +2029,18 @@ Response:
 
 Supported buttons are `"left"` and `"right"`. Use `screen_offset_x` and
 `screen_offset_y` when the click must target a non-center pixel within the tile.
+By default, `input.click_tile` rejects active events and festivals
+(`Game1.eventUp`) to catch accidental gameplay clicks while a cutscene owns the
+world. Set `allow_event_input: true` only when the scenario intentionally clicks
+inside a player-controlled event or festival map. This flag does not bypass
+active-menu, warp, fade, location, bounds, or button validation.
 Selected-object placement often requires `button: "right"` and a player state
 where `state.player.can_move == true` and `state.player.is_busy == false`.
 
 **Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
-**Tested in:** `tests/Harness.Tests/InputClickTileHandlerTests.cs`.
+**Tested in:** `tests/Protocol.Tests/InputClickTileSerializationTests.cs`,
+`tests/Harness.Tests/InputClickTileHandlerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### input.hover
 

@@ -402,7 +402,12 @@ public class PlayerWorldTimeTests
         InputClickTileResult result;
         try
         {
-            result = await Input.ClickTile(9, 9, location: "Frobby_CombatLab", button: "right");
+            result = await Input.ClickTile(
+                9,
+                9,
+                location: "Frobby_CombatLab",
+                button: "right",
+                allowEventInput: true);
         }
         finally { SdvTestSession.ResetForTests(); }
 
@@ -412,6 +417,7 @@ public class PlayerWorldTimeTests
         Assert.Contains("\"x\":9", inv.Calls[0].ParamsJson);
         Assert.Contains("\"y\":9", inv.Calls[0].ParamsJson);
         Assert.Contains("\"button\":\"right\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"allow_event_input\":true", inv.Calls[0].ParamsJson);
         Assert.True(result.Handled);
         Assert.Equal(608, result.World.X);
     }

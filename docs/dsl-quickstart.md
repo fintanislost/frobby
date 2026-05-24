@@ -403,6 +403,26 @@ selected-item gameplay click path:
 }
 ```
 
+For player-controlled festival or event maps, keep the normal guard unless the
+click is intentionally part of the event surface:
+
+```json
+{
+  "action": "input.click_tile",
+  "args": {
+    "location": "Temp",
+    "button": "right",
+    "x": 28,
+    "y": 37,
+    "allow_event_input": true
+  }
+}
+```
+
+If the test needs to prove a map action such as a festival shop tile without
+depending on player distance or pathing, discover it with `state.tile_actions`
+and execute it with `world.interact_tile_action`.
+
 In C# DSL tests, call:
 
 ```csharp
@@ -418,6 +438,18 @@ await Player.GiveItem("(O)287");
 await Player.SelectItem(id: "(O)287");
 var click = await Input.ClickTile(9, 9, location: "Frobby_CombatLab");
 Assert.True(click.Handled);
+```
+
+For player-controlled event or festival clicks, pass the explicit opt-in:
+
+```csharp
+var festivalClick = await Input.ClickTile(
+    28,
+    37,
+    location: "Temp",
+    button: "right",
+    allowEventInput: true);
+Assert.True(festivalClick.Handled);
 ```
 
 Transient debris and combat drops are exposed through the same wait:

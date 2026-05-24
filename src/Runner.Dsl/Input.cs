@@ -44,6 +44,7 @@ public static class Input
         string? location = null,
         string button = "left",
         bool requireCurrentLocation = true,
+        bool allowEventInput = false,
         int screenOffsetX = 32,
         int screenOffsetY = 32,
         CancellationToken ct = default)
@@ -56,6 +57,7 @@ public static class Input
             Y = y,
             Button = button,
             RequireCurrentLocation = requireCurrentLocation,
+            AllowEventInput = allowEventInput,
             ScreenOffsetX = screenOffsetX,
             ScreenOffsetY = screenOffsetY,
         }, ProtocolJson.Options);
