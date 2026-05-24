@@ -203,6 +203,12 @@ Status key:
   - Verified: headless SVE scenario 32 entered Spirit's Eve, waited for the active Wizard festival actor, interacted through `world.interact_npc`, and observed his dialogue.
   - Follow-up candidates: movie theater NPC setup, grange judging command progression, and festival shop UI/purchase flows.
 
+- [ ] Planning: Slice 25, festival shop UI and purchase flows.
+  - SVE pressure: festival shops live inside active festival events, are opened by map tile actions, and can include Content Patcher shop edits for ordinary-gold and alternate-currency festival shops.
+  - Frobby goal: let tests open a live festival `ShopMenu` through a player-like or map-action path, inspect the active shop, purchase an item, and assert inventory/money state without SVE-specific code.
+  - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-25-festival-shop-flow-design.md`.
+  - Candidate proof: enter the Flower Dance, discover/open `Festival_FlowerDance_Pierre`, buy an SVE decorative flower item, and verify the resulting player state.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
