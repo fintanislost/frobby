@@ -73,9 +73,13 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/11-sve-event-dialogue-choice.test.json`
 - SVE Spirit's Eve festival chest:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/19-sve-spirit-eve-chest.test.json`
+- SVE Spirit's Eve festival actor dialogue:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
-festival maps.
+festival maps. For active event or festival actors, wait with
+`wait.event_active.actor_name`, then use `world.interact_npc`; the RPC will
+prefer ordinary current-location NPCs and fall back to active event actors.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

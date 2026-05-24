@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add neutral event/festival actor waits and NPC interaction fallback, then prove it against an SVE Fair actor dialogue scenario.
+**Goal:** Add neutral event/festival actor waits and NPC interaction fallback, then prove it against an SVE Spirit's Eve actor dialogue scenario.
 
 **Architecture:** Extend the existing event state and NPC interaction paths instead of adding a new event-only RPC. `wait.event_active` will filter the already-projected `state.event.actors`, and `world.interact_npc` will search current-location NPCs first, then active event actors.
 
@@ -26,8 +26,8 @@
   - Document event actor waits and the `world.interact_npc` fallback.
 - Modify `SVE_FROBBY_CAPABILITY_TODO.md`
   - Add and complete Slice 24 after verification.
-- Create `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-fair-actor-dialogue.test.json`
-  - Prove the SVE Fair actor dialogue path.
+- Create `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json`
+  - Prove the SVE Spirit's Eve actor dialogue path.
 - Modify `/home/fintan/stardewRepos/StardewValleyExpanded/docs/FROBBY.md`
   - Document scenario 32.
 
@@ -502,14 +502,14 @@ Add Slice 24 below Slice 23:
   - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-24-festival-actor-interaction-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-05-24-sve-slice-24-festival-actor-interaction.md`.
   - Done: `wait.event_active.actor_name` plus optional actor tile filters, event actor names in timeout diagnostics, active-event fallback for `world.interact_npc`, docs, and SVE scenario 32.
-  - Verified: headless SVE scenario 32 entered the Stardew Valley Fair, waited for the SVE-added Sophia actor, interacted through `world.interact_npc`, and observed her Fair dialogue.
+  - Verified: headless SVE scenario 32 entered Spirit's Eve, waited for the active Wizard festival actor, interacted through `world.interact_npc`, and observed his dialogue.
   - Follow-up candidates: movie theater NPC setup, grange judging command progression, and festival shop UI/purchase flows.
 ```
 
-## Task 4: SVE Fair Actor Scenario
+## Task 4: SVE Spirit's Eve Actor Scenario
 
 **Files:**
-- Create: `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-fair-actor-dialogue.test.json`
+- Create: `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json`
 - Modify: `/home/fintan/stardewRepos/StardewValleyExpanded/docs/FROBBY.md`
 
 - [ ] **Step 1: Add scenario 32**
@@ -518,27 +518,27 @@ Create:
 
 ```json
 {
-  "name": "sve_fair_actor_dialogue",
+  "name": "sve_spirit_eve_actor_dialogue",
   "fixture": "m0spike_436515781",
   "config": { "seed": 42 },
   "steps": [
-    { "action": "time.set", "args": { "time": 900, "day": 16, "season": "fall", "year": 1 } },
+    { "action": "time.set", "args": { "time": 2200, "day": 27, "season": "fall", "year": 1 } },
     { "action": "festival.start", "args": { "location": "Town" } },
     {
       "action": "wait.event_active",
       "args": {
-        "location": "Town",
+        "location": "Temp",
         "is_festival": true,
-        "actor_name": "Sophia",
+        "actor_name": "Wizard",
         "timeout_ms": 30000,
         "poll_ms": 100
       }
     },
-    { "action": "world.interact_npc", "args": { "name": "Sophia" } },
+    { "action": "world.interact_npc", "args": { "name": "Wizard" } },
     {
       "action": "wait.menu",
       "args": {
-        "text": "Blue Moon Vineyard",
+        "text": "potent magical field",
         "ready": true,
         "timeout_ms": 30000,
         "poll_ms": 100
@@ -547,8 +547,8 @@ Create:
     {
       "action": "state.assert",
       "args": {
-        "expr": "state.menu.extra.character == 'Sophia'",
-        "message": "Fair actor interaction should open Sophia dialogue"
+        "expr": "state.menu.extra.character == 'Wizard'",
+        "message": "Festival actor interaction should open Wizard dialogue"
       }
     },
     {
@@ -569,7 +569,7 @@ Create:
 In `docs/FROBBY.md`, add a short paragraph after the scenario 19 festival paragraph:
 
 ```markdown
-Scenario `tests/sdv/32-sve-fair-actor-dialogue.test.json` covers active festival actor interaction. It enters the Stardew Valley Fair, waits for SVE's Sophia festival actor through Frobby's neutral event actor filters, interacts with her through `world.interact_npc`, and asserts her Fair dialogue opens.
+Scenario `tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json` covers active festival actor interaction. It enters Spirit's Eve, waits for the Wizard festival actor through Frobby's neutral event actor filters, interacts with him through `world.interact_npc`, and asserts his dialogue opens.
 ```
 
 - [ ] **Step 3: Validate scenario JSON/listing**
@@ -577,7 +577,7 @@ Scenario `tests/sdv/32-sve-fair-actor-dialogue.test.json` covers active festival
 Run:
 
 ```bash
-python3 -m json.tool /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-fair-actor-dialogue.test.json >/tmp/sve32-jsoncheck.out
+python3 -m json.tool /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json >/tmp/sve32-jsoncheck.out
 dotnet run --project /home/fintan/stardewRepos/frobby/sdv-test-framework/src/Runner/Runner.csproj -- list /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv
 ```
 
@@ -615,10 +615,10 @@ Expected: both suites pass with only existing skipped integration tests.
 Run:
 
 ```bash
-dotnet run --project /home/fintan/stardewRepos/frobby/sdv-test-framework/src/Runner/Runner.csproj -- repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-24-festival-actor /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-fair-actor-dialogue.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/19-sve-spirit-eve-chest.test.json
+dotnet run --project /home/fintan/stardewRepos/frobby/sdv-test-framework/src/Runner/Runner.csproj -- repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-24-festival-actor /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/19-sve-spirit-eve-chest.test.json
 ```
 
-Expected: both scenarios pass. If scenario 32 fails because the stable text differs, inspect the report and use another stable fragment from the projected Sophia Fair dialogue without changing Frobby code.
+Expected: both scenarios pass. If scenario 32 fails because the stable text differs, inspect the report and use another stable fragment from the projected Wizard Spirit's Eve dialogue without changing Frobby code.
 
 - [ ] **Step 4: Check diffs**
 
@@ -645,8 +645,8 @@ git commit -m "Support active festival actor interactions"
 Run in `/home/fintan/stardewRepos/StardewValleyExpanded`:
 
 ```bash
-git add tests/sdv/32-sve-fair-actor-dialogue.test.json docs/FROBBY.md
-git commit -m "Add Fair actor dialogue Frobby scenario"
+git add tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json docs/FROBBY.md
+git commit -m "Add Spirit's Eve actor dialogue Frobby scenario"
 ```
 
 Do not merge the SVE branch unless Fintan explicitly asks.

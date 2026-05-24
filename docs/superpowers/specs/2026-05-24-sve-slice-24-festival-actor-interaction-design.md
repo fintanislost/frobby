@@ -2,7 +2,7 @@
 
 ## Context
 
-Frobby can already start active festivals, observe active event state, inspect festival map content, and interact with ordinary NPCs in the current location. Stardew Valley Expanded still has untested festival behavior where actors are part of the active event rather than ordinary location NPCs. The Stardew Valley Fair is a useful next proof because SVE adds festival actors and dialogue, and those actors are exposed through the active event lifecycle.
+Frobby can already start active festivals, observe active event state, inspect festival map content, and interact with ordinary NPCs in the current location. Stardew Valley Expanded still has untested festival behavior where actors are part of the active event rather than ordinary location NPCs. Spirit's Eve is a useful next proof because SVE heavily edits that active festival map and already gives us stable festival setup coverage; adding actor dialogue coverage proves a different active-event interaction path.
 
 This slice should harden a neutral Frobby gap: test scenarios need to wait for an active event/festival actor and interact with that actor through the same broad "talk to this named character" primitive used outside events.
 
@@ -11,7 +11,7 @@ This slice should harden a neutral Frobby gap: test scenarios need to wait for a
 - Extend `wait.event_active` with actor filters so scenarios can wait until a named event/festival actor is present before interacting.
 - Extend `world.interact_npc` so it can fall back to active event actors when no ordinary location NPC with that name is present.
 - Keep Frobby framework code neutral. SVE actor names, dates, and dialogue snippets belong only in SVE scenario JSON and SVE docs.
-- Prove the behavior with one SVE scenario against the Fall 16 Stardew Valley Fair by talking to Sophia as an SVE-added festival actor.
+- Prove the behavior with one SVE scenario against Spirit's Eve by talking to an active festival actor that is not an ordinary current-location NPC.
 - Update Frobby docs, SVE docs, and the capability TODO so future mod authors can discover the pattern.
 
 ## Non-Goals
@@ -84,12 +84,12 @@ If neither source has a matching NPC, return `GameStateInvalid` with a message t
 Add scenario 32:
 
 1. Load the existing clean fixture.
-2. Set time/date to Fall 16 Year 1 during the Fair entry window.
+2. Set time/date to Fall 27 Year 1 during the Spirit's Eve entry window.
 3. Start the festival with `festival.start`.
-4. Wait for an active festival event and actor `Sophia`.
-5. Call `world.interact_npc` for `Sophia`.
-6. Wait for a menu/dialogue containing a stable SVE Fair text fragment, such as `Blue Moon Vineyard` or `aged wine`.
-7. Assert `state.menu.extra.character == 'Sophia'` and `state.menu.extra.dialogue_text` contains the selected text fragment.
+4. Wait for an active festival event in runtime location `Temp` and actor `Wizard`.
+5. Call `world.interact_npc` for `Wizard`.
+6. Wait for a menu/dialogue containing the stable Spirit's Eve text fragment `potent magical field`.
+7. Assert `state.menu.extra.character == 'Wizard'`.
 8. Capture a final screenshot.
 
 The scenario may use the event actor wait instead of coordinates unless implementation testing shows the actor needs a tile assertion for stability.
@@ -110,7 +110,7 @@ Use TDD:
 
 - Festival actor dialogue may be rendered through event dialogue rather than ordinary NPC dialogue. If that happens, the handler should still use the existing `NPC.checkAction` path first and only adjust the fallback in a neutral way.
 - The active festival location reports as `Temp` after `festival.start`, while the festival metadata starts from `Town`. The SVE scenario should assert against observed runtime state rather than assuming map internals.
-- Fair setup includes long `advancedMove` commands. The event actor wait should prevent fixed sleeps, but the live scenario may need a realistic timeout.
+- Active festival setup includes long `advancedMove` commands. The event actor wait should prevent fixed sleeps, but the live scenario may need a realistic timeout.
 
 ## Completion Criteria
 

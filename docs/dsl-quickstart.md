@@ -179,6 +179,19 @@ container contents without coordinate clicking through the map entrance:
 }
 ```
 
+Active festival actor dialogue can use the same NPC interaction primitive after
+waiting for the actor to exist in the active event:
+
+```json
+{ "action": "festival.start", "args": { "location": "Town" } },
+{
+  "action": "wait.event_active",
+  "args": { "location": "Town", "is_festival": true, "actor_name": "ExampleNpc" }
+},
+{ "action": "world.interact_npc", "args": { "name": "ExampleNpc" } },
+{ "action": "wait.menu", "args": { "text": "festival", "ready": true } }
+```
+
 For Stardew-native dialogue choices, use `wait.menu` and choice-targeted
 `event.advance` instead of coordinates:
 

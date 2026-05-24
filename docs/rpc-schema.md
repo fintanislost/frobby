@@ -844,7 +844,9 @@ best-effort fields read from runtime state through stable public fields when
 possible and reflection when needed. Missing Stardew fields are omitted or
 returned as default values rather than failing the RPC. `choices` mirrors
 `dialogue.choices` for convenient assertions such as
-`state.event.choices contains text 'Pet Dusty'`.
+`state.event.choices contains text 'Pet Dusty'`. Runner scenarios can use
+`wait.event_active.actor_name` with optional `actor_x`/`actor_y` to wait for
+specific active event or festival actors before interacting with them.
 
 **Preconditions:** none beyond the harness running. Safe outside a save; inactive responses use empty/default fields.
 **Side effects:** none.
@@ -2298,7 +2300,7 @@ Runner scenario convenience:
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
-- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, and `is_festival` filters.
+- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false, "actor_name": "Krobus" } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, `is_festival`, `actor_name`, and paired `actor_x`/`actor_y` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
 - `{ "action": "event.advance", "args": { "choice_text": "Pet Dusty" } }` waits for the matching menu choice and then calls `input.click_menu_choice`. Without a choice/text target it waits for an active menu and calls `input.click_menu_advance`; `repeat` and `interval_ms` can advance multi-page dialogue. `ui.acknowledge` uses the same menu-advance path.
@@ -2350,10 +2352,11 @@ The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and
 `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
-`wait.event_active` and `wait.event_complete` accept `id`, `location`,
-`timeout_ms`, and `poll_ms`. Active-event screenshots should use live or
-next-frame capture because `freeze.begin` rejects cutscenes while `Game1.eventUp`
-is true.
+`wait.event_active` accepts `id`, `location`, `is_festival`, `actor_name`, paired
+`actor_x`/`actor_y`, `timeout_ms`, and `poll_ms`. `wait.event_complete` accepts
+`id`, `location`, `timeout_ms`, and `poll_ms`. Active-event screenshots should
+use live or next-frame capture because `freeze.begin` rejects cutscenes while
+`Game1.eventUp` is true.
 
 `wait.menu` accepts `present`, `type`, `text`, `text_equals`, `text_matches`,
 `choice_key`, `choice_text`, `choice_text_contains`, `choice_text_matches`,
@@ -3102,8 +3105,9 @@ Trigger an interaction with an NPC by name. Mirrors what SDV does when the playe
 action while facing the NPC at conversation distance by calling `NPC.checkAction(player, location)`.
 If that call does not open a renderable menu and the target NPC can talk, Frobby
 refreshes the NPC's current dialogue and falls back to Stardew's dialogue opener
-for that NPC. The NPC must be in the player's current location; otherwise returns
-`GameStateInvalid`.
+for that NPC. Frobby resolves ordinary current-location NPCs first, then falls
+back to active event/festival actors. If neither source contains the target, it
+returns `GameStateInvalid`.
 
 **Params:** `{name: string}` — NPC name (e.g. `"Pierre"`, `"Abigail"`).
 
@@ -3112,7 +3116,7 @@ for that NPC. The NPC must be in the player's current location; otherwise return
 **Errors:**
 - `InvalidParams -32602` — `name` missing or empty.
 - `GameStateInvalid -32003` — no scenario active / world not ready.
-- `GameStateInvalid -32003` — NPC not in current location (warp first).
+- `GameStateInvalid -32003` — NPC not in current location or active event actor list.
 
 ### `time.set`
 

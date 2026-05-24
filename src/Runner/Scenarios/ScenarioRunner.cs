@@ -1479,7 +1479,8 @@ public sealed class ScenarioRunner
             if (lastObserved.Active
                 && (string.IsNullOrWhiteSpace(args.Id) || string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
                 && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal))
-                && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value))
+                && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value)
+                && EventActorMatches(lastObserved, args))
             {
                 return;
             }
@@ -1487,7 +1488,7 @@ public sealed class ScenarioRunner
             await Task.Delay(args.PollMs, ct);
         }
 
-        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms; last observed {FormatEventState(lastObserved)}");
+        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms waiting for event matching {FormatWaitEventFilters(args)}; last observed {FormatEventState(lastObserved)}");
     }
 
     private async Task InvokeWaitEventCompleteAsync(ScenarioStep step, CancellationToken ct)
@@ -1537,13 +1538,52 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
         if (args.PollMs < 1)
             throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+        if ((args.ActorX is null) != (args.ActorY is null))
+            throw new InvalidOperationException($"{step.Action} requires args.actor_x and args.actor_y together");
         return args;
+    }
+
+    private static bool EventActorMatches(EventState state, WaitEventStepArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.ActorName))
+            return true;
+
+        foreach (var actor in state.Actors)
+        {
+            if (!string.Equals(actor.Name, args.ActorName, StringComparison.Ordinal))
+                continue;
+            if (args.ActorX is null && args.ActorY is null)
+                return true;
+            if (actor.Tile.X == args.ActorX && actor.Tile.Y == args.ActorY)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string FormatWaitEventFilters(WaitEventStepArgs args)
+    {
+        var filters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(args.Id)) filters.Add($"id={args.Id}");
+        if (!string.IsNullOrWhiteSpace(args.Location)) filters.Add($"location={args.Location}");
+        if (args.IsFestival is not null) filters.Add($"is_festival={args.IsFestival.Value.ToString().ToLowerInvariant()}");
+        if (!string.IsNullOrWhiteSpace(args.ActorName)) filters.Add($"actor_name={args.ActorName}");
+        if (args.ActorX is not null && args.ActorY is not null) filters.Add($"actor_tile={args.ActorX},{args.ActorY}");
+        return filters.Count == 0 ? "any active event" : string.Join(", ", filters);
+    }
+
+    private static string FormatEventActors(IReadOnlyList<EventActorState> actors)
+    {
+        if (actors.Count == 0)
+            return "[]";
+
+        return "[" + string.Join(", ", actors.Select(a => $"{a.Name}@{a.Tile.X},{a.Tile.Y}")) + "]";
     }
 
     private static string FormatEventState(EventState? state)
         => state is null
             ? "nothing"
-            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}";
+            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}, actors={FormatEventActors(state.Actors)}";
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
     {
@@ -2863,6 +2903,9 @@ public sealed class ScenarioRunner
         public string? Id { get; set; }
         public string? Location { get; set; }
         public bool? IsFestival { get; set; }
+        public string? ActorName { get; set; }
+        public int? ActorX { get; set; }
+        public int? ActorY { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }

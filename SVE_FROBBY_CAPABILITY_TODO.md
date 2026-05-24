@@ -194,6 +194,15 @@ Status key:
   - Done: protocol models, harness handlers, runner label/autocapture, DSL wrappers, right/action tile-click support, `wait.player` movement-state filters, docs, and SVE scenario 31.
   - Verified: headless SVE scenario 31 selected a real vanilla bomb, waited for player control after combat, right-clicked tile `(9,9)` in `Frobby_CombatLab`, observed Stardew's fuse sprite, and verified corrupt-mummy cleanup. Adjacent scenarios 30, 29, 28, and 27 also passed headless.
 
+- [x] Done: Slice 24, active festival actor interaction.
+  - SVE pressure: festival actors can live inside active event state instead of `currentLocation.characters`, so ordinary NPC interaction coverage can miss modded festival dialogue.
+  - Frobby goal: add neutral event actor waits and let `world.interact_npc` fall back to active event actors without changing ordinary NPC priority.
+  - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-24-festival-actor-interaction-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-24-sve-slice-24-festival-actor-interaction.md`.
+  - Done: `wait.event_active.actor_name` plus optional actor tile filters, event actor names in timeout diagnostics, active-event fallback for `world.interact_npc`, docs, and SVE scenario 32.
+  - Verified: headless SVE scenario 32 entered Spirit's Eve, waited for the active Wizard festival actor, interacted through `world.interact_npc`, and observed his dialogue.
+  - Follow-up candidates: movie theater NPC setup, grange judging command progression, and festival shop UI/purchase flows.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
