@@ -604,6 +604,80 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task InputClickTile_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"click-tile-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.click_tile")
+                        clickParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":9},\"screen\":{\"x\":576,\"y\":576},\"world\":{\"x\":608,\"y\":608},\"selected_item\":{\"slot\":1,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"},\"handled\":true}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-tile.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "click_tile_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "input.click_tile",
+                        Args = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":9}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("input.click_tile", calls);
+            Assert.Equal("Frobby_CombatLab", clickParams.GetProperty("location").GetString());
+            Assert.Equal(9, clickParams.GetProperty("x").GetInt32());
+            Assert.Equal(9, clickParams.GetProperty("y").GetInt32());
+            Assert.Equal("Click left tile Frobby_CombatLab (9,9)", report.Steps[0].Detail);
+            Assert.Contains("bitmap.capture", calls);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
@@ -676,6 +750,7 @@ public class ScenarioRunnerTests
     [InlineData("ui.click_text", true)]
     [InlineData("ui.hover_text", true)]
     [InlineData("input.click_text", true)]
+    [InlineData("input.click_tile", true)]
     [InlineData("input.hover_text", true)]
     [InlineData("freeze.begin", true)]
     public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)

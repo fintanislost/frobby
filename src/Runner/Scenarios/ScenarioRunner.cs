@@ -2348,6 +2348,7 @@ public sealed class ScenarioRunner
             "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "input.click_tile" => $"Click {GetStringArg(step.Args, "button") ?? "left"} tile {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"{GetRepeatSuffix(step.Args)}",
             "input.hover" => $"Hover at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
