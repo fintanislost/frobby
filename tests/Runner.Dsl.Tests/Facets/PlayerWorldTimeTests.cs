@@ -97,6 +97,46 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task SelectItem_InvokesPlayerSelectItemById()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"slot\":1,\"item\":{\"slot\":1,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"}}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        PlayerSelectItemResult result;
+        try { result = await Player.SelectItem(id: "(O)287"); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.select_item", inv.Calls[0].Method);
+        Assert.Contains("\"id\":\"(O)287\"", inv.Calls[0].ParamsJson);
+        Assert.Equal(1, result.Slot);
+        Assert.Equal("(O)287", result.Item.QualifiedId);
+    }
+
+    [Fact]
+    public async Task SelectItem_InvokesPlayerSelectItemBySlot()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"slot\":13,\"item\":{\"slot\":13,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"}}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        try { await Player.SelectItem(slot: 13, preferHotbar: false); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.select_item", inv.Calls[0].Method);
+        Assert.Contains("\"slot\":13", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"prefer_hotbar\":false", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task Advance_InvokesTimeAdvanceWithMinutes()
     {
         SdvTestSession.ResetForTests();  // Clear any prior state
@@ -346,6 +386,33 @@ public class PlayerWorldTimeTests
         Assert.Contains("\"x\":144", inv.Calls[0].ParamsJson);
         Assert.Contains("\"y\":134", inv.Calls[0].ParamsJson);
         Assert.Contains("\"button\":\"left\"", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
+    public async Task InputClickTile_InvokesInputClickTileAndDeserializesResult()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new CapturingInvoker
+        {
+            NextResponse = JsonDocument.Parse(
+                "{\"ok\":true,\"tick\":42,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":9},\"screen\":{\"x\":576,\"y\":576},\"world\":{\"x\":608,\"y\":608},\"handled\":true}")
+                .RootElement,
+        };
+        SdvTestSession.InitializeForTests(inv);
+        InputClickTileResult result;
+        try
+        {
+            result = await Input.ClickTile(9, 9, location: "Frobby_CombatLab");
+        }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Single(inv.Calls);
+        Assert.Equal("input.click_tile", inv.Calls[0].Method);
+        Assert.Contains("\"location\":\"Frobby_CombatLab\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"x\":9", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"y\":9", inv.Calls[0].ParamsJson);
+        Assert.True(result.Handled);
+        Assert.Equal(608, result.World.X);
     }
 
     [Fact]
