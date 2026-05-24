@@ -146,6 +146,21 @@ public class InputClickTileHandlerTests
     }
 
     [Fact]
+    public void Handle_EventUpWithAllowEventInput_InvokesClick()
+    {
+        var world = new FakeTileClickWorld { EventUp = true };
+        var p = JsonDocument.Parse("{\"x\":9,\"y\":8,\"allow_event_input\":true}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.ClickInvoked);
+        Assert.True(result.Handled);
+        Assert.Equal(9, result.Tile.X);
+        Assert.Equal(8, result.Tile.Y);
+    }
+
+    [Fact]
     public void Handle_LocationMismatch_ThrowsGameStateInvalid()
     {
         var p = JsonDocument.Parse("{\"location\":\"Farm\",\"x\":9,\"y\":8}").RootElement;

@@ -41,7 +41,7 @@ public static class InputClickTileHandler
         if (world.IsFading)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "input.click_tile requires no active fade");
-        if (world.EventUp)
+        if (world.EventUp && !req.AllowEventInput)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "input.click_tile requires !Game1.eventUp");
 

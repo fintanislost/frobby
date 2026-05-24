@@ -11,7 +11,7 @@ public class InputClickTileSerializationTests
     public void Request_DeserializesSnakeCaseFields()
     {
         var req = JsonSerializer.Deserialize<InputClickTileRequest>(
-            "{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"button\":\"left\",\"require_current_location\":false,\"screen_offset_x\":16,\"screen_offset_y\":48}",
+            "{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"button\":\"left\",\"require_current_location\":false,\"screen_offset_x\":16,\"screen_offset_y\":48,\"allow_event_input\":true}",
             ProtocolJson.Options)!;
 
         Assert.Equal("Frobby_CombatLab", req.Location);
@@ -21,6 +21,7 @@ public class InputClickTileSerializationTests
         Assert.False(req.RequireCurrentLocation);
         Assert.Equal(16, req.ScreenOffsetX);
         Assert.Equal(48, req.ScreenOffsetY);
+        Assert.True(req.AllowEventInput);
     }
 
     [Fact]
@@ -35,6 +36,7 @@ public class InputClickTileSerializationTests
         Assert.True(req.RequireCurrentLocation);
         Assert.Equal(32, req.ScreenOffsetX);
         Assert.Equal(32, req.ScreenOffsetY);
+        Assert.False(req.AllowEventInput);
     }
 
     [Fact]

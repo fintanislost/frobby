@@ -18,6 +18,9 @@ public sealed class InputClickTileRequest
     /// <summary>Reject when <see cref="Location"/> is supplied and the current location differs.</summary>
     public bool RequireCurrentLocation { get; set; } = true;
 
+    /// <summary>Allow gameplay click delivery during active events or festivals. Defaults to false.</summary>
+    public bool AllowEventInput { get; set; }
+
     /// <summary>Pixel offset within the tile. Defaults to the tile center.</summary>
     public int ScreenOffsetX { get; set; } = 32;
 
