@@ -99,4 +99,56 @@ public static class World
             ?? throw new SdvRpcException("world.use_tool", Protocol.JsonRpcErrorCode.InternalError,
                 "empty world.use_tool response");
     }
+
+    /// <summary>Trigger native Stardew explosion behavior at a tile in the current or named location.</summary>
+    public static async Task<ExplodeTileResult> ExplodeTile(
+        int x,
+        int y,
+        string? location = null,
+        int radius = 2,
+        bool damagePlayer = false,
+        int? damageAmount = null,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new ExplodeTileRequest
+        {
+            Location = location,
+            X = x,
+            Y = y,
+            Radius = radius,
+            DamagePlayer = damagePlayer,
+            DamageAmount = damageAmount,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("world.explode_tile", p, ct);
+        return JsonSerializer.Deserialize<ExplodeTileResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("world.explode_tile", Protocol.JsonRpcErrorCode.InternalError,
+                "empty world.explode_tile response");
+    }
+
+    /// <summary>Place an existing inventory object through Stardew's native object placement path.</summary>
+    public static async Task<PlaceInventoryObjectResult> PlaceInventoryObject(
+        string id,
+        int x,
+        int y,
+        string? location = null,
+        int? slot = null,
+        string? facing = null,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new PlaceInventoryObjectRequest
+        {
+            Id = id,
+            Location = location,
+            X = x,
+            Y = y,
+            Slot = slot,
+            Facing = facing,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("world.place_inventory_object", p, ct);
+        return JsonSerializer.Deserialize<PlaceInventoryObjectResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("world.place_inventory_object", Protocol.JsonRpcErrorCode.InternalError,
+                "empty world.place_inventory_object response");
+    }
 }

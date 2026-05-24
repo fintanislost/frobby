@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Protocol;
@@ -35,7 +36,7 @@ public class WorldInteractNpcHandlerTests
 
         WorldInteractNpcHandler.Handle(p, world);
 
-        Assert.Equal(new[] { "prepare:Sophia", "check:Sophia", "draw:Sophia" }, world.Calls);
+        Assert.Equal(new[] { "prepare:location:Sophia", "check:location:Sophia", "draw:location:Sophia" }, world.Calls);
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public class WorldInteractNpcHandlerTests
 
         WorldInteractNpcHandler.Handle(p, world);
 
-        Assert.Equal(new[] { "prepare:Sophia", "check:Sophia" }, world.Calls);
+        Assert.Equal(new[] { "prepare:location:Sophia", "check:location:Sophia" }, world.Calls);
     }
 
     [Fact]
@@ -61,7 +62,7 @@ public class WorldInteractNpcHandlerTests
 
         WorldInteractNpcHandler.Handle(p, world);
 
-        Assert.Equal(new[] { "prepare:Sophia", "check:Sophia", "draw:Sophia" }, world.Calls);
+        Assert.Equal(new[] { "prepare:location:Sophia", "check:location:Sophia", "draw:location:Sophia" }, world.Calls);
     }
 
     [Fact]
@@ -72,7 +73,7 @@ public class WorldInteractNpcHandlerTests
 
         WorldInteractNpcHandler.Handle(p, world);
 
-        Assert.Equal(new[] { "check:Sophia" }, world.Calls);
+        Assert.Equal(new[] { "check:location:Sophia" }, world.Calls);
     }
 
     [Fact]
@@ -83,7 +84,56 @@ public class WorldInteractNpcHandlerTests
 
         WorldInteractNpcHandler.Handle(p, world);
 
-        Assert.True(world.Calls.IndexOf("prepare:Sophia") < world.Calls.IndexOf("check:Sophia"));
+        Assert.True(world.Calls.IndexOf("prepare:location:Sophia") < world.Calls.IndexOf("check:location:Sophia"));
+    }
+
+    [Fact]
+    public void Handle_NpcPresentInLocationAndEvent_PrefersLocationNpc()
+    {
+        var world = new FakeInteractNpcWorld
+        {
+            LocationNpcs = { new FakeNpc("Sophia", "location") },
+            EventNpcs = { new FakeNpc("Sophia", "event") },
+        };
+        var p = JsonDocument.Parse("{\"name\":\"Sophia\"}").RootElement;
+
+        WorldInteractNpcHandler.Handle(p, world);
+
+        Assert.Contains("check:location:Sophia", world.Calls);
+        Assert.DoesNotContain("check:event:Sophia", world.Calls);
+    }
+
+    [Fact]
+    public void Handle_NpcMissingFromLocation_InteractsWithEventActor()
+    {
+        var world = new FakeInteractNpcWorld
+        {
+            LocationNpcs = new(),
+            EventNpcs = { new FakeNpc("Sophia", "event") },
+        };
+        var p = JsonDocument.Parse("{\"name\":\"Sophia\"}").RootElement;
+
+        WorldInteractNpcHandler.Handle(p, world);
+
+        Assert.Equal(new[] { "prepare:event:Sophia", "check:event:Sophia", "draw:event:Sophia" }, world.Calls);
+    }
+
+    [Fact]
+    public void Handle_NpcMissing_IncludesEventActorNamesInError()
+    {
+        var world = new FakeInteractNpcWorld
+        {
+            LocationNpcs = new(),
+            EventNpcs = { new FakeNpc("Andy", "event") },
+        };
+        var p = JsonDocument.Parse("{\"name\":\"Sophia\"}").RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() => WorldInteractNpcHandler.Handle(p, world));
+
+        Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
+        Assert.Contains("Sophia", ex.Message);
+        Assert.Contains("Custom_BlueMoonVineyard", ex.Message);
+        Assert.Contains("event actors: Andy", ex.Message);
     }
 
     [Fact(Skip = "Requires live SDV (Context.IsWorldReady — verified by smoke test).")]
@@ -94,26 +144,33 @@ public class WorldInteractNpcHandlerTests
 
     private sealed class FakeInteractNpcWorld : IWorldInteractNpcWorld
     {
-        private readonly FakeNpc _npc = new("Sophia");
         public int Tick => 123;
         public bool IsWorldReady => true;
         public string CurrentLocationName => "Custom_BlueMoonVineyard";
         public bool HasActiveMenuAfterCheckAction { get; init; }
         public bool HasRenderableDialogueMenuAfterCheckAction { get; init; }
         public bool NpcCanTalk { get; init; } = true;
+        public List<FakeNpc> LocationNpcs { get; init; } = new() { new("Sophia", "location") };
+        public List<FakeNpc> EventNpcs { get; } = new();
         public List<string> Calls { get; } = new();
 
         public object? FindNpcInCurrentLocation(string name)
-            => name == _npc.Name ? _npc : null;
+            => LocationNpcs.FirstOrDefault(npc => npc.Name == name);
+
+        public object? FindNpcInActiveEvent(string name)
+            => EventNpcs.FirstOrDefault(npc => npc.Name == name);
+
+        public IReadOnlyList<string> ActiveEventActorNames
+            => EventNpcs.Select(npc => npc.Name).ToList();
 
         public void CheckAction(object npc)
         {
-            Calls.Add($"check:{((FakeNpc)npc).Name}");
+            Calls.Add($"check:{((FakeNpc)npc).Source}:{((FakeNpc)npc).Name}");
         }
 
         public void PrepareDialogue(object npc)
         {
-            Calls.Add($"prepare:{((FakeNpc)npc).Name}");
+            Calls.Add($"prepare:{((FakeNpc)npc).Source}:{((FakeNpc)npc).Name}");
         }
 
         public bool HasActiveMenu => HasActiveMenuAfterCheckAction;
@@ -125,9 +182,9 @@ public class WorldInteractNpcHandlerTests
 
         public void DrawDialogue(object npc)
         {
-            Calls.Add($"draw:{((FakeNpc)npc).Name}");
+            Calls.Add($"draw:{((FakeNpc)npc).Source}:{((FakeNpc)npc).Name}");
         }
     }
 
-    private sealed record FakeNpc(string Name);
+    private sealed record FakeNpc(string Name, string Source);
 }

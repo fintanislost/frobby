@@ -158,6 +158,61 @@ Status key:
   - Verified: SVE scenario 27 resets `Frobby_CombatLab`, spawns a vanilla `GreenSlime`, attacks by lab label, and waits for that exact monster to be removed.
   - Follow-up candidate: add mod monster support after researching stable SVE custom monster construction or relocation.
 
+- [x] Done: Slice 20, relocate mod-spawned monsters into the Combat Lab.
+  - SVE pressure: SVE/FTM monsters carry runtime mod settings that Frobby should not recreate directly.
+  - Frobby goal: move exactly one already-spawned runtime monster into `Frobby_CombatLab`, assign a run-local identity/label, and test attack/removal there.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-20-mod-monster-relocation-combat-lab.md`.
+  - Done: `combat_lab.relocate_monster`, neutral monster match criteria, relocated identity semantics with `spawned_by_frobby: false`, DSL helper, tile-state synchronization for relocated runtime monsters, overlap-tolerant target combat, docs, and SVE scenario 28.
+  - Verified: SVE scenario 28 lets FTM spawn the fixed Crimson Badlands `ShadowShaman` sentry at `(22,144)`, relocates that exact runtime monster into `Frobby_CombatLab`, attacks by lab label, and waits for the relocated instance to be removed.
+  - Follow-up completed in Slice 21: corrupt mummy cleanup now uses neutral explosion support after observing the monster's downed/revive lifecycle state.
+
+- [x] Done: Slice 21, neutral explosion support.
+  - SVE pressure: mummy-style monsters and object/terrain effects can require Stardew-native explosion semantics rather than direct deletion or visual-only effects.
+  - Frobby goal: add generic `world.explode_tile` so tests can trigger native explosion behavior at a tile without bomb inventory, placement, or fuse timing.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-21-neutral-explosion-rpc-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-21-sve-slice-21-neutral-explosion-rpc.md`.
+  - Done: protocol models, harness handler, runner labels, DSL helper, `damage_amount`, optional monster `revive_timer` projection/waits, docs, and SVE scenario 29.
+  - Verified: headless SVE scenario 29 proved corrupt-mummy cleanup in `Frobby_CombatLab`; scenarios 27 and 28 were rerun as adjacent Combat Lab regressions.
+  - Follow-up moved to Slice 22: player-like bomb placement and fuse timing.
+
+- [x] Done: Slice 22, player-like inventory object placement and bomb fuse flow.
+  - SVE pressure: direct explosions prove cleanup semantics, but mod UI/testing also needs the player-like path where an inventory object is placed, ticks naturally, and produces game-state effects.
+  - Frobby goal: add generic `world.place_inventory_object` plus timed object observation such as `minutes_until_ready`, without adding bomb-specific or SVE-specific framework code.
+  - Design spec: `docs/superpowers/specs/2026-05-21-sve-slice-22-player-like-bomb-placement-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-22-sve-slice-22-player-like-bomb-placement.md`.
+  - Done: protocol models, harness handler, runner label, DSL helper, object `minutes_until_ready` projection/waits, docs, and SVE scenario 30.
+  - Verified: headless SVE scenario 30 placed a real inventory bomb in `Frobby_CombatLab`, waited for Stardew's vanilla bomb fuse sprite, and validated corrupt-mummy removal without calling `world.explode_tile`.
+  - Verified: adjacent Combat Lab regression scenarios 27, 28, and 29 still pass headless after the placement slice.
+  - Follow-up candidate: input-level hotbar/click placement after semantic inventory-object placement is stable.
+
+- [x] Done: Slice 23, input-level hotbar selection and gameplay tile click.
+  - SVE pressure: semantic inventory-object placement proves object behavior, but mod UI testing also needs player-real selected-item click paths that do not bypass active object selection or gameplay click hooks.
+  - Frobby goal: add neutral `player.select_item` and `input.click_tile` RPCs, route tile clicks through Stardew's gameplay use/action paths, and prove click-based bomb placement against the existing Combat Lab corrupt-mummy cleanup scenario.
+  - Design spec: `docs/superpowers/specs/2026-05-23-sve-slice-23-input-tile-click-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-23-sve-slice-23-input-tile-click.md`.
+  - Done: protocol models, harness handlers, runner label/autocapture, DSL wrappers, right/action tile-click support, `wait.player` movement-state filters, docs, and SVE scenario 31.
+  - Verified: headless SVE scenario 31 selected a real vanilla bomb, waited for player control after combat, right-clicked tile `(9,9)` in `Frobby_CombatLab`, observed Stardew's fuse sprite, and verified corrupt-mummy cleanup. Adjacent scenarios 30, 29, 28, and 27 also passed headless.
+
+- [x] Done: Slice 24, active festival actor interaction.
+  - SVE pressure: festival actors can live inside active event state instead of `currentLocation.characters`, so ordinary NPC interaction coverage can miss modded festival dialogue.
+  - Frobby goal: add neutral event actor waits and let `world.interact_npc` fall back to active event actors without changing ordinary NPC priority.
+  - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-24-festival-actor-interaction-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-24-sve-slice-24-festival-actor-interaction.md`.
+  - Done: `wait.event_active.actor_name` plus optional actor tile filters, event actor names in timeout diagnostics, active-event fallback for `world.interact_npc`, docs, and SVE scenario 32.
+  - Verified: headless SVE scenario 32 entered Spirit's Eve, waited for the active Wizard festival actor, interacted through `world.interact_npc`, and observed his dialogue.
+  - Follow-up candidates: movie theater NPC setup, grange judging command progression, and festival shop UI/purchase flows.
+
+- [x] Done: Slice 25, festival shop UI and purchase flows.
+  - SVE pressure: festival shops live inside active festival events, are opened by map tile actions, and can include Content Patcher shop edits for ordinary-gold and alternate-currency festival shops.
+  - Frobby goal: let tests open a live festival `ShopMenu` through a player-like or map-action path, inspect the active shop, purchase an item, and assert inventory/money state without SVE-specific code.
+  - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-25-festival-shop-flow-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-24-sve-slice-25-festival-shop-flow.md`.
+  - Done: `input.click_tile.allow_event_input` opt-in for player-controlled event/festival maps, docs, and SVE scenario 33 against the Flower Dance festival shop.
+  - Verified: headless SVE scenario 33 entered the Flower Dance, proved the active festival map exposes `Shop Festival_FlowerDance_Pierre`, opened the same data-backed shop through `shop.open`, bought SVE decorative tulips, and verified money/inventory state. Adjacent festival scenarios 19 and 32 still pass.
+  - Caveat: direct `world.interact_tile_action` and `input.click_tile.allow_event_input` did not leave the event-owned Flower Dance shop menu open in live SDV; the stable neutral flow is map-action discovery plus `shop.open` for the discovered shop ID.
+  - Follow-up candidates: star-token Fair shop currency handling, menu-item click purchasing inside `ShopMenu`, movie theater NPC setup, and grange judging command progression.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface

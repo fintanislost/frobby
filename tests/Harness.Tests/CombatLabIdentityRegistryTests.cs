@@ -26,6 +26,23 @@ public class CombatLabIdentityRegistryTests
     }
 
     [Fact]
+    public void Assign_CanMarkMonsterAsRelocatedInsteadOfSpawned()
+    {
+        CombatLabIdentityRegistry.Clear();
+        var monster = FormatterServices.GetUninitializedObject(typeof(StardewValley.Monsters.GreenSlime));
+
+        var identity = CombatLabIdentityRegistry.Assign(monster, "corrupt-mummy", spawnedByFrobby: false);
+        var renamed = CombatLabIdentityRegistry.Assign(monster, "renamed", spawnedByFrobby: true);
+
+        Assert.Equal("frobby-monster-1", identity.MonsterId);
+        Assert.Equal("corrupt-mummy", identity.Label);
+        Assert.False(identity.SpawnedByFrobby);
+        Assert.Equal(identity.MonsterId, renamed.MonsterId);
+        Assert.Equal("renamed", renamed.Label);
+        Assert.False(renamed.SpawnedByFrobby);
+    }
+
+    [Fact]
     public void Clear_RemovesPreviouslyAssignedIdentity()
     {
         CombatLabIdentityRegistry.Clear();

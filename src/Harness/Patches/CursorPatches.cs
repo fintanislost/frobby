@@ -9,7 +9,7 @@ using StardewValley;
 namespace SdvTestFramework.Harness.Patches;
 
 /// <summary>Force the mouse cursor to (0,0) while frozen, so hover-driven UI doesn't jitter.</summary>
-// Patch: Game1.getMouseX() / Game1.getMouseY()
+// Patch: Game1.getMouseX() / Game1.getMouseY() / Game1.getOldMouseX() / Game1.getOldMouseY()
 // Type: Postfix (rewrites return value)
 // Why: Cursor-sensitive draws (hover tooltips, button highlights) are a nondeterminism
 //      source. Force-zero during FREEZE per .claude/rules/determinism.md §Cursor.
@@ -27,6 +27,10 @@ internal static class CursorPatches
         PatchOne(harmony, monitor, "getMouseY", nameof(ReturnY), typeof(bool));
         PatchOne(harmony, monitor, "getMouseX", nameof(ReturnX));
         PatchOne(harmony, monitor, "getMouseY", nameof(ReturnY));
+        PatchOne(harmony, monitor, "getOldMouseX", nameof(ReturnOldX), typeof(bool));
+        PatchOne(harmony, monitor, "getOldMouseY", nameof(ReturnOldY), typeof(bool));
+        PatchOne(harmony, monitor, "getOldMouseX", nameof(ReturnOldX));
+        PatchOne(harmony, monitor, "getOldMouseY", nameof(ReturnOldY));
     }
 
     private static void PatchOne(Harmony harmony, IMonitor monitor, string name, string postfixName, params Type[] sig)
@@ -64,7 +68,15 @@ internal static class CursorPatches
                 : current;
     }
 
+    internal static int ResolveOldX(int current) => ResolveX(current);
+
+    internal static int ResolveOldY(int current) => ResolveY(current);
+
     private static void ReturnX(ref int __result) => __result = ResolveX(__result);
 
     private static void ReturnY(ref int __result) => __result = ResolveY(__result);
+
+    private static void ReturnOldX(ref int __result) => __result = ResolveOldX(__result);
+
+    private static void ReturnOldY(ref int __result) => __result = ResolveOldY(__result);
 }

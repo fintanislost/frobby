@@ -98,6 +98,7 @@ internal static class LocationContentProjector
             Health = ReadInt(monster, "Health", "health"),
             MaxHealth = ReadInt(monster, "MaxHealth", "maxHealth"),
             Damage = ReadInt(monster, "DamageToFarmer", "damageToFarmer", "damage"),
+            ReviveTimer = ReadInt(monster, "reviveTimer", "ReviveTimer"),
             SpriteTexture = NormalizeAssetName(ReadSpriteTexture(monster)),
         };
 
@@ -164,6 +165,7 @@ internal static class LocationContentProjector
             RuntimeType = obj.GetType().Name,
             BigCraftable = ReadBool(obj, "bigCraftable", "BigCraftable") ?? false,
             ReadyForHarvest = ReadBool(obj, "readyForHarvest", "ReadyForHarvest"),
+            MinutesUntilReady = ReadInt(obj, "minutesUntilReady", "MinutesUntilReady"),
             HeldObjectId = ReadString(heldObject, "ItemId", "itemId"),
             HeldObjectQualifiedId = ReadString(heldObject, "QualifiedItemId", "qualifiedItemId"),
             HeldObjectName = ReadString(heldObject, "Name", "name", "DisplayName", "displayName"),

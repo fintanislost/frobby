@@ -62,6 +62,8 @@ public sealed class ObjectSummary
     public string RuntimeType { get; set; } = string.Empty;
     public bool BigCraftable { get; set; }
     public bool? ReadyForHarvest { get; set; }
+    /// <summary>Optional object lifecycle countdown, exposed when Stardew or a mod provides one.</summary>
+    public int? MinutesUntilReady { get; set; }
     public string? HeldObjectId { get; set; }
     public string? HeldObjectQualifiedId { get; set; }
     public string? HeldObjectName { get; set; }
@@ -149,6 +151,9 @@ public sealed class MonsterSummary
     public int? Health { get; set; }
     public int? MaxHealth { get; set; }
     public int? Damage { get; set; }
+
+    /// <summary>Optional vanilla monster revive countdown, exposed when the runtime monster has one.</summary>
+    public int? ReviveTimer { get; set; }
 
     /// <summary>Runtime sprite texture asset path when Stardew or the mod exposes one.</summary>
     public string? SpriteTexture { get; set; }

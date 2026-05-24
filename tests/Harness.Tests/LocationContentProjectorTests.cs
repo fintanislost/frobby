@@ -90,6 +90,35 @@ public class LocationContentProjectorTests
     }
 
     [Fact]
+    public void ProjectMonster_IncludesRelocatedCombatLabIdentityAsNotSpawned()
+    {
+        CombatLabIdentityRegistry.Clear();
+        var monster = new GreenSlime
+        {
+            tile = new Vector2(9, 8),
+            Name = "Mummy",
+        };
+
+        CombatLabIdentityRegistry.Assign(monster, "corrupt-mummy", spawnedByFrobby: false);
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+
+        Assert.Equal("frobby-monster-1", summary.MonsterId);
+        Assert.Equal("corrupt-mummy", summary.Label);
+        Assert.False(summary.SpawnedByFrobby);
+    }
+
+    [Fact]
+    public void ProjectMonster_IncludesOptionalReviveTimerWhenPresent()
+    {
+        var monster = new FakeRevivingMonster { reviveTimer = 1200 };
+
+        var summary = LocationContentProjector.ProjectMonsterForTests(monster);
+
+        Assert.Equal(1200, summary.ReviveTimer);
+    }
+
+    [Fact]
     public void ProjectDebris_ReadsItemDebrisFields()
     {
         var debris = new FakeDebris
@@ -204,6 +233,22 @@ public class LocationContentProjectorTests
         Assert.Equal("FakeLocationObject", summary.RuntimeType);
         Assert.True(summary.BigCraftable);
         Assert.False(summary.ReadyForHarvest);
+    }
+
+    [Fact]
+    public void ProjectObject_IncludesOptionalMinutesUntilReadyWhenPresent()
+    {
+        var obj = new FakeTimedLocationObject
+        {
+            Name = "Bomb",
+            ItemId = "287",
+            QualifiedItemId = "(O)287",
+            minutesUntilReady = 2,
+        };
+
+        var summary = LocationContentProjector.ProjectObjectForTests(new Vector2(9, 8), obj);
+
+        Assert.Equal(2, summary.MinutesUntilReady);
     }
 
     [Fact]
@@ -325,6 +370,11 @@ public class LocationContentProjectorTests
         public FakeAnimatedSprite? Sprite;
     }
 
+    private sealed class FakeRevivingMonster
+    {
+        public int reviveTimer;
+    }
+
     private sealed class FakeAnimatedSprite
     {
         public string textureName = string.Empty;
@@ -369,6 +419,14 @@ public class LocationContentProjectorTests
         public FakeValueWrapper<bool>? bigCraftable;
         public FakeValueWrapper<bool>? readyForHarvest;
         public FakeValueWrapper<FakeHeldObject>? heldObject;
+    }
+
+    private sealed class FakeTimedLocationObject
+    {
+        public string Name = string.Empty;
+        public string ItemId = string.Empty;
+        public string QualifiedItemId = string.Empty;
+        public int minutesUntilReady;
     }
 
     private sealed class FakeHeldObject

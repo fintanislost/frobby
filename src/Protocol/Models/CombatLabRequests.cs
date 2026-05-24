@@ -44,3 +44,45 @@ public sealed class CombatLabSpawnMonsterResult
     public int? Health { get; set; }
     public int? MaxHealth { get; set; }
 }
+
+/// <summary>Neutral monster filters used by <c>combat_lab.relocate_monster</c>.</summary>
+public sealed class CombatLabMonsterMatchCriteria
+{
+    public int? X { get; set; }
+    public int? Y { get; set; }
+    public string? MonsterId { get; set; }
+    public string? Label { get; set; }
+    public string? Name { get; set; }
+    public string? Type { get; set; }
+    public string? SpriteTexture { get; set; }
+    public int? Health { get; set; }
+    public int? MaxHealth { get; set; }
+    public int? Damage { get; set; }
+}
+
+/// <summary>Request shape of <c>combat_lab.relocate_monster</c>.</summary>
+public sealed class CombatLabRelocateMonsterRequest
+{
+    public string FromLocation { get; set; } = string.Empty;
+    public string? Label { get; set; }
+    public int TargetX { get; set; }
+    public int TargetY { get; set; }
+    public CombatLabMonsterMatchCriteria Match { get; set; } = new();
+}
+
+/// <summary>Response shape of <c>combat_lab.relocate_monster</c>.</summary>
+public sealed class CombatLabRelocateMonsterResult
+{
+    public bool Ok { get; set; } = true;
+    public string MonsterId { get; set; } = string.Empty;
+    public string? Label { get; set; }
+    public string FromLocation { get; set; } = string.Empty;
+    public TilePoint SourceTile { get; set; } = new();
+    public string Location { get; set; } = string.Empty;
+    public TilePoint Tile { get; set; } = new();
+    public string Name { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public string? SpriteTexture { get; set; }
+    public int? Health { get; set; }
+    public int? MaxHealth { get; set; }
+}

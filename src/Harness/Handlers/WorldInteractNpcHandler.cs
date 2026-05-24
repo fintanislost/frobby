@@ -1,4 +1,8 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
@@ -12,8 +16,8 @@ namespace SdvTestFramework.Harness.Handlers;
 /// Handler for <c>world.interact_npc</c>. Triggers an NPC interaction by directly invoking
 /// <see cref="NPC.checkAction"/> — the same call SDV makes when the player presses action
 /// while facing an NPC at conversation distance. The NPC must be present in the player's
-/// current location; otherwise the handler returns <c>GameStateInvalid</c> rather than
-/// silently warping (test authors should warp explicitly first).
+/// current location or active event; otherwise the handler returns <c>GameStateInvalid</c>
+/// rather than silently warping (test authors should warp explicitly first).
 /// </summary>
 public static class WorldInteractNpcHandler
 {
@@ -34,9 +38,14 @@ public static class WorldInteractNpcHandler
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "no active save — mutation requires a loaded world");
 
-        var npc = world.FindNpcInCurrentLocation(req.Name)
-            ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
-                $"NPC '{req.Name}' not found in current location '{world.CurrentLocationName}'");
+        var npc = world.FindNpcInCurrentLocation(req.Name) ?? world.FindNpcInActiveEvent(req.Name);
+        if (npc is null)
+        {
+            var actors = string.Join(", ", world.ActiveEventActorNames);
+            var suffix = string.IsNullOrWhiteSpace(actors) ? string.Empty : $"; active event actors: {actors}";
+            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                $"NPC '{req.Name}' not found in current location '{world.CurrentLocationName}'{suffix}");
+        }
 
         var canTalk = world.CanTalk(npc);
         if (canTalk)
@@ -61,6 +70,8 @@ internal interface IWorldInteractNpcWorld
     bool HasActiveMenu { get; }
     bool HasEmptyDialogueMenu { get; }
     object? FindNpcInCurrentLocation(string name);
+    object? FindNpcInActiveEvent(string name);
+    IReadOnlyList<string> ActiveEventActorNames { get; }
     void PrepareDialogue(object npc);
     void CheckAction(object npc);
     bool CanTalk(object npc);
@@ -92,6 +103,16 @@ internal sealed class SdvWorldInteractNpcWorld : IWorldInteractNpcWorld
 
     public object? FindNpcInCurrentLocation(string name)
         => Game1.currentLocation?.characters?.FirstOrDefault(c => c?.Name == name);
+
+    public object? FindNpcInActiveEvent(string name)
+        => ReadActiveEventNpcs().FirstOrDefault(npc => string.Equals(npc.Name, name, StringComparison.Ordinal));
+
+    public IReadOnlyList<string> ActiveEventActorNames
+        => ReadActiveEventNpcs()
+            .Select(npc => npc.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
 
     public void CheckAction(object npc)
     {
@@ -139,5 +160,33 @@ internal sealed class SdvWorldInteractNpcWorld : IWorldInteractNpcWorld
         }
 
         Game1.drawDialogue(character);
+    }
+
+    private static IEnumerable<NPC> ReadActiveEventNpcs()
+    {
+        foreach (var ev in new object?[] { Game1.CurrentEvent, Game1.currentLocation?.currentEvent })
+        {
+            foreach (var actor in ReadActors(ev).OfType<NPC>())
+                yield return actor;
+        }
+    }
+
+    private static IEnumerable<object?> ReadActors(object? ev)
+    {
+        if (ev is null)
+            yield break;
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = ev.GetType();
+        foreach (var name in new[] { "actors", "Actors", "characters", "Characters", "festivalActors" })
+        {
+            var value = type.GetField(name, flags)?.GetValue(ev)
+                ?? type.GetProperty(name, flags)?.GetValue(ev);
+            if (value is IEnumerable enumerable && value is not string)
+            {
+                foreach (var item in enumerable)
+                    yield return item;
+            }
+        }
     }
 }

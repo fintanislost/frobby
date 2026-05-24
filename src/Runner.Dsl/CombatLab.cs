@@ -59,4 +59,29 @@ public static class CombatLab
                 JsonRpcErrorCode.InternalError,
                 "empty combat_lab.spawn_monster response");
     }
+
+    public static async Task<CombatLabRelocateMonsterResult> RelocateMonster(
+        string fromLocation,
+        string? label,
+        int targetX,
+        int targetY,
+        CombatLabMonsterMatchCriteria match,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new CombatLabRelocateMonsterRequest
+        {
+            FromLocation = fromLocation,
+            Label = label,
+            TargetX = targetX,
+            TargetY = targetY,
+            Match = match,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("combat_lab.relocate_monster", p, ct);
+        return JsonSerializer.Deserialize<CombatLabRelocateMonsterResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException(
+                "combat_lab.relocate_monster",
+                JsonRpcErrorCode.InternalError,
+                "empty combat_lab.relocate_monster response");
+    }
 }

@@ -330,10 +330,10 @@ Response (success):
         { "source": { "x": 64, "y": 15 }, "target_location": "ExampleTown", "target": { "x": 8, "y": 10 } }
       ],
       "npcs": [{ "name": "Pierre", "tile": { "x": 4, "y": 17 } }],
-      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
+      "objects": [{ "tile": { "x": 10, "y": 10 }, "name": "Weeds", "id": "O771", "qualified_id": "(O)771", "category": -999, "stack": 1, "quality": 0, "runtime_type": "Object", "big_craftable": false, "ready_for_harvest": null, "minutes_until_ready": null, "held_object_id": null, "held_object_qualified_id": null, "held_object_name": null, "is_chest": false, "item_count": null, "items_truncated": null, "items": [] }],
       "debris": [{ "tile": { "x": 15, "y": 16 }, "pixel": { "x": 960, "y": 1024 }, "kind": "ItemDebris", "id": "769", "qualified_id": "(O)769", "name": "Void Essence", "stack": 2, "quality": 0, "category": -2, "runtime_type": "Debris" }],
       "resource_clumps": [{ "tile": { "x": 21, "y": 17 }, "kind": "ResourceClump", "id": "602", "name": "Log", "width": 2, "height": 2, "health": 10 }],
-      "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
+      "monsters": [{ "tile": { "x": 44, "y": 31 }, "monster_id": "frobby-monster-1", "label": "target", "spawned_by_frobby": true, "name": "Crystal Bat", "type": "CrystalBat", "health": 180, "max_health": 180, "damage": 32, "revive_timer": null, "sprite_texture": "ExampleMod/Monsters/CrystalBat" }],
       "furniture": [{ "tile": { "x": 7, "y": 8 }, "id": "(F)1302", "name": "Oak Chair" }],
       "terrain": [{ "tile": { "x": 12, "y": 12 }, "kind": "HoeDirt" }]
    } }
@@ -345,16 +345,19 @@ If no location is loaded (e.g. on the title screen) or the requested name is unk
 boulders, meteorites, and mine rocks when Stardew exposes them for the location.
 `monsters` contains hostile creatures and is separate from `npcs`, which remains
 for social/non-hostile NPCs. Monster summaries include runtime `health`,
-`max_health`, `damage`, and `sprite_texture` when Stardew or the mod exposes
-those values. Combat Lab monsters also expose run-local `monster_id`, optional
-`label`, and `spawned_by_frobby`. `debris` contains transient runtime debris
+`max_health`, `damage`, `revive_timer`, and `sprite_texture` when Stardew or the
+mod exposes those values. `revive_timer` is useful for monsters with a downed
+or delayed-revival lifecycle, such as mummies. Combat Lab monsters also expose
+run-local `monster_id`, optional `label`, and `spawned_by_frobby`. `debris`
+contains transient runtime debris
 such as item drops and
 visual debris. Fields are best-effort because Stardew debris can be item-backed,
 animated, or purely visual. Object summaries include stable item metadata plus
 runtime details such as `runtime_type`, `big_craftable`, `ready_for_harvest`,
-and held-object fields when Stardew exposes them. Tests should filter only on
-fields relevant to the scenario. Optional object, monster, and debris metadata
-fields may be empty or null when the runtime type does not expose them.
+`minutes_until_ready`, and held-object fields when Stardew exposes them. Tests
+should filter only on fields relevant to the scenario. Optional object,
+monster, and debris metadata fields may be empty or null when the runtime type
+does not expose them.
 Container objects include `is_chest`, `item_count`, `items_truncated`, and an
 `items` array. Contained item summaries expose `slot`, `id`, `item_id`,
 `qualified_id`, `name`, `stack`, `quality`, `category`, and `runtime_type`.
@@ -841,7 +844,9 @@ best-effort fields read from runtime state through stable public fields when
 possible and reflection when needed. Missing Stardew fields are omitted or
 returned as default values rather than failing the RPC. `choices` mirrors
 `dialogue.choices` for convenient assertions such as
-`state.event.choices contains text 'Pet Dusty'`.
+`state.event.choices contains text 'Pet Dusty'`. Runner scenarios can use
+`wait.event_active.actor_name` with optional `actor_x`/`actor_y` to wait for
+specific active event or festival actors before interacting with them.
 
 **Preconditions:** none beyond the harness running. Safe outside a save; inactive responses use empty/default fields.
 **Side effects:** none.
@@ -1008,6 +1013,46 @@ Response (unknown item id — GameStateInvalid):
 **Side effects:** adds a freshly-created item stack of size `count` to `Game1.player`'s inventory (or opens the pickup menu if full).
 **Implemented in:** `src/Harness/Handlers/PlayerGiveItemHandler.cs`
 **Tested in:** `tests/Protocol.Tests/GiveItemRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerGiveItemHandlerTests.cs` (error-path unit tests).
+
+### player.select_item
+
+Selects an existing farmer inventory item by exact slot or item id. This does
+not create or consume items; it only sets the current selected inventory slot so
+later gameplay input can use Stardew's normal selected-item path.
+
+Request:
+```json
+{ "jsonrpc": "2.0", "id": 42, "method": "player.select_item", "params": { "id": "(O)287" } }
+```
+
+Alternative slot request:
+```json
+{ "jsonrpc": "2.0", "id": 43, "method": "player.select_item", "params": { "slot": 1, "prefer_hotbar": false } }
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "tick": 123,
+  "slot": 1,
+  "item": {
+    "slot": 1,
+    "id": "(O)287",
+    "item_id": "287",
+    "qualified_id": "(O)287",
+    "name": "Bomb",
+    "stack": 1,
+    "runtime_type": "Object"
+  }
+}
+```
+
+Validation: exactly one of `id` or `slot` is required. Selecting by id matches
+`qualified_id`, `item_id`, or `id`; by default it prefers hotbar slots `0..11`.
+
+**Implemented in:** `src/Harness/Handlers/PlayerSelectItemHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerSelectItemHandlerTests.cs`.
 
 ### drop_box.deposit
 
@@ -1589,12 +1634,83 @@ the requested tile, so modded tool hooks and native tile effects can run.
 `tests/Harness.Tests/WorldUseToolHandlerTests.cs`, and
 `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
+### world.explode_tile
+
+Triggers Stardew-native explosion behavior at a tile in the current or named
+loaded location. This is a direct deterministic test primitive: it does not
+require a bomb item, fuse timing, inventory state, or player proximity.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 16, "method": "world.explode_tile",
+     "params": { "location": "Frobby_CombatLab", "x": 9, "y": 8,
+                 "radius": 2, "damage_player": false, "damage_amount": 5000 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 16, "result": {
+      "ok": true,
+      "tick": 123,
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "radius": 2,
+      "damage_player": false,
+      "damage_amount": 5000,
+      "monsters_before": 1,
+      "monsters_after": 0,
+      "debris_before": 0,
+      "debris_after": 1,
+      "invoked": true
+   } }
+```
+
+Response (`x`, `y`, or `radius` invalid — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.radius must be between 1 and 10" } }
+```
+
+Response (`damage_amount` invalid — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "params.damage_amount must be >= 0" } }
+```
+
+Response (out-of-bounds tile — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32602, "message": "world.explode_tile target tile must be inside the resolved map bounds" } }
+```
+
+Response (world not ready or unknown location — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 16, "error": { "code": -32003, "message": "world.explode_tile location not found: ExampleMine" } }
+```
+
+Use `wait.location_content` for the assertion that matters, such as waiting for
+a labelled monster to be removed. The count fields are diagnostics for reports
+and debugging. `damage_amount` is optional; omit it to preserve Stardew's native
+default explosion damage for the resolved overload, or set it when a test needs
+a deterministic high-damage blast while still using native explosion behavior.
+
+**Preconditions:** world loaded; the current or requested location must be
+loaded; `x` and `y` must be in map bounds; `radius` must be between 1 and 10.
+**Side effects:** invokes Stardew's native location explosion path at the
+requested tile, which may damage monsters, create debris, remove objects, or
+mutate terrain depending on the active game/mod state.
+**Implemented in:** `src/Harness/Handlers/WorldExplodeTileHandler.cs`
+**Tested in:** `tests/Protocol.Tests/ExplodeTileSerializationTests.cs`,
+`tests/Harness.Tests/WorldExplodeTileHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
+
 ### combat.attack
 
 Performs one player-like melee attack in the loaded world. Supply either a
 complete target tile (`x` and `y`) or a cardinal `direction`. If both a complete
 target tile and `direction` are supplied, `direction` wins. Supported directions
-are `up`, `right`, `down`, and `left`.
+are `up`, `right`, `down`, and `left`. If a target tile overlaps the player and
+no explicit direction is supplied, the harness attacks in the farmer's current
+facing direction so moving monsters that collide with the player can still be
+tested.
 
 The harness RPC is intentionally single-shot: it faces the farmer, selects the
 requested melee weapon when `qualified_item_id` is provided, and invokes
@@ -1689,6 +1805,55 @@ tracks run-local identity metadata until scenario end or the next lab reset.
 **Tested in:** `tests/Protocol.Tests/CombatLabSerializationTests.cs`,
 `tests/Harness.Tests/CombatLabResetHandlerTests.cs`,
 `tests/Harness.Tests/CombatLabSpawnMonsterHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/CombatLabTests.cs`.
+
+### combat_lab.relocate_monster
+
+Moves one already-spawned runtime monster into `Frobby_CombatLab` and assigns a
+run-local Frobby identity. This isolates mod-created monsters without Frobby
+constructing or parsing mod monster definitions.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 18, "method": "combat_lab.relocate_monster", "params": { "from_location": "Custom_CrimsonBadlands", "label": "corrupt-mummy", "target_x": 9, "target_y": 8, "match": { "x": 20, "y": 144, "sprite_texture": "Characters/Monsters/CorruptMummy", "health": 2000, "max_health": 2000 } } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 18, "result": {
+      "ok": true,
+      "monster_id": "frobby-monster-1",
+      "label": "corrupt-mummy",
+      "from_location": "Custom_CrimsonBadlands",
+      "source_tile": { "x": 20, "y": 144 },
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "name": "Mummy",
+      "type": "Mummy",
+      "sprite_texture": "Characters/Monsters/CorruptMummy",
+      "health": 2000,
+      "max_health": 2000
+   } }
+```
+
+`match` filters are exact and use the same observable metadata exposed by
+`state.location.monsters`. The top-level `match.x` and `match.y` filters compare
+against `state.location.monsters[].tile.x` / `tile.y`; the remaining filters
+compare against `monster_id`, `label`, `name`, `type`, `sprite_texture`,
+`health`, `max_health`, and `damage`. The handler rejects zero matches and
+multiple matches so scenarios must identify exactly one source monster before
+mutation.
+
+**Preconditions:** world loaded; call `combat_lab.reset` before relocating; the
+source location must be loaded; target tile must be inside the lab map.
+**Side effects:** removes the matching monster object from the source location,
+moves it into `Frobby_CombatLab`, and binds run-local identity metadata with
+`spawned_by_frobby: false`.
+**Implemented in:** `src/Harness/Handlers/CombatLabRelocateMonsterHandler.cs`
+**Tested in:** `tests/Protocol.Tests/CombatLabSerializationTests.cs`,
+`tests/Harness.Tests/CombatLabRelocateMonsterHandlerTests.cs`,
+`tests/Harness.Tests/CombatLabMonsterMatcherTests.cs`,
 `tests/Runner.Tests/ScenarioRunnerTests.cs`, and
 `tests/Runner.Dsl.Tests/Facets/CombatLabTests.cs`.
 
@@ -1814,6 +1979,68 @@ Response (no active menu — GameStateInvalid):
 **Side effects:** calls `Game1.activeClickableMenu.receiveLeftClick(x, y)` for left clicks or `receiveRightClick(x, y)` for right clicks, so behavior is menu-specific.
 **Implemented in:** `src/Harness/Handlers/InputClickHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
+### input.click_tile
+
+Clicks a gameplay tile using Stardew's native gameplay input paths. Use this
+when a scenario needs selected-item behavior, location click hooks, or Harmony
+patches that observe normal gameplay input. `button: "left"` routes through
+the use-tool path; `button: "right"` routes through the action/object-placement
+path. This does not move the user's OS cursor; Frobby drives the deterministic
+in-game cursor state.
+
+Request:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 44,
+  "method": "input.click_tile",
+  "params": {
+    "location": "Frobby_CombatLab",
+    "x": 9,
+    "y": 9,
+    "button": "left",
+    "allow_event_input": false
+  }
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "tick": 124,
+  "location": "Frobby_CombatLab",
+  "tile": { "x": 9, "y": 9 },
+  "screen": { "x": 576, "y": 576 },
+  "world": { "x": 608, "y": 608 },
+  "selected_item": {
+    "slot": 1,
+    "id": "(O)287",
+    "item_id": "287",
+    "qualified_id": "(O)287",
+    "name": "Bomb",
+    "stack": 1,
+    "runtime_type": "Object"
+  },
+  "handled": true
+}
+```
+
+Supported buttons are `"left"` and `"right"`. Use `screen_offset_x` and
+`screen_offset_y` when the click must target a non-center pixel within the tile.
+By default, `input.click_tile` rejects active events and festivals
+(`Game1.eventUp`) to catch accidental gameplay clicks while a cutscene owns the
+world. Set `allow_event_input: true` only when the scenario intentionally clicks
+inside a player-controlled event or festival map. This flag does not bypass
+active-menu, warp, fade, location, bounds, or button validation.
+Selected-object placement often requires `button: "right"` and a player state
+where `state.player.can_move == true` and `state.player.is_busy == false`.
+
+**Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
+**Tested in:** `tests/Protocol.Tests/InputClickTileSerializationTests.cs`,
+`tests/Harness.Tests/InputClickTileHandlerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### input.hover
 
@@ -2056,7 +2283,7 @@ Runner scenario convenience:
   accept `timeout_ms` so a stalled harness call fails the scenario instead of
   hanging the run. The default per-step RPC timeout is 10000 ms.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `can_move`, `is_busy`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
@@ -2064,8 +2291,9 @@ Runner scenario convenience:
   has enough matching entries. Supported collections are `objects`,
   `resource_clumps`, `monsters`, `critters`, and `debris`. Filters are exact-match and
   optional: `name`, `type`, `kind`, `id`, `qualified_id`, `health`,
-  `max_health`, `damage`, `runtime_type`, `stack`, `quality`, `category`,
-  `sprite_texture`, `big_craftable`, `held_object_id`,
+  `max_health`, `damage`, `revive_timer`, `runtime_type`,
+  `minutes_until_ready`, `stack`, `quality`, `category`, `sprite_texture`,
+  `big_craftable`, `held_object_id`,
   `held_object_qualified_id`, and `x`/`y` tile. For `objects`, contained-item
   filters can require a matching item inside the object: `contains_item_id`,
   `contains_item_qualified_id`, `contains_item_name`, `contains_item_stack`,
@@ -2073,13 +2301,14 @@ Runner scenario convenience:
   `contains_item_category`. It accepts
   `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`. Monster
   numeric comparisons are supported with `health_lt`, `health_lte`,
-  `health_gt`, `health_gte`, matching `max_health_*` filters, and matching
-  `damage_*` filters. Debris and object numeric comparisons are supported with
+  `health_gt`, `health_gte`, matching `max_health_*` filters, matching
+  `damage_*` filters, and matching `revive_timer_*` filters. Debris and object
+  numeric comparisons are supported with `minutes_until_ready_*`,
   `stack_*`, `quality_*`, and `category_*` filters. Use `min_count: 0` with `max_count: 0` to wait for no
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
-- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, and `is_festival` filters.
+- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false, "actor_name": "Krobus" } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, `is_festival`, `actor_name`, and paired `actor_x`/`actor_y` filters.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
 - `{ "action": "event.advance", "args": { "choice_text": "Pet Dusty" } }` waits for the matching menu choice and then calls `input.click_menu_choice`. Without a choice/text target it waits for an active menu and calls `input.click_menu_advance`; `repeat` and `interval_ms` can advance multi-page dialogue. `ui.acknowledge` uses the same menu-advance path.
@@ -2098,6 +2327,7 @@ Request shape:
 
 Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
 `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`,
+`can_move`, `is_busy`,
 `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`,
 `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and
 `buff_any_effect_gte`; timeout details include the last observed health,
@@ -2130,10 +2360,11 @@ The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `poll_ms`, `capture_ticks`, `in_rect`, `bounds_within_rect`, and
 `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
-`wait.event_active` and `wait.event_complete` accept `id`, `location`,
-`timeout_ms`, and `poll_ms`. Active-event screenshots should use live or
-next-frame capture because `freeze.begin` rejects cutscenes while `Game1.eventUp`
-is true.
+`wait.event_active` accepts `id`, `location`, `is_festival`, `actor_name`, paired
+`actor_x`/`actor_y`, `timeout_ms`, and `poll_ms`. `wait.event_complete` accepts
+`id`, `location`, `timeout_ms`, and `poll_ms`. Active-event screenshots should
+use live or next-frame capture because `freeze.begin` rejects cutscenes while
+`Game1.eventUp` is true.
 
 `wait.menu` accepts `present`, `type`, `text`, `text_equals`, `text_matches`,
 `choice_key`, `choice_text`, `choice_text_contains`, `choice_text_matches`,
@@ -2209,6 +2440,53 @@ Response:
 **Side effects:** removes the matched inventory item from its source slot and adds it to the target location's furniture collection.
 **Implemented in:** `src/Harness/Handlers/WorldPlaceInventoryFurnitureHandler.cs`
 **Tested in:** `tests/Protocol.Tests/PlaceInventoryFurnitureRequestSerializationTests.cs` + `tests/Harness.Tests/WorldPlaceInventoryFurnitureHandlerTests.cs`.
+
+### world.place_inventory_object
+
+Places one existing inventory object into the player's current location through
+Stardew's native object placement path. This is for player-like placement flows;
+use `world.place_object` for direct setup and `world.explode_tile` for direct
+explosion semantics.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 22, "method": "world.place_inventory_object",
+     "params": { "id": "(O)287", "location": "Frobby_CombatLab", "x": 9, "y": 8, "slot": 12, "facing": "right" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 22, "result": {
+      "ok": true,
+      "tick": 123456,
+      "id": "287",
+      "qualified_id": "(O)287",
+      "name": "Bomb",
+      "location": "Frobby_CombatLab",
+      "tile": { "x": 9, "y": 8 },
+      "source_slot": 12,
+      "stack_before": 2,
+      "stack_after": 1,
+      "runtime_type": "Object",
+      "placed": true
+   } }
+```
+
+`location` is a current-location guard, not a remote placement target. Warp the
+farmer to the target location first. `id` may match `QualifiedItemId` or
+`ItemId`; scenarios should prefer qualified ids. `slot` is optional and should
+only be used when the inventory contains multiple matching ids.
+
+**Preconditions:** world loaded; matching inventory item exists; selected item
+is a `StardewValley.Object`; current location matches `location` when supplied.
+**Side effects:** invokes native object placement and consumes one active
+inventory item through Stardew's player inventory path. Placement may create a
+timed object such as a bomb.
+**Implemented in:** `src/Harness/Handlers/WorldPlaceInventoryObjectHandler.cs`
+**Tested in:** `tests/Protocol.Tests/PlaceInventoryObjectSerializationTests.cs`,
+`tests/Harness.Tests/WorldPlaceInventoryObjectHandlerTests.cs`,
+`tests/Runner.Tests/ScenarioRunnerTests.cs`, and
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### draw.arm
 
@@ -2835,8 +3113,9 @@ Trigger an interaction with an NPC by name. Mirrors what SDV does when the playe
 action while facing the NPC at conversation distance by calling `NPC.checkAction(player, location)`.
 If that call does not open a renderable menu and the target NPC can talk, Frobby
 refreshes the NPC's current dialogue and falls back to Stardew's dialogue opener
-for that NPC. The NPC must be in the player's current location; otherwise returns
-`GameStateInvalid`.
+for that NPC. Frobby resolves ordinary current-location NPCs first, then falls
+back to active event/festival actors. If neither source contains the target, it
+returns `GameStateInvalid`.
 
 **Params:** `{name: string}` — NPC name (e.g. `"Pierre"`, `"Abigail"`).
 
@@ -2845,7 +3124,7 @@ for that NPC. The NPC must be in the player's current location; otherwise return
 **Errors:**
 - `InvalidParams -32602` — `name` missing or empty.
 - `GameStateInvalid -32003` — no scenario active / world not ready.
-- `GameStateInvalid -32003` — NPC not in current location (warp first).
+- `GameStateInvalid -32003` — NPC not in current location or active event actor list.
 
 ### `time.set`
 

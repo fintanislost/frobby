@@ -37,6 +37,36 @@ public static class Input
         await s.InvokeAsync("input.click", p, ct);
     }
 
+    /// <summary>Click a gameplay tile through Stardew's native gameplay click path.</summary>
+    public static async Task<InputClickTileResult> ClickTile(
+        int x,
+        int y,
+        string? location = null,
+        string button = "left",
+        bool requireCurrentLocation = true,
+        bool allowEventInput = false,
+        int screenOffsetX = 32,
+        int screenOffsetY = 32,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new InputClickTileRequest
+        {
+            Location = location,
+            X = x,
+            Y = y,
+            Button = button,
+            RequireCurrentLocation = requireCurrentLocation,
+            AllowEventInput = allowEventInput,
+            ScreenOffsetX = screenOffsetX,
+            ScreenOffsetY = screenOffsetY,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("input.click_tile", p, ct);
+        return JsonSerializer.Deserialize<InputClickTileResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("input.click_tile", Protocol.JsonRpcErrorCode.InternalError,
+                "empty input.click_tile response");
+    }
+
     /// <summary>Move the deterministic cursor and send hover to the active menu at screen coordinates.</summary>
     public static async Task Hover(int x, int y, CancellationToken ct = default)
     {

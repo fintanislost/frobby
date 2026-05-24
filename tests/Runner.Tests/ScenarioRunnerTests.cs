@@ -388,6 +388,296 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task CombatLabRelocateMonster_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"combat-lab-relocate-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var relocateParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "combat_lab.relocate_monster")
+                        relocateParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "combat_lab.relocate_monster" => JsonDocument.Parse("{\"ok\":true,\"monster_id\":\"frobby-monster-1\",\"label\":\"corrupt-mummy\",\"from_location\":\"Custom_CrimsonBadlands\",\"source_tile\":{\"x\":20,\"y\":144},\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"name\":\"Mummy\",\"type\":\"Mummy\",\"sprite_texture\":\"Characters/Monsters/CorruptMummy\",\"health\":2000,\"max_health\":2000}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "combat_lab_relocate_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "combat_lab.relocate_monster",
+                        Args = JsonDocument.Parse("{\"from_location\":\"Custom_CrimsonBadlands\",\"label\":\"corrupt-mummy\",\"target_x\":9,\"target_y\":8,\"match\":{\"sprite_texture\":\"Characters/Monsters/CorruptMummy\"}}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("combat_lab.relocate_monster", calls);
+            Assert.Equal("Custom_CrimsonBadlands", relocateParams.GetProperty("from_location").GetString());
+            Assert.Equal("corrupt-mummy", relocateParams.GetProperty("label").GetString());
+            Assert.Equal("Relocate monster from Custom_CrimsonBadlands to Combat Lab", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task WorldExplodeTile_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"explode-tile-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var explodeParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "world.explode_tile")
+                        explodeParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "world.explode_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"radius\":2,\"damage_player\":false,\"monsters_before\":1,\"monsters_after\":0,\"debris_before\":0,\"debris_after\":1,\"invoked\":true}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "explode_tile_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "world.explode_tile",
+                        Args = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"radius\":2,\"damage_player\":false}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("world.explode_tile", calls);
+            Assert.Equal("Frobby_CombatLab", explodeParams.GetProperty("location").GetString());
+            Assert.Equal(9, explodeParams.GetProperty("x").GetInt32());
+            Assert.Equal(8, explodeParams.GetProperty("y").GetInt32());
+            Assert.Equal("Explode tile Frobby_CombatLab (9,8) radius 2", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task WorldPlaceInventoryObject_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"place-inventory-object-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var placeParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "world.place_inventory_object")
+                        placeParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "world.place_inventory_object" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":8},\"source_slot\":12,\"stack_before\":2,\"stack_after\":1,\"runtime_type\":\"Object\",\"placed\":true}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "place_inventory_object_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "world.place_inventory_object",
+                        Args = JsonDocument.Parse("{\"id\":\"(O)287\",\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("world.place_inventory_object", calls);
+            Assert.Equal("(O)287", placeParams.GetProperty("id").GetString());
+            Assert.Equal("Frobby_CombatLab", placeParams.GetProperty("location").GetString());
+            Assert.Equal(9, placeParams.GetProperty("x").GetInt32());
+            Assert.Equal(8, placeParams.GetProperty("y").GetInt32());
+            Assert.Equal("Place inventory object (O)287 at Frobby_CombatLab (9,8)", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task InputClickTile_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"click-tile-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.click_tile")
+                        clickParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":9},\"screen\":{\"x\":576,\"y\":576},\"world\":{\"x\":608,\"y\":608},\"selected_item\":{\"slot\":1,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"},\"handled\":true}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-tile.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "click_tile_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "input.click_tile",
+                        Args = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":9}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("input.click_tile", calls);
+            Assert.Equal("Frobby_CombatLab", clickParams.GetProperty("location").GetString());
+            Assert.Equal(9, clickParams.GetProperty("x").GetInt32());
+            Assert.Equal(9, clickParams.GetProperty("y").GetInt32());
+            Assert.Equal("Click left tile Frobby_CombatLab (9,9)", report.Steps[0].Detail);
+            Assert.Contains("bitmap.capture", calls);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
@@ -460,6 +750,7 @@ public class ScenarioRunnerTests
     [InlineData("ui.click_text", true)]
     [InlineData("ui.hover_text", true)]
     [InlineData("input.click_text", true)]
+    [InlineData("input.click_tile", true)]
     [InlineData("input.hover_text", true)]
     [InlineData("freeze.begin", true)]
     public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)
@@ -786,6 +1077,63 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task WaitPlayer_PollsStatePlayerUntilMovementStateMatches()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var playerPolls = 0;
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.player" => JsonDocument.Parse(playerPolls++ == 0
+                            ? "{\"name\":\"Tester\",\"health\":100,\"location\":\"ExampleDeepCave\",\"tile\":{\"x\":10,\"y\":20},\"can_move\":false,\"is_busy\":true}"
+                            : "{\"name\":\"Tester\",\"health\":100,\"location\":\"ExampleDeepCave\",\"tile\":{\"x\":10,\"y\":20},\"can_move\":true,\"is_busy\":false}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_player_movement",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.player",
+                    Args = JsonDocument.Parse("{\"can_move\":true,\"is_busy\":false,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.True(playerPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task WaitPlayer_TimeoutIncludesLastObservedHealth()
     {
         var socket = SocketPath();
@@ -1058,7 +1406,7 @@ public class ScenarioRunnerTests
         Assert.False(report.Passed);
         var failure = Assert.Single(report.Failures);
         Assert.Contains("swimming=true", failure);
-        Assert.Contains("last observed health=100 location=Farm tile=64,15 swimming=false bathing_clothes=false buffs=0", failure);
+        Assert.Contains("last observed health=100 location=Farm tile=64,15 swimming=false bathing_clothes=false can_move=? is_busy=? buffs=0", failure);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
@@ -2055,7 +2403,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"},{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":90,\"max_health\":90,\"damage\":18,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"ExampleDeepCave\",\"resource_clumps\":[],\"objects\":[],\"monsters\":[{\"tile\":{\"x\":12,\"y\":8},\"name\":\"Crystal Bat\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"revive_timer\":1200,\"sprite_texture\":\"ExampleMod/Monsters/CrystalBat\"},{\"tile\":{\"x\":13,\"y\":8},\"name\":\"Cave Moth\",\"type\":\"Bat\",\"health\":180,\"max_health\":220,\"damage\":32,\"revive_timer\":0,\"sprite_texture\":\"ExampleMod/Monsters/CaveMoth\"}]}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
                     };
@@ -2081,12 +2429,64 @@ public class ScenarioRunnerTests
                 new ScenarioStep
                 {
                     Action = "wait.location_content",
-                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"type\":\"Bat\",\"health_gt\":100,\"health_lte\":180,\"max_health_gte\":200,\"damage_lt\":40,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                    Args = JsonDocument.Parse("{\"location\":\"ExampleDeepCave\",\"collection\":\"monsters\",\"type\":\"Bat\",\"health_gt\":100,\"health_lte\":180,\"max_health_gte\":200,\"damage_lt\":40,\"revive_timer_gt\":0,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);
 
         Assert.True(report.Passed);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitLocationContent_MatchesObjectMinutesUntilReadyComparisons()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.location" => JsonDocument.Parse("{\"name\":\"Frobby_CombatLab\",\"resource_clumps\":[],\"objects\":[{\"tile\":{\"x\":9,\"y\":8},\"name\":\"Bomb\",\"id\":\"287\",\"qualified_id\":\"(O)287\",\"runtime_type\":\"Object\",\"big_craftable\":false,\"minutes_until_ready\":2},{\"tile\":{\"x\":10,\"y\":8},\"name\":\"Bomb\",\"id\":\"287\",\"qualified_id\":\"(O)287\",\"runtime_type\":\"Object\",\"big_craftable\":false,\"minutes_until_ready\":0}],\"monsters\":[],\"debris\":[]}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_location_content_object_minutes_until_ready",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.location_content",
+                    Args = JsonDocument.Parse("{\"location\":\"Frobby_CombatLab\",\"collection\":\"objects\",\"qualified_id\":\"(O)287\",\"minutes_until_ready_gt\":0,\"min_count\":1,\"max_count\":1,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
@@ -2805,6 +3205,116 @@ public class ScenarioRunnerTests
 
         Assert.True(report.Passed, string.Join("\n", report.Failures));
         Assert.True(eventPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitEventActive_FiltersByActorNameAndTile()
+    {
+        var socket = SocketPath();
+        var eventPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" when eventPolls++ == 0 => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Andy\",\"tile\":{\"x\":18,\"y\":77},\"pixel\":{\"x\":1152,\"y\":4928},\"facing_direction\":1,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "state.event" => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Sophia\",\"tile\":{\"x\":19,\"y\":77},\"pixel\":{\"x\":1216,\"y\":4928},\"facing_direction\":1,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_event_active_actor",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.event_active",
+                    Args = JsonDocument.Parse("{\"id\":\"fall16\",\"location\":\"Town\",\"is_festival\":true,\"actor_name\":\"Sophia\",\"actor_x\":19,\"actor_y\":77,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+        Assert.True(eventPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitEventActive_ActorTimeoutIncludesObservedActorNames()
+    {
+        var socket = SocketPath();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Andy\",\"tile\":{\"x\":18,\"y\":77},\"pixel\":{\"x\":1152,\"y\":4928},\"facing_direction\":1,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_event_active_missing_actor",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.event_active",
+                    Args = JsonDocument.Parse("{\"id\":\"fall16\",\"actor_name\":\"Sophia\",\"timeout_ms\":20,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("actor_name=Sophia", failure);
+        Assert.Contains("actors=[Andy@18,77]", failure);
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }

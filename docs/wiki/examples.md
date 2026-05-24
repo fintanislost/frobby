@@ -73,9 +73,20 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/11-sve-event-dialogue-choice.test.json`
 - SVE Spirit's Eve festival chest:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/19-sve-spirit-eve-chest.test.json`
+- SVE Spirit's Eve festival actor dialogue:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json`
+- SVE Flower Dance festival shop flow:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/33-sve-flower-dance-shop-flow.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
-festival maps.
+festival maps, or festival shops. For active event or festival actors, wait with
+`wait.event_active.actor_name`, then use `world.interact_npc`; the RPC will
+prefer ordinary current-location NPCs and fall back to active event actors. For
+festival shops, use `state.tile_actions` to prove the shop action exists, then
+open the same data-backed shop ID with `shop.open` when the event click path
+does not leave a menu open. Use `world.interact_tile_action` for ordinary map
+actions, or a deliberate `input.click_tile.allow_event_input` click when
+player-like event input matters.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 
@@ -85,12 +96,32 @@ festival maps.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/12-sve-combat-monster-damage.test.json`
 - Combat Lab vanilla monster lifecycle:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/27-sve-combat-lab-vanilla-monster.test.json`
+- Combat Lab relocated mod monster lifecycle:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/28-sve-combat-lab-relocate-mod-monster.test.json`
+- Combat Lab native explosion cleanup:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/29-sve-combat-lab-explode-mummy.test.json`
 - SVE fishing table and catch sampling:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/16-sve-fishing-core.test.json`
 - SVE world object interaction:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/18-sve-object-piggy-bank-interaction.test.json`
 
 Use these when testing runtime state rather than parsing a mod's content files.
+
+## Explosion Cleanup
+
+Use `world.explode_tile` when a mod feature depends on native Stardew explosion
+behavior, such as mummy cleanup or object blast effects. This keeps the
+assertion focused on world-state behavior without also depending on bomb
+inventory, placement, or fuse timing. Follow it with `wait.location_content` to
+assert the actual world-state change.
+
+Use `world.place_inventory_object` when a scenario needs deterministic
+inventory-object placement. Use `player.select_item` plus `input.click_tile`
+when a scenario needs selected-item, gameplay-click behavior; wait for
+`can_move: true` and `is_busy: false` before issuing player-like clicks after
+combat or tool animations. Vanilla bomb placement uses the action/right-click
+path and should be observed through `state.visual_effects` fuse sprites plus
+the final world-state outcome, not through `state.location.objects`.
 
 ## Save, Reload, And Long-Running State
 

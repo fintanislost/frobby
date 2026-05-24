@@ -80,7 +80,7 @@ Environment knobs:
 
 - `Player.Warp(location, x, y)` / `SetMoney(amount)` / `AddMail(id)` / `AddEventSeen(id)` / `AddSecretNoteSeen(id)` / `GiveItem(id, count)`
 - `Time.Advance(minutes)`
-- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)`
+- `World.SetWeather(type)` / `InteractTileAction(x?, y?, location?, property?, layers?)` / `UseTool(tool, x, y, location?, facing?, power?)` / `ExplodeTile(x, y, location?, radius?, damagePlayer?, damageAmount?)`
 - `Input.Key(key)` / `Text(text)` / `Click(x, y)` / `ClickText(text)` / `Hover(x, y)` / `HoverText(text)`
 - `Fixture.Load(name)`
 - `Freeze.Begin()` / `End()` / `Status()`
@@ -177,6 +177,19 @@ container contents without coordinate clicking through the map entrance:
     "contains_item_stack": 1
   }
 }
+```
+
+Active festival actor dialogue can use the same NPC interaction primitive after
+waiting for the actor to exist in the active event:
+
+```json
+{ "action": "festival.start", "args": { "location": "Town" } },
+{
+  "action": "wait.event_active",
+  "args": { "location": "Town", "is_festival": true, "actor_name": "ExampleNpc" }
+},
+{ "action": "world.interact_npc", "args": { "name": "ExampleNpc" } },
+{ "action": "wait.menu", "args": { "text": "festival", "ready": true } }
 ```
 
 For Stardew-native dialogue choices, use `wait.menu` and choice-targeted
@@ -325,6 +338,122 @@ Placed object interactions can be staged without touching the player's inventory
 }
 ```
 
+Use `world.place_inventory_object` when the test needs deterministic inventory
+object placement from inventory without depending on cursor state. Some objects
+remain observable in `state.location.objects`; vanilla bombs in Stardew 1.6 do
+not. For vanilla bombs, wait on the fuse temporary sprite through
+`wait.visual_effects`, then assert the gameplay outcome.
+
+```json
+{ "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
+{
+  "action": "world.place_inventory_object",
+  "args": {
+    "id": "(O)287",
+    "location": "Frobby_CombatLab",
+    "x": 9,
+    "y": 8
+  }
+},
+{
+  "action": "wait.visual_effects",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "temporary_sprites": {
+      "texture_asset": "LooseSprites/Cursors",
+      "source_rect": [598, 1279, 3, 4],
+      "runtime_type": "TemporaryAnimatedSprite",
+      "min_count": 1
+    },
+    "timeout_ms": 15000,
+    "poll_ms": 100
+  }
+}
+```
+
+Use `player.select_item` plus `input.click_tile` when the test needs the
+selected-item gameplay click path:
+
+```json
+{ "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
+{ "action": "wait.player", "args": { "can_move": true, "is_busy": false } },
+{ "action": "player.select_item", "args": { "id": "(O)287" } },
+{
+  "action": "input.click_tile",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "button": "right",
+    "x": 9,
+    "y": 9
+  }
+},
+{
+  "action": "wait.visual_effects",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "temporary_sprites": {
+      "texture_asset": "LooseSprites/Cursors",
+      "source_rect": [598, 1279, 3, 4],
+      "runtime_type": "TemporaryAnimatedSprite",
+      "min_count": 1
+    },
+    "timeout_ms": 15000,
+    "poll_ms": 100
+  }
+}
+```
+
+For player-controlled festival or event maps, keep the normal guard unless the
+click is intentionally part of the event surface:
+
+```json
+{
+  "action": "input.click_tile",
+  "args": {
+    "location": "Temp",
+    "button": "right",
+    "x": 28,
+    "y": 37,
+    "allow_event_input": true
+  }
+}
+```
+
+If the test needs to prove a map action such as a festival shop tile without
+depending on player distance or pathing, discover it with `state.tile_actions`.
+Use `world.interact_tile_action` for ordinary map actions, or `shop.open` for a
+data-backed shop ID discovered from a `Shop ...` action when the event click
+path does not leave a menu open.
+
+In C# DSL tests, call:
+
+```csharp
+await Player.GiveItem("(O)287");
+var placed = await World.PlaceInventoryObject("(O)287", 9, 8, location: "Frobby_CombatLab");
+Assert.True(placed.Placed);
+```
+
+For the selected-item click path, call:
+
+```csharp
+await Player.GiveItem("(O)287");
+await Player.SelectItem(id: "(O)287");
+var click = await Input.ClickTile(9, 9, location: "Frobby_CombatLab");
+Assert.True(click.Handled);
+```
+
+For player-controlled event or festival clicks, pass the explicit opt-in:
+
+```csharp
+var festivalClick = await Input.ClickTile(
+    28,
+    37,
+    location: "Temp",
+    button: "right",
+    allowEventInput: true);
+Assert.True(festivalClick.Handled);
+```
+
 Transient debris and combat drops are exposed through the same wait:
 
 ```json
@@ -389,6 +518,9 @@ monster state before sending the single-shot harness RPC:
 }
 ```
 
+If a retargeted monster moves onto the player's tile, `combat.attack` falls back
+to the farmer's current facing direction instead of failing the scenario.
+
 Then wait for damage instead of sleeping:
 
 ```json
@@ -430,6 +562,29 @@ arena and lets JSON scenarios target a specific monster by lab label:
 
 C# DSL tests can use `CombatLab.Reset`, `CombatLab.SpawnMonster`, and
 `Combat.AttackTarget` for the same flow.
+
+For mod-spawned monsters, let the mod create the monster first and then relocate
+that exact runtime instance into the lab:
+
+```json
+{
+  "action": "combat_lab.relocate_monster",
+  "args": {
+    "from_location": "Custom_CrimsonBadlands",
+    "label": "corrupt-mummy",
+    "target_x": 9,
+    "target_y": 8,
+    "match": {
+      "x": 20,
+      "y": 144,
+      "sprite_texture": "Characters/Monsters/CorruptMummy"
+    }
+  }
+}
+```
+
+The relocation action moves the existing monster object. It does not construct a
+mod monster or parse mod spawn data.
 
 Player health waits are also runner-side polling over `state.player`:
 
@@ -499,6 +654,16 @@ var result = await World.UseTool("Hoe", 21, 12, location: "Farm", facing: "up");
 Assert.True(result.Invoked);
 ```
 
+Use `World.ExplodeTile` when the feature depends on Stardew's native explosion
+behavior, but the test does not need to prove bomb inventory, placement, or fuse
+timing:
+
+```csharp
+await CombatLab.Reset(playerX: 8, playerY: 8);
+var result = await World.ExplodeTile(9, 8, location: "Frobby_CombatLab", radius: 2, damageAmount: 5000);
+Assert.True(result.Invoked);
+```
+
 The same runner wait can target hostile monsters with exact metadata filters:
 
 ```json
@@ -512,6 +677,7 @@ The same runner wait can target hostile monsters with exact metadata filters:
     "health": 180,
     "max_health": 180,
     "damage": 32,
+    "revive_timer": 0,
     "sprite_texture": "ExampleMod/Monsters/CrystalBat",
     "min_count": 1,
     "timeout_ms": 10000,
@@ -519,6 +685,10 @@ The same runner wait can target hostile monsters with exact metadata filters:
   }
 }
 ```
+
+For monsters with a downed/revival lifecycle, scenarios can wait on the optional
+`revive_timer` field with the same numeric suffixes as health, for example
+`revive_timer_gt: 0` before triggering an explosion cleanup.
 
 JSON runner scenarios can validate final runtime content assets directly with
 `content.asset` assertions. These load through Stardew's live content pipeline,

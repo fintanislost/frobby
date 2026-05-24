@@ -55,7 +55,7 @@
               "action": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Scenario step action. Unknown actions are invoked as RPC methods; runner-only actions include wait.player with health, buff, mail_received, mail_for_tomorrow, and event_seen filters."
+                "description": "Scenario step action. Unknown actions are invoked as RPC methods; runner-only actions include wait.player with health, movement, buff, mail_received, mail_for_tomorrow, and event_seen filters."
               },
               "args": { "type": "object" }
             },

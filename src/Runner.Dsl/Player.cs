@@ -77,4 +77,24 @@ public static class Player
         var p = JsonSerializer.SerializeToElement(new GiveItemRequest { Id = id, Count = count }, ProtocolJson.Options);
         await s.InvokeAsync("player.give_item", p, ct);
     }
+
+    /// <summary>Select an existing farmer inventory item by id or slot.</summary>
+    public static async Task<PlayerSelectItemResult> SelectItem(
+        string? id = null,
+        int? slot = null,
+        bool preferHotbar = true,
+        CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(new PlayerSelectItemRequest
+        {
+            Id = id,
+            Slot = slot,
+            PreferHotbar = preferHotbar,
+        }, ProtocolJson.Options);
+        var resp = await s.InvokeAsync("player.select_item", p, ct);
+        return JsonSerializer.Deserialize<PlayerSelectItemResult>(resp, ProtocolJson.Options)
+            ?? throw new SdvRpcException("player.select_item", Protocol.JsonRpcErrorCode.InternalError,
+                "empty player.select_item response");
+    }
 }

@@ -540,6 +540,8 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(root, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && BoolFilterMatches(root, "swimming", args.Swimming)
             && BoolFilterMatches(root, "bathing_clothes", args.BathingClothes)
+            && BoolFilterMatches(root, "can_move", args.CanMove)
+            && BoolFilterMatches(root, "is_busy", args.IsBusy)
             && ProgressionFiltersMatch(root, args)
             && BuffFiltersMatch(root, args)
             && TileFilterMatches(root, args.X, args.Y);
@@ -552,6 +554,8 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         if (args.Swimming is not null) filters.Add($"swimming={args.Swimming.Value.ToString().ToLowerInvariant()}");
         if (args.BathingClothes is not null) filters.Add($"bathing_clothes={args.BathingClothes.Value.ToString().ToLowerInvariant()}");
+        if (args.CanMove is not null) filters.Add($"can_move={args.CanMove.Value.ToString().ToLowerInvariant()}");
+        if (args.IsBusy is not null) filters.Add($"is_busy={args.IsBusy.Value.ToString().ToLowerInvariant()}");
         if (args.MailReceived is not null) filters.Add($"mail_received contains {args.MailReceived}");
         if (args.MailForTomorrow is not null) filters.Add($"mail_for_tomorrow contains {args.MailForTomorrow}");
         if (args.EventSeen is not null) filters.Add($"events_seen contains {args.EventSeen}");
@@ -600,9 +604,11 @@ public sealed class ScenarioRunner
 
         var swimming = ReadBoolText(root.Value, "swimming");
         var bathing = ReadBoolText(root.Value, "bathing_clothes");
+        var canMove = ReadBoolText(root.Value, "can_move");
+        var isBusy = ReadBoolText(root.Value, "is_busy");
         var buffSummary = FormatObservedBuffSummary(root.Value);
         var progression = FormatObservedProgressionSummary(root.Value);
-        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} {buffSummary} {progression}";
+        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} can_move={canMove} is_busy={isBusy} {buffSummary} {progression}";
     }
 
     private static bool ProgressionFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
@@ -1102,7 +1108,9 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(element, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && NumberFilterMatches(element, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte)
             && NumberFilterMatches(element, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte)
+            && NumberFilterMatches(element, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte)
             && StringFilterMatches(element, "runtime_type", args.RuntimeType)
+            && NumberFilterMatches(element, "minutes_until_ready", args.MinutesUntilReady, args.MinutesUntilReadyLt, args.MinutesUntilReadyLte, args.MinutesUntilReadyGt, args.MinutesUntilReadyGte)
             && NumberFilterMatches(element, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte)
             && NumberFilterMatches(element, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte)
             && NumberFilterMatches(element, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte)
@@ -1227,7 +1235,9 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         AddNumberFilters(filters, "max_health", args.MaxHealth, args.MaxHealthLt, args.MaxHealthLte, args.MaxHealthGt, args.MaxHealthGte);
         AddNumberFilters(filters, "damage", args.Damage, args.DamageLt, args.DamageLte, args.DamageGt, args.DamageGte);
+        AddNumberFilters(filters, "revive_timer", args.ReviveTimer, args.ReviveTimerLt, args.ReviveTimerLte, args.ReviveTimerGt, args.ReviveTimerGte);
         if (args.RuntimeType is not null) filters.Add($"runtime_type={args.RuntimeType}");
+        AddNumberFilters(filters, "minutes_until_ready", args.MinutesUntilReady, args.MinutesUntilReadyLt, args.MinutesUntilReadyLte, args.MinutesUntilReadyGt, args.MinutesUntilReadyGte);
         AddNumberFilters(filters, "stack", args.Stack, args.StackLt, args.StackLte, args.StackGt, args.StackGte);
         AddNumberFilters(filters, "quality", args.Quality, args.QualityLt, args.QualityLte, args.QualityGt, args.QualityGte);
         AddNumberFilters(filters, "category", args.Category, args.CategoryLt, args.CategoryLte, args.CategoryGt, args.CategoryGte);
@@ -1469,7 +1479,8 @@ public sealed class ScenarioRunner
             if (lastObserved.Active
                 && (string.IsNullOrWhiteSpace(args.Id) || string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
                 && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal))
-                && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value))
+                && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value)
+                && EventActorMatches(lastObserved, args))
             {
                 return;
             }
@@ -1477,7 +1488,7 @@ public sealed class ScenarioRunner
             await Task.Delay(args.PollMs, ct);
         }
 
-        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms; last observed {FormatEventState(lastObserved)}");
+        throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms waiting for event matching {FormatWaitEventFilters(args)}; last observed {FormatEventState(lastObserved)}");
     }
 
     private async Task InvokeWaitEventCompleteAsync(ScenarioStep step, CancellationToken ct)
@@ -1527,13 +1538,52 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException($"{step.Action} requires args.timeout_ms >= 1");
         if (args.PollMs < 1)
             throw new InvalidOperationException($"{step.Action} requires args.poll_ms >= 1");
+        if ((args.ActorX is null) != (args.ActorY is null))
+            throw new InvalidOperationException($"{step.Action} requires args.actor_x and args.actor_y together");
         return args;
+    }
+
+    private static bool EventActorMatches(EventState state, WaitEventStepArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(args.ActorName))
+            return true;
+
+        foreach (var actor in state.Actors)
+        {
+            if (!string.Equals(actor.Name, args.ActorName, StringComparison.Ordinal))
+                continue;
+            if (args.ActorX is null && args.ActorY is null)
+                return true;
+            if (actor.Tile.X == args.ActorX && actor.Tile.Y == args.ActorY)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static string FormatWaitEventFilters(WaitEventStepArgs args)
+    {
+        var filters = new List<string>();
+        if (!string.IsNullOrWhiteSpace(args.Id)) filters.Add($"id={args.Id}");
+        if (!string.IsNullOrWhiteSpace(args.Location)) filters.Add($"location={args.Location}");
+        if (args.IsFestival is not null) filters.Add($"is_festival={args.IsFestival.Value.ToString().ToLowerInvariant()}");
+        if (!string.IsNullOrWhiteSpace(args.ActorName)) filters.Add($"actor_name={args.ActorName}");
+        if (args.ActorX is not null && args.ActorY is not null) filters.Add($"actor_tile={args.ActorX},{args.ActorY}");
+        return filters.Count == 0 ? "any active event" : string.Join(", ", filters);
+    }
+
+    private static string FormatEventActors(IReadOnlyList<EventActorState> actors)
+    {
+        if (actors.Count == 0)
+            return "[]";
+
+        return "[" + string.Join(", ", actors.Select(a => $"{a.Name}@{a.Tile.X},{a.Tile.Y}")) + "]";
     }
 
     private static string FormatEventState(EventState? state)
         => state is null
             ? "nothing"
-            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}";
+            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}, actors={FormatEventActors(state.Actors)}";
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
     {
@@ -2336,12 +2386,15 @@ public sealed class ScenarioRunner
             "wait.event_complete" => $"Wait for event {GetStringArg(step.Args, "id") ?? "active"} to complete",
             "player.warp" => $"Warp to {GetStringArg(step.Args, "location") ?? "unknown"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.place_furniture" => $"Place {GetStringArg(step.Args, "id") ?? "furniture"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.place_inventory_object" => $"Place inventory object {GetStringArg(step.Args, "id") ?? "object"} at {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile" => $"Interact tile ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.interact_tile_action" => $"Run tile {GetStringArg(step.Args, "property") ?? "action"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "world.use_tool" => $"Use {GetStringArg(step.Args, "tool") ?? "tool"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "world.explode_tile" => $"Explode tile {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0}) radius {GetIntArg(step.Args, "radius") ?? 2}",
             "input.key" => $"Key {GetStringArg(step.Args, "key") ?? "unknown"}",
             "input.text" => $"Type \"{GetStringArg(step.Args, "text") ?? string.Empty}\"{(GetBoolArg(step.Args, "submit") == true ? " + submit" : string.Empty)}",
             "input.click" => $"Click {GetStringArg(step.Args, "button") ?? "left"} at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
+            "input.click_tile" => $"Click {GetStringArg(step.Args, "button") ?? "left"} tile {GetStringArg(step.Args, "location") ?? "current"} ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
             "input.click_text" => $"Click {GetStringArg(step.Args, "button") ?? "left"} text \"{GetUiTextLabel(step.Args)}\"",
             "input.click_menu_button" => $"Click {GetStringArg(step.Args, "button") ?? "left"} menu button \"{GetMenuButtonLabel(step.Args)}\"{GetRepeatSuffix(step.Args)}",
             "input.hover" => $"Hover at ({GetIntArg(step.Args, "x") ?? 0},{GetIntArg(step.Args, "y") ?? 0})",
@@ -2367,6 +2420,7 @@ public sealed class ScenarioRunner
             "fixture.save_reload" => $"Save and reload fixture \"{GetStringArg(step.Args, "name") ?? "current"}\"",
             "combat_lab.reset" => "Reset Combat Lab",
             "combat_lab.spawn_monster" => $"Spawn {GetStringArg(step.Args, "kind") ?? "monster"} in Combat Lab",
+            "combat_lab.relocate_monster" => $"Relocate monster from {GetStringArg(step.Args, "from_location") ?? "unknown"} to Combat Lab",
             "combat.attack" => DescribeCombatAttack(step.Args),
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
@@ -2655,6 +2709,8 @@ public sealed class ScenarioRunner
         public int? HealthGte { get; set; }
         public bool? Swimming { get; set; }
         public bool? BathingClothes { get; set; }
+        public bool? CanMove { get; set; }
+        public bool? IsBusy { get; set; }
         public string? MailReceived { get; set; }
         public string? MailForTomorrow { get; set; }
         public string? EventSeen { get; set; }
@@ -2754,7 +2810,17 @@ public sealed class ScenarioRunner
         public int? DamageLte { get; set; }
         public int? DamageGt { get; set; }
         public int? DamageGte { get; set; }
+        public int? ReviveTimer { get; set; }
+        public int? ReviveTimerLt { get; set; }
+        public int? ReviveTimerLte { get; set; }
+        public int? ReviveTimerGt { get; set; }
+        public int? ReviveTimerGte { get; set; }
         public string? RuntimeType { get; set; }
+        public int? MinutesUntilReady { get; set; }
+        public int? MinutesUntilReadyLt { get; set; }
+        public int? MinutesUntilReadyLte { get; set; }
+        public int? MinutesUntilReadyGt { get; set; }
+        public int? MinutesUntilReadyGte { get; set; }
         public int? Stack { get; set; }
         public int? StackLt { get; set; }
         public int? StackLte { get; set; }
@@ -2837,6 +2903,9 @@ public sealed class ScenarioRunner
         public string? Id { get; set; }
         public string? Location { get; set; }
         public bool? IsFestival { get; set; }
+        public string? ActorName { get; set; }
+        public int? ActorX { get; set; }
+        public int? ActorY { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
