@@ -420,8 +420,10 @@ click is intentionally part of the event surface:
 ```
 
 If the test needs to prove a map action such as a festival shop tile without
-depending on player distance or pathing, discover it with `state.tile_actions`
-and execute it with `world.interact_tile_action`.
+depending on player distance or pathing, discover it with `state.tile_actions`.
+Use `world.interact_tile_action` for ordinary map actions, or `shop.open` for a
+data-backed shop ID discovered from a `Shop ...` action when the event click
+path does not leave a menu open.
 
 In C# DSL tests, call:
 

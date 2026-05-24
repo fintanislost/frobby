@@ -83,8 +83,10 @@ festival maps, or festival shops. For active event or festival actors, wait with
 `wait.event_active.actor_name`, then use `world.interact_npc`; the RPC will
 prefer ordinary current-location NPCs and fall back to active event actors. For
 festival shops, use `state.tile_actions` to prove the shop action exists, then
-open it with `world.interact_tile_action` or a deliberate
-`input.click_tile.allow_event_input` click when player-like event input matters.
+open the same data-backed shop ID with `shop.open` when the event click path
+does not leave a menu open. Use `world.interact_tile_action` for ordinary map
+actions, or a deliberate `input.click_tile.allow_event_input` click when
+player-like event input matters.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

@@ -203,11 +203,15 @@ Status key:
   - Verified: headless SVE scenario 32 entered Spirit's Eve, waited for the active Wizard festival actor, interacted through `world.interact_npc`, and observed his dialogue.
   - Follow-up candidates: movie theater NPC setup, grange judging command progression, and festival shop UI/purchase flows.
 
-- [ ] Planning: Slice 25, festival shop UI and purchase flows.
+- [x] Done: Slice 25, festival shop UI and purchase flows.
   - SVE pressure: festival shops live inside active festival events, are opened by map tile actions, and can include Content Patcher shop edits for ordinary-gold and alternate-currency festival shops.
   - Frobby goal: let tests open a live festival `ShopMenu` through a player-like or map-action path, inspect the active shop, purchase an item, and assert inventory/money state without SVE-specific code.
   - Design spec: `docs/superpowers/specs/2026-05-24-sve-slice-25-festival-shop-flow-design.md`.
-  - Candidate proof: enter the Flower Dance, discover/open `Festival_FlowerDance_Pierre`, buy an SVE decorative flower item, and verify the resulting player state.
+  - Implementation plan: `docs/superpowers/plans/2026-05-24-sve-slice-25-festival-shop-flow.md`.
+  - Done: `input.click_tile.allow_event_input` opt-in for player-controlled event/festival maps, docs, and SVE scenario 33 against the Flower Dance festival shop.
+  - Verified: headless SVE scenario 33 entered the Flower Dance, proved the active festival map exposes `Shop Festival_FlowerDance_Pierre`, opened the same data-backed shop through `shop.open`, bought SVE decorative tulips, and verified money/inventory state. Adjacent festival scenarios 19 and 32 still pass.
+  - Caveat: direct `world.interact_tile_action` and `input.click_tile.allow_event_input` did not leave the event-owned Flower Dance shop menu open in live SDV; the stable neutral flow is map-action discovery plus `shop.open` for the discovered shop ID.
+  - Follow-up candidates: star-token Fair shop currency handling, menu-item click purchasing inside `ShopMenu`, movie theater NPC setup, and grange judging command progression.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
