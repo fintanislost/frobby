@@ -56,4 +56,22 @@ public class ControlledCursorTests
         Assert.Equal(144, CursorPatches.ResolveX(300));
         Assert.Equal(134, CursorPatches.ResolveY(400));
     }
+
+    [Fact]
+    public void OldCursorPatch_UsesControlledCoordinatesForGameplayPlacement()
+    {
+        ControlledCursor.Set(144, 134);
+
+        Assert.Equal(144, CursorPatches.ResolveOldX(300));
+        Assert.Equal(134, CursorPatches.ResolveOldY(400));
+    }
+
+    [Fact]
+    public void OldCursorPatch_UsesZeroWhenFrozenAndUncontrolled()
+    {
+        DeterminismController.EnterFreeze(seed: 1, monitor: null);
+
+        Assert.Equal(0, CursorPatches.ResolveOldX(300));
+        Assert.Equal(0, CursorPatches.ResolveOldY(400));
+    }
 }

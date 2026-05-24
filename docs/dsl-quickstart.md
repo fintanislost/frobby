@@ -363,11 +363,13 @@ selected-item gameplay click path:
 
 ```json
 { "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
+{ "action": "wait.player", "args": { "can_move": true, "is_busy": false } },
 { "action": "player.select_item", "args": { "id": "(O)287" } },
 {
   "action": "input.click_tile",
   "args": {
     "location": "Frobby_CombatLab",
+    "button": "right",
     "x": 9,
     "y": 9
   }

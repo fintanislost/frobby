@@ -37,11 +37,12 @@ public static class Input
         await s.InvokeAsync("input.click", p, ct);
     }
 
-    /// <summary>Click a gameplay tile through Stardew's native left-click path.</summary>
+    /// <summary>Click a gameplay tile through Stardew's native gameplay click path.</summary>
     public static async Task<InputClickTileResult> ClickTile(
         int x,
         int y,
         string? location = null,
+        string button = "left",
         bool requireCurrentLocation = true,
         int screenOffsetX = 32,
         int screenOffsetY = 32,
@@ -53,6 +54,7 @@ public static class Input
             Location = location,
             X = x,
             Y = y,
+            Button = button,
             RequireCurrentLocation = requireCurrentLocation,
             ScreenOffsetX = screenOffsetX,
             ScreenOffsetY = screenOffsetY,

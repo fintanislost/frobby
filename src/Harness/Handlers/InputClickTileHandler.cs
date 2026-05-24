@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Input;
 using SdvTestFramework.Harness.Determinism;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
@@ -24,7 +25,7 @@ public static class InputClickTileHandler
     internal static JsonElement Handle(JsonElement? paramsElement, IInputTileClickWorld world)
     {
         var req = RpcParams.Required<InputClickTileRequest>(paramsElement);
-        ValidateRequest(req);
+        var button = NormalizeButton(req);
         var tileX = req.X!.Value;
         var tileY = req.Y!.Value;
 
@@ -63,7 +64,9 @@ public static class InputClickTileHandler
         var worldY = tileY * TileSize + req.ScreenOffsetY;
         var screenX = worldX - world.ViewportX;
         var screenY = worldY - world.ViewportY;
-        var handled = world.ClickLeftTile(worldX, worldY, screenX, screenY);
+        var handled = button == "right"
+            ? world.ClickRightTile(worldX, worldY, screenX, screenY)
+            : world.ClickLeftTile(worldX, worldY, screenX, screenY);
 
         return ProtocolJson.ToElement(new InputClickTileResult
         {
@@ -80,7 +83,7 @@ public static class InputClickTileHandler
         });
     }
 
-    private static void ValidateRequest(InputClickTileRequest req)
+    private static string NormalizeButton(InputClickTileRequest req)
     {
         if (req.X is null)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.x required");
@@ -99,9 +102,11 @@ public static class InputClickTileHandler
         var button = string.IsNullOrWhiteSpace(req.Button)
             ? "left"
             : req.Button.Trim().ToLowerInvariant();
-        if (button != "left")
+        if (button is not ("left" or "right"))
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
-                "params.button must be left for input.click_tile");
+                "params.button must be left or right for input.click_tile");
+
+        return button;
     }
 }
 
@@ -120,6 +125,7 @@ internal interface IInputTileClickWorld
     int ViewportY { get; }
     ISelectableInventoryItem? SelectedItem { get; }
     bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY);
+    bool ClickRightTile(int worldX, int worldY, int screenX, int screenY);
 }
 
 internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
@@ -165,11 +171,24 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
 
     public bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY)
     {
+        PrimeCursor(worldX, worldY, screenX, screenY);
+        return Game1.pressUseToolButton();
+    }
+
+    public bool ClickRightTile(int worldX, int worldY, int screenX, int screenY)
+    {
+        PrimeCursor(worldX, worldY, screenX, screenY);
+        return Game1.pressActionButton(new KeyboardState(), new MouseState(), new GamePadState());
+    }
+
+    private static void PrimeCursor(int worldX, int worldY, int screenX, int screenY)
+    {
         ControlledCursor.Set(screenX, screenY);
         Game1.currentCursorTile = new Vector2(worldX / (float)TileSize, worldY / (float)TileSize);
         Game1.lastCursorTile = Game1.currentCursorTile;
         Game1.lastCursorMotionWasMouse = true;
-        return Game1.pressUseToolButton();
+        Game1.mouseCursorTransparency = 1f;
+        Game1.wasMouseVisibleThisFrame = true;
     }
 
     private static GameLocation CurrentLocation

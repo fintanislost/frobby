@@ -1980,10 +1980,12 @@ Response (no active menu — GameStateInvalid):
 
 ### input.click_tile
 
-Clicks a gameplay tile using Stardew's native left-click/use-tool path. Use this
+Clicks a gameplay tile using Stardew's native gameplay input paths. Use this
 when a scenario needs selected-item behavior, location click hooks, or Harmony
-patches that observe normal gameplay input. This does not move the user's OS
-cursor; Frobby drives the deterministic in-game cursor state.
+patches that observe normal gameplay input. `button: "left"` routes through
+the use-tool path; `button: "right"` routes through the action/object-placement
+path. This does not move the user's OS cursor; Frobby drives the deterministic
+in-game cursor state.
 
 Request:
 ```json
@@ -2022,8 +2024,10 @@ Response:
 }
 ```
 
-Slice 23 supports `button: "left"` only. Use `screen_offset_x` and
+Supported buttons are `"left"` and `"right"`. Use `screen_offset_x` and
 `screen_offset_y` when the click must target a non-center pixel within the tile.
+Selected-object placement often requires `button: "right"` and a player state
+where `state.player.can_move == true` and `state.player.is_busy == false`.
 
 **Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickTileHandlerTests.cs`.
@@ -2269,7 +2273,7 @@ Runner scenario convenience:
   accept `timeout_ms` so a stalled harness call fails the scenario instead of
   hanging the run. The default per-step RPC timeout is 10000 ms.
 - `{ "action": "wait.location", "args": { "location": "ExampleTownEast", "x": 10, "y": 20 } }` is also runner-only. It polls `state.player` until the farmer reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
-- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
+- `{ "action": "wait.player", "args": { "health_lt": 100, "location": "ExampleDeepCave", "timeout_ms": 10000, "poll_ms": 100 } }` is runner-only. It polls `state.player` until player-state filters match. Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`, `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`, `can_move`, `is_busy`, `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`, `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and `buff_any_effect_gte`; timeout details include the last observed health, location, tile, transient state, buff summary, and progression-list counts.
 - `{ "action": "wait.special_order", "args": { "collection": "active", "key": "ExampleOrder", "objective_type": "Donate", "drop_box": "ExampleDropBox" } }` is runner-only. It polls `state.special_orders` until order and optional objective filters match. Supported collections are `active`, `available`, and `completed`. Supported order filters include `key`, `name`, `requester`, `order_type`, `special_rule`, `state`, `is_timed`, and `ready_for_removal`; supported objective filters include `objective_type`, `objective_runtime_type`, `drop_box`, `drop_box_location`, `target_name`, `accepted_context_tag`, `current_count`, `current_count_gte`, `objective_max_count`, and `complete`. It accepts `min_count`, optional `max_count`, `timeout_ms`, and `poll_ms`; timeout details include last observed active/available/completed keys.
 - `{ "action": "wait.npc_location", "args": { "name": "Riley", "location": "ExampleVineyard", "x": 20, "y": 32 } }` is runner-only. It polls `state.npc` until the named NPC reaches the requested location and optional tile, then waits for `freeze.status` to report no active warp/fade transition. It accepts `timeout_ms` and `poll_ms` and reports the last observed location/tile on timeout.
 - `{ "action": "wait.location_content", "args": { "location": "ExampleForestEdge", "collection": "resource_clumps", "name": "Log", "min_count": 2 } }` is runner-only.
@@ -2313,6 +2317,7 @@ Request shape:
 
 Supported filters are `location`, paired `x`/`y`, `health`, `health_lt`,
 `health_lte`, `health_gt`, `health_gte`, `swimming`, `bathing_clothes`,
+`can_move`, `is_busy`,
 `mail_received`, `mail_for_tomorrow`, `event_seen`, `secret_note_seen`,
 `buff_id`, `buff_source`, `buff_effect`, `buff_effect_gte`, `buff_count_gte`, and
 `buff_any_effect_gte`; timeout details include the last observed health,

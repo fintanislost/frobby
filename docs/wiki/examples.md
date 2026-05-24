@@ -106,9 +106,11 @@ assert the actual world-state change.
 
 Use `world.place_inventory_object` when a scenario needs deterministic
 inventory-object placement. Use `player.select_item` plus `input.click_tile`
-when a scenario needs selected-item, gameplay-click behavior. Vanilla bombs
-should be observed through `state.visual_effects` fuse sprites plus the final
-world-state outcome, not through `state.location.objects`.
+when a scenario needs selected-item, gameplay-click behavior; wait for
+`can_move: true` and `is_busy: false` before issuing player-like clicks after
+combat or tool animations. Vanilla bomb placement uses the action/right-click
+path and should be observed through `state.visual_effects` fuse sprites plus
+the final world-state outcome, not through `state.location.objects`.
 
 ## Save, Reload, And Long-Running State
 

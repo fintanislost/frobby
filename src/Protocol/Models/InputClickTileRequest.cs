@@ -12,7 +12,7 @@ public sealed class InputClickTileRequest
     /// <summary>Tile Y coordinate.</summary>
     public int? Y { get; set; }
 
-    /// <summary>Mouse button to send. Slice 23 only supports <c>left</c>.</summary>
+    /// <summary>Mouse button to send. Supported values are <c>left</c> and <c>right</c>.</summary>
     public string Button { get; set; } = "left";
 
     /// <summary>Reject when <see cref="Location"/> is supplied and the current location differs.</summary>

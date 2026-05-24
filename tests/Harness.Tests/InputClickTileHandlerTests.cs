@@ -62,15 +62,28 @@ public class InputClickTileHandlerTests
     }
 
     [Fact]
-    public void Handle_RejectsRightClickForSlice23()
+    public void Handle_RightClickConvertsTileToWorldAndScreenCoordinates()
     {
-        var p = JsonDocument.Parse("{\"x\":9,\"y\":8,\"button\":\"right\"}").RootElement;
+        var world = new FakeTileClickWorld
+        {
+            CurrentLocationName = "Frobby_CombatLab",
+            ViewportX = 64,
+            ViewportY = 128,
+        };
+        var p = JsonDocument.Parse(
+            "{\"location\":\"Frobby_CombatLab\",\"x\":9,\"y\":8,\"button\":\"right\",\"screen_offset_x\":16,\"screen_offset_y\":48}")
+            .RootElement;
 
-        var ex = Assert.Throws<JsonRpcException>(() =>
-            InputClickTileHandler.Handle(p, new FakeTileClickWorld()));
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
 
-        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
-        Assert.Contains("button must be left", ex.Message);
+        Assert.Equal("right", world.ClickedButton);
+        Assert.Equal(592, world.ClickedWorldX);
+        Assert.Equal(560, world.ClickedWorldY);
+        Assert.Equal(528, world.ClickedScreenX);
+        Assert.Equal(432, world.ClickedScreenY);
+        Assert.True(world.ClickInvoked);
+        Assert.True(result.Handled);
     }
 
     [Fact]
@@ -206,18 +219,31 @@ public class InputClickTileHandlerTests
         public int? ClickedWorldY { get; private set; }
         public int? ClickedScreenX { get; private set; }
         public int? ClickedScreenY { get; private set; }
+        public string? ClickedButton { get; private set; }
 
         public ISelectableInventoryItem? SelectedItem { get; set; }
             = new SelectableInventoryItem(1, "(O)287", "287", "Bomb", 1, -95, 0, "Object");
 
         public bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY)
         {
+            RecordClick("left", worldX, worldY, screenX, screenY);
+            return true;
+        }
+
+        public bool ClickRightTile(int worldX, int worldY, int screenX, int screenY)
+        {
+            RecordClick("right", worldX, worldY, screenX, screenY);
+            return true;
+        }
+
+        private void RecordClick(string button, int worldX, int worldY, int screenX, int screenY)
+        {
             ClickInvoked = true;
+            ClickedButton = button;
             ClickedWorldX = worldX;
             ClickedWorldY = worldY;
             ClickedScreenX = screenX;
             ClickedScreenY = screenY;
-            return true;
         }
     }
 }

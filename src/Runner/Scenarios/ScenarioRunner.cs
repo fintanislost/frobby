@@ -540,6 +540,8 @@ public sealed class ScenarioRunner
             && NumberFilterMatches(root, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte)
             && BoolFilterMatches(root, "swimming", args.Swimming)
             && BoolFilterMatches(root, "bathing_clothes", args.BathingClothes)
+            && BoolFilterMatches(root, "can_move", args.CanMove)
+            && BoolFilterMatches(root, "is_busy", args.IsBusy)
             && ProgressionFiltersMatch(root, args)
             && BuffFiltersMatch(root, args)
             && TileFilterMatches(root, args.X, args.Y);
@@ -552,6 +554,8 @@ public sealed class ScenarioRunner
         AddNumberFilters(filters, "health", args.Health, args.HealthLt, args.HealthLte, args.HealthGt, args.HealthGte);
         if (args.Swimming is not null) filters.Add($"swimming={args.Swimming.Value.ToString().ToLowerInvariant()}");
         if (args.BathingClothes is not null) filters.Add($"bathing_clothes={args.BathingClothes.Value.ToString().ToLowerInvariant()}");
+        if (args.CanMove is not null) filters.Add($"can_move={args.CanMove.Value.ToString().ToLowerInvariant()}");
+        if (args.IsBusy is not null) filters.Add($"is_busy={args.IsBusy.Value.ToString().ToLowerInvariant()}");
         if (args.MailReceived is not null) filters.Add($"mail_received contains {args.MailReceived}");
         if (args.MailForTomorrow is not null) filters.Add($"mail_for_tomorrow contains {args.MailForTomorrow}");
         if (args.EventSeen is not null) filters.Add($"events_seen contains {args.EventSeen}");
@@ -600,9 +604,11 @@ public sealed class ScenarioRunner
 
         var swimming = ReadBoolText(root.Value, "swimming");
         var bathing = ReadBoolText(root.Value, "bathing_clothes");
+        var canMove = ReadBoolText(root.Value, "can_move");
+        var isBusy = ReadBoolText(root.Value, "is_busy");
         var buffSummary = FormatObservedBuffSummary(root.Value);
         var progression = FormatObservedProgressionSummary(root.Value);
-        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} {buffSummary} {progression}";
+        return $"health={health} location={location} tile={tile} swimming={swimming} bathing_clothes={bathing} can_move={canMove} is_busy={isBusy} {buffSummary} {progression}";
     }
 
     private static bool ProgressionFiltersMatch(JsonElement root, WaitPlayerStepArgs args)
@@ -2663,6 +2669,8 @@ public sealed class ScenarioRunner
         public int? HealthGte { get; set; }
         public bool? Swimming { get; set; }
         public bool? BathingClothes { get; set; }
+        public bool? CanMove { get; set; }
+        public bool? IsBusy { get; set; }
         public string? MailReceived { get; set; }
         public string? MailForTomorrow { get; set; }
         public string? EventSeen { get; set; }
