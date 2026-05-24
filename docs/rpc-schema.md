@@ -1012,6 +1012,46 @@ Response (unknown item id — GameStateInvalid):
 **Implemented in:** `src/Harness/Handlers/PlayerGiveItemHandler.cs`
 **Tested in:** `tests/Protocol.Tests/GiveItemRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerGiveItemHandlerTests.cs` (error-path unit tests).
 
+### player.select_item
+
+Selects an existing farmer inventory item by exact slot or item id. This does
+not create or consume items; it only sets the current selected inventory slot so
+later gameplay input can use Stardew's normal selected-item path.
+
+Request:
+```json
+{ "jsonrpc": "2.0", "id": 42, "method": "player.select_item", "params": { "id": "(O)287" } }
+```
+
+Alternative slot request:
+```json
+{ "jsonrpc": "2.0", "id": 43, "method": "player.select_item", "params": { "slot": 1, "prefer_hotbar": false } }
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "tick": 123,
+  "slot": 1,
+  "item": {
+    "slot": 1,
+    "id": "(O)287",
+    "item_id": "287",
+    "qualified_id": "(O)287",
+    "name": "Bomb",
+    "stack": 1,
+    "runtime_type": "Object"
+  }
+}
+```
+
+Validation: exactly one of `id` or `slot` is required. Selecting by id matches
+`qualified_id`, `item_id`, or `id`; by default it prefers hotbar slots `0..11`.
+
+**Implemented in:** `src/Harness/Handlers/PlayerSelectItemHandler.cs`
+**Tested in:** `tests/Harness.Tests/PlayerSelectItemHandlerTests.cs`.
+
 ### drop_box.deposit
 
 Deposits items from the player's inventory into an active special-order donation
@@ -1937,6 +1977,56 @@ Response (no active menu — GameStateInvalid):
 **Side effects:** calls `Game1.activeClickableMenu.receiveLeftClick(x, y)` for left clicks or `receiveRightClick(x, y)` for right clicks, so behavior is menu-specific.
 **Implemented in:** `src/Harness/Handlers/InputClickHandler.cs`
 **Tested in:** `tests/Harness.Tests/InputClickHandlerTests.cs` (validation and menu dispatch) + `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs` (DSL wrapper shape).
+
+### input.click_tile
+
+Clicks a gameplay tile using Stardew's native left-click/use-tool path. Use this
+when a scenario needs selected-item behavior, location click hooks, or Harmony
+patches that observe normal gameplay input. This does not move the user's OS
+cursor; Frobby drives the deterministic in-game cursor state.
+
+Request:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 44,
+  "method": "input.click_tile",
+  "params": {
+    "location": "Frobby_CombatLab",
+    "x": 9,
+    "y": 9,
+    "button": "left"
+  }
+}
+```
+
+Response:
+```json
+{
+  "ok": true,
+  "tick": 124,
+  "location": "Frobby_CombatLab",
+  "tile": { "x": 9, "y": 9 },
+  "screen": { "x": 576, "y": 576 },
+  "world": { "x": 608, "y": 608 },
+  "selected_item": {
+    "slot": 1,
+    "id": "(O)287",
+    "item_id": "287",
+    "qualified_id": "(O)287",
+    "name": "Bomb",
+    "stack": 1,
+    "runtime_type": "Object"
+  },
+  "handled": true
+}
+```
+
+Slice 23 supports `button: "left"` only. Use `screen_offset_x` and
+`screen_offset_y` when the click must target a non-center pixel within the tile.
+
+**Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
+**Tested in:** `tests/Harness.Tests/InputClickTileHandlerTests.cs`.
 
 ### input.hover
 

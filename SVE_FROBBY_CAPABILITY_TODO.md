@@ -186,6 +186,12 @@ Status key:
   - Verified: adjacent Combat Lab regression scenarios 27, 28, and 29 still pass headless after the placement slice.
   - Follow-up candidate: input-level hotbar/click placement after semantic inventory-object placement is stable.
 
+- [ ] Active: Slice 23, input-level hotbar selection and gameplay tile click.
+  - SVE pressure: semantic inventory-object placement proves object behavior, but mod UI testing also needs player-real selected-item click paths that do not bypass active object selection or gameplay click hooks.
+  - Frobby goal: add neutral `player.select_item` and `input.click_tile` RPCs, route left-click through Stardew's gameplay use path, and prove click-based bomb placement against the existing Combat Lab corrupt-mummy cleanup scenario.
+  - Design spec: `docs/superpowers/specs/2026-05-23-sve-slice-23-input-tile-click-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-23-sve-slice-23-input-tile-click.md`.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface

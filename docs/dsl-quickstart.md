@@ -325,8 +325,11 @@ Placed object interactions can be staged without touching the player's inventory
 }
 ```
 
-Use `world.place_inventory_object` when the test needs player-like placement
-from inventory rather than direct setup:
+Use `world.place_inventory_object` when the test needs deterministic inventory
+object placement from inventory without depending on cursor state. Some objects
+remain observable in `state.location.objects`; vanilla bombs in Stardew 1.6 do
+not. For vanilla bombs, wait on the fuse temporary sprite through
+`wait.visual_effects`, then assert the gameplay outcome.
 
 ```json
 { "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
@@ -340,14 +343,46 @@ from inventory rather than direct setup:
   }
 },
 {
-  "action": "wait.location_content",
+  "action": "wait.visual_effects",
   "args": {
     "location": "Frobby_CombatLab",
-    "collection": "objects",
-    "qualified_id": "(O)287",
-    "minutes_until_ready_gt": 0,
-    "min_count": 1,
-    "timeout_ms": 5000,
+    "temporary_sprites": {
+      "texture_asset": "LooseSprites/Cursors",
+      "source_rect": [598, 1279, 3, 4],
+      "runtime_type": "TemporaryAnimatedSprite",
+      "min_count": 1
+    },
+    "timeout_ms": 15000,
+    "poll_ms": 100
+  }
+}
+```
+
+Use `player.select_item` plus `input.click_tile` when the test needs the
+selected-item gameplay click path:
+
+```json
+{ "action": "player.give_item", "args": { "id": "(O)287", "count": 1 } },
+{ "action": "player.select_item", "args": { "id": "(O)287" } },
+{
+  "action": "input.click_tile",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "x": 9,
+    "y": 9
+  }
+},
+{
+  "action": "wait.visual_effects",
+  "args": {
+    "location": "Frobby_CombatLab",
+    "temporary_sprites": {
+      "texture_asset": "LooseSprites/Cursors",
+      "source_rect": [598, 1279, 3, 4],
+      "runtime_type": "TemporaryAnimatedSprite",
+      "min_count": 1
+    },
+    "timeout_ms": 15000,
     "poll_ms": 100
   }
 }
@@ -359,6 +394,15 @@ In C# DSL tests, call:
 await Player.GiveItem("(O)287");
 var placed = await World.PlaceInventoryObject("(O)287", 9, 8, location: "Frobby_CombatLab");
 Assert.True(placed.Placed);
+```
+
+For the selected-item click path, call:
+
+```csharp
+await Player.GiveItem("(O)287");
+await Player.SelectItem(id: "(O)287");
+var click = await Input.ClickTile(9, 9, location: "Frobby_CombatLab");
+Assert.True(click.Handled);
 ```
 
 Transient debris and combat drops are exposed through the same wait:
