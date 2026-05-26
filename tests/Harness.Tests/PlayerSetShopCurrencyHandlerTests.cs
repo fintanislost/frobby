@@ -85,11 +85,31 @@ public class PlayerSetShopCurrencyHandlerTests
         Assert.Equal(10000, world.FestivalScore);
     }
 
+    [Fact]
+    public void Handle_ReturnsAppliedStarTokenBalance()
+    {
+        var p = JsonDocument.Parse("{\"currency\":1,\"amount\":10000}").RootElement;
+        var world = new FakeWorld { FestivalScore = 75, MaxFestivalScore = 9999 };
+
+        var result = PlayerSetShopCurrencyHandler.Handle(p, world);
+        var set = JsonSerializer.Deserialize<SetShopCurrencyResult>(result, ProtocolJson.Options)!;
+
+        Assert.Equal(9999, set.Amount);
+        Assert.Equal(9999, world.FestivalScore);
+    }
+
     private sealed class FakeWorld : IPlayerSetShopCurrencyWorld
     {
+        private int _festivalScore;
+
         public bool IsWorldReady { get; init; } = true;
         public int Tick => 1234;
         public int Money { get; set; } = 30000;
-        public int FestivalScore { get; set; }
+        public int? MaxFestivalScore { get; init; }
+        public int FestivalScore
+        {
+            get => _festivalScore;
+            set => _festivalScore = MaxFestivalScore is { } max && value > max ? max : value;
+        }
     }
 }

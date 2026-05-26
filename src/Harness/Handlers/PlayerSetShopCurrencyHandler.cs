@@ -30,6 +30,7 @@ public static class PlayerSetShopCurrencyHandler
         ShopCurrency.RequireSupported(req.Currency, Method);
         var previous = ShopCurrency.GetBalance(req.Currency, world);
         ShopCurrency.SetBalance(req.Currency, world, req.Amount);
+        var current = ShopCurrency.GetBalance(req.Currency, world);
 
         return ProtocolJson.ToElement(new SetShopCurrencyResult
         {
@@ -37,7 +38,7 @@ public static class PlayerSetShopCurrencyHandler
             Currency = req.Currency,
             CurrencyName = ShopCurrency.Name(req.Currency),
             Previous = previous,
-            Amount = req.Amount,
+            Amount = current,
         });
     }
 }

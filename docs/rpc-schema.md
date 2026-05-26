@@ -1186,7 +1186,8 @@ Response (unsupported currency — GameStateInvalid):
 ```
 
 `previous` and `amount` refer to the selected currency balance, not always
-`Game1.player.Money`.
+`Game1.player.Money`. `amount` is the actual applied balance read back after the
+assignment, so Stardew-side clamping is reflected in the response.
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
 **Side effects:** overwrites the selected player shop-currency balance.
