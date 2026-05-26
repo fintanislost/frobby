@@ -207,7 +207,7 @@ public class StateTests
         SdvTestSession.ResetForTests();
         var inv = new StubInvoker
         {
-            NextJson = "{\"present\":true,\"menu_type\":\"ShopMenu\",\"shop_id\":\"ExampleMod.CustomVendor\",\"currency\":0,\"items\":[{\"item_id\":\"ExampleMod.CustomDrink\",\"qualified_id\":\"(O)ExampleMod.CustomDrink\",\"display_name\":\"Custom Drink\",\"price\":4000,\"stock\":5,\"category\":0,\"quality\":0,\"runtime_type\":\"Object\"}]}",
+            NextJson = "{\"present\":true,\"menu_type\":\"ShopMenu\",\"shop_id\":\"ExampleMod.CustomVendor\",\"currency\":1,\"currency_name\":\"star_tokens\",\"currency_balance\":10000,\"items\":[{\"item_id\":\"ExampleMod.CustomDrink\",\"qualified_id\":\"(O)ExampleMod.CustomDrink\",\"display_name\":\"Custom Drink\",\"price\":4000,\"stock\":5,\"category\":0,\"quality\":0,\"runtime_type\":\"Object\"}]}",
         };
         SdvTestSession.InitializeForTests(inv);
         try
@@ -218,6 +218,9 @@ public class StateTests
             Assert.Null(inv.LastParams);
             Assert.True(shop.Present);
             Assert.Equal("ExampleMod.CustomVendor", shop.ShopId);
+            Assert.Equal(1, shop.Currency);
+            Assert.Equal("star_tokens", shop.CurrencyName);
+            Assert.Equal(10000, shop.CurrencyBalance);
             Assert.Equal("ExampleMod.CustomDrink", Assert.Single(shop.Items).ItemId);
         }
         finally { SdvTestSession.ResetForTests(); }

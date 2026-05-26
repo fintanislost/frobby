@@ -25,6 +25,16 @@ public static class Player
         await s.InvokeAsync("player.set_money", p, ct);
     }
 
+    /// <summary>Set the player's balance for a shop currency such as gold or festival star tokens.</summary>
+    public static async Task SetShopCurrency(int currency, int amount, CancellationToken ct = default)
+    {
+        var s = SdvTestSession.Current ?? throw DslPreconditions.NoSession();
+        var p = JsonSerializer.SerializeToElement(
+            new SetShopCurrencyRequest { Currency = currency, Amount = amount },
+            ProtocolJson.Options);
+        await s.InvokeAsync("player.set_shop_currency", p, ct);
+    }
+
     /// <summary>Add received mail flag <paramref name="id"/> to the master farmer.</summary>
     public static async Task AddMail(string id, CancellationToken ct = default)
     {

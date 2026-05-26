@@ -747,6 +747,8 @@ Response (shop active):
       "menu_type": "ShopMenu",
       "shop_id": "Carpenter",
       "currency": 0,
+      "currency_name": "gold",
+      "currency_balance": 30000,
       "items": [
         {
           "item_id": "example_terminal",
@@ -764,14 +766,18 @@ Response (shop active):
 
 Response (no active shop):
 ```json
-← { "jsonrpc": "2.0", "id": 8, "result": { "present": false, "menu_type": "", "shop_id": "", "currency": 0, "items": [] } }
+← { "jsonrpc": "2.0", "id": 8, "result": { "present": false, "menu_type": "", "shop_id": "", "currency": 0, "currency_name": "", "currency_balance": null, "items": [] } }
 ```
 
-`currency` follows Stardew's shop currency codes; `0` is gold. `item_id` is the
-raw item id and `qualified_id` is the Stardew 1.6 qualified id. Item metadata is
-best-effort because custom salables may expose only part of the item contract.
-Scenarios can assert either raw or qualified ids; qualified ids are the most
-precise check for custom item rewards and shop inventory.
+`currency` follows Stardew's shop currency codes; `0` is gold and `1` is the
+Stardew Fair star-token balance. `currency_name` is a stable harness label when
+the code is known, and `currency_balance` is the player's current balance for
+that active shop currency. It is `null` when no shop is active or the currency is
+not supported by the harness yet. `item_id` is the raw item id and `qualified_id`
+is the Stardew 1.6 qualified id. Item metadata is best-effort because custom
+salables may expose only part of the item contract. Scenarios can assert either
+raw or qualified ids; qualified ids are the most precise check for custom item
+rewards and shop inventory.
 
 **Preconditions:** none beyond the harness running. Safe outside a shop; returns `present:false`.
 **Side effects:** none.
@@ -1149,6 +1155,43 @@ Response (`amount < 0` — InvalidParams):
 **Side effects:** overwrites `Game1.player.Money` with `req.Amount`.
 **Implemented in:** `src/Harness/Handlers/PlayerSetMoneyHandler.cs`
 **Tested in:** `tests/Protocol.Tests/SetMoneyRequestSerializationTests.cs` (DTO shape) + `tests/Harness.Tests/PlayerSetMoneyHandlerTests.cs` (error-path unit tests).
+
+### player.set_shop_currency
+
+Sets the local farmer's balance for a supported shop currency to an absolute
+value. This is useful for deterministic festival or special-currency shop tests
+where the scenario needs to prove the active currency, not just gold.
+Provide both `params.currency` and `params.amount`; omitted integer fields use
+the protocol model default of `0`. Supported currency codes are `0` for gold and
+`1` for Stardew Fair star tokens.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 10, "method": "player.set_shop_currency", "params": { "currency": 1, "amount": 10000 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 10, "result": { "ok": true, "tick": 84200, "currency": 1, "currency_name": "star_tokens", "previous": 0, "amount": 10000 } }
+```
+
+Response (`amount < 0` — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 10, "error": { "code": -32602, "message": "params.amount must be >= 0" } }
+```
+
+Response (unsupported currency — GameStateInvalid):
+```json
+← { "jsonrpc": "2.0", "id": 10, "error": { "code": -32003, "message": "player.set_shop_currency does not support shop currency 99" } }
+```
+
+`previous` and `amount` refer to the selected currency balance, not always
+`Game1.player.Money`.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** overwrites the selected player shop-currency balance.
+**Implemented in:** `src/Harness/Handlers/PlayerSetShopCurrencyHandler.cs`
+**Tested in:** `tests/Protocol.Tests/SetMoneyRequestSerializationTests.cs`, `tests/Harness.Tests/PlayerSetShopCurrencyHandlerTests.cs`, and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
 ### player.set_transient_state
 
@@ -2397,9 +2440,10 @@ test specifically needs Stardew's normal shop-availability behavior.
 
 ### shop.purchase
 
-Purchases an item from the active `ShopMenu` by qualified or raw item ID. The handler searches
-the full shop inventory, not just the currently visible page, checks the player's gold,
-creates the salable instance, debits the total price, and adds the item to inventory.
+Purchases an item from the active `ShopMenu` by qualified or raw item ID. The
+handler searches the full shop inventory, not just the currently visible page,
+checks the player's active shop-currency balance, creates the salable instance,
+debits the total price from that active currency, and adds the item to inventory.
 
 Request:
 ```json
@@ -2408,15 +2452,18 @@ Request:
 
 Response:
 ```json
-← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)example_terminal", "display_name": "Example Terminal", "count": 1, "unit_price": 25000, "previous_money": 30000, "money": 5000 } }
+← { "jsonrpc": "2.0", "id": 19, "result": { "ok": true, "tick": 84205, "shop_id": "Carpenter", "item_id": "(F)example_terminal", "display_name": "Example Terminal", "count": 1, "unit_price": 25000, "currency": 0, "previous_currency_balance": 30000, "currency_balance": 5000, "previous_money": 30000, "money": 5000 } }
 ```
 
 Use the exact `qualified_id` from `state.shop.items` for the strictest match. Raw
 `item_id` matching is also supported for mods whose scenario data naturally refers
-to item ids without Stardew's qualifier prefix.
+to item ids without Stardew's qualifier prefix. `currency`, `previous_currency_balance`,
+and `currency_balance` describe the active shop currency. `previous_money` and
+`money` remain in the response for compatibility and may be unchanged when the
+active shop uses a non-gold currency such as Stardew Fair star tokens.
 
 **Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
-**Side effects:** debits player gold and adds the purchased item to inventory.
+**Side effects:** debits the active shop currency and adds the purchased item to inventory.
 **Implemented in:** `src/Harness/Handlers/ShopPurchaseHandler.cs`
 **Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopPurchaseHandlerTests.cs`.
 

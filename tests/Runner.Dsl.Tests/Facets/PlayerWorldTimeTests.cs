@@ -52,6 +52,20 @@ public class PlayerWorldTimeTests
     }
 
     [Fact]
+    public async Task SetShopCurrency_InvokesPlayerSetShopCurrencyWithCurrencyAndAmount()
+    {
+        SdvTestSession.ResetForTests();
+        var inv = new CapturingInvoker();
+        SdvTestSession.InitializeForTests(inv);
+        try { await Player.SetShopCurrency(currency: 1, amount: 10000); }
+        finally { SdvTestSession.ResetForTests(); }
+
+        Assert.Equal("player.set_shop_currency", inv.Calls[0].Method);
+        Assert.Contains("\"currency\":1", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"amount\":10000", inv.Calls[0].ParamsJson);
+    }
+
+    [Fact]
     public async Task AddMail_InvokesPlayerAddMailWithId()
     {
         SdvTestSession.ResetForTests();  // Clear any prior state
