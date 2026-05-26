@@ -1,6 +1,10 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
+using SdvTestFramework.Harness.Determinism;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Json;
@@ -51,6 +55,13 @@ public static class ShopClickPurchaseHandler
         var previousCurrencyBalance = ShopCurrency.GetBalance(shop.Currency, world);
         var previousMoney = world.Money;
         shop.Click(target, world);
+        var currencyBalance = ShopCurrency.GetBalance(shop.Currency, world);
+        if (item.UnitPrice > 0 && currencyBalance >= previousCurrencyBalance)
+        {
+            throw new JsonRpcException(
+                JsonRpcErrorCode.GameStateInvalid,
+                "shop.click_purchase click did not change currency balance; the menu may not have accepted the click");
+        }
 
         return ProtocolJson.ToElement(new ShopClickPurchaseResult
         {
@@ -62,7 +73,7 @@ public static class ShopClickPurchaseHandler
             UnitPrice = item.UnitPrice,
             Currency = shop.Currency,
             PreviousCurrencyBalance = previousCurrencyBalance,
-            CurrencyBalance = ShopCurrency.GetBalance(shop.Currency, world),
+            CurrencyBalance = currencyBalance,
             PreviousMoney = previousMoney,
             Money = world.Money,
             Screen = target.Screen,
@@ -118,7 +129,153 @@ internal sealed class SdvShopClickPurchaseWorld : IShopClickPurchaseWorld
     public int Tick => Game1.ticks;
     public int Money { get => _balances.Money; set => _balances.Money = value; }
     public int FestivalScore { get => _balances.FestivalScore; set => _balances.FestivalScore = value; }
-    public IShopClickMenuState? ActiveShop => Game1.activeClickableMenu is ShopMenu
-        ? null
+    public IShopClickMenuState? ActiveShop => Game1.activeClickableMenu is ShopMenu shop
+        ? new SdvShopClickMenuState(shop)
         : null;
+}
+
+internal sealed class SdvShopClickMenuState : IShopClickMenuState
+{
+    private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+    private readonly ShopMenu _shop;
+
+    public SdvShopClickMenuState(ShopMenu shop)
+    {
+        _shop = shop;
+    }
+
+    public string MenuType => _shop.GetType().Name;
+    public string ShopId => _shop.ShopId ?? string.Empty;
+    public int Currency => _shop.currency;
+    public IReadOnlyList<IShopItem> Items => new SdvShopMenuState(_shop).Items;
+
+    public ShopClickTarget? RevealItem(IShopItem item, int scrollAttempts)
+    {
+        var itemIndex = FindItemIndex(item);
+        if (itemIndex < 0)
+            return null;
+
+        var buttons = ReadForSaleButtons();
+        if (buttons.Count == 0)
+            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                "shop.click_purchase could not read visible shop row buttons");
+
+        var currentIndex = ReadCurrentItemIndex();
+        var visibleIndex = itemIndex - currentIndex;
+        var scrolled = false;
+        if (visibleIndex < 0 || visibleIndex >= buttons.Count)
+        {
+            if (scrollAttempts == 0)
+                return null;
+
+            var maxStart = Math.Max(0, _shop.forSale.Count - buttons.Count);
+            var nextIndex = Math.Clamp(itemIndex, 0, maxStart);
+            WriteCurrentItemIndex(nextIndex);
+            currentIndex = nextIndex;
+            visibleIndex = itemIndex - currentIndex;
+            scrolled = true;
+        }
+
+        if (visibleIndex < 0 || visibleIndex >= buttons.Count)
+            return null;
+        if (buttons[visibleIndex] is not ClickableComponent button)
+            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                "shop.click_purchase could not read visible shop row bounds");
+
+        var bounds = button.bounds;
+        return new ShopClickTarget
+        {
+            Screen = new PixelPoint
+            {
+                X = bounds.X + bounds.Width / 2,
+                Y = bounds.Y + bounds.Height / 2,
+            },
+            Bounds = new MenuBounds
+            {
+                X = bounds.X,
+                Y = bounds.Y,
+                Width = bounds.Width,
+                Height = bounds.Height,
+            },
+            VisibleIndex = visibleIndex,
+            ItemIndex = itemIndex,
+            Scrolled = scrolled,
+        };
+    }
+
+    public void Click(ShopClickTarget target, IShopCurrencyBalances balances)
+    {
+        ControlledCursor.Set(target.Screen.X, target.Screen.Y);
+        _shop.performHoverAction(target.Screen.X, target.Screen.Y);
+        _shop.receiveLeftClick(target.Screen.X, target.Screen.Y);
+    }
+
+    private int FindItemIndex(IShopItem target)
+    {
+        if (target is SdvShopItem sdvItem && ReferenceEquals(sdvItem.Shop, _shop))
+            return _shop.forSale.IndexOf(sdvItem.Salable);
+
+        for (var i = 0; i < _shop.forSale.Count; i++)
+        {
+            var item = new SdvShopItem(
+                _shop,
+                _shop.forSale[i],
+                ReadUnitPrice(_shop.forSale[i]),
+                stock: null);
+            if (ShopStateProjector.MatchesRequestedItem(item, target.QualifiedId))
+                return i;
+        }
+
+        return -1;
+    }
+
+    private int ReadUnitPrice(ISalable salable)
+    {
+        if (_shop.itemPriceAndStock.TryGetValue(salable, out var stockInfo) && stockInfo is not null)
+            return stockInfo.Price;
+        return salable.salePrice();
+    }
+
+    private IList ReadForSaleButtons()
+    {
+        var field = FindField(_shop.GetType(), "forSaleButtons")
+            ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                "shop.click_purchase could not find ShopMenu.forSaleButtons");
+        if (field.GetValue(_shop) is IList buttons)
+            return buttons;
+        throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+            "shop.click_purchase could not read ShopMenu.forSaleButtons");
+    }
+
+    private int ReadCurrentItemIndex()
+    {
+        var field = CurrentItemIndexField();
+        if (field.GetValue(_shop) is int value)
+            return value;
+        throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+            "shop.click_purchase could not read ShopMenu.currentItemIndex");
+    }
+
+    private void WriteCurrentItemIndex(int value)
+    {
+        CurrentItemIndexField().SetValue(_shop, value);
+    }
+
+    private FieldInfo CurrentItemIndexField()
+        => FindField(_shop.GetType(), "currentItemIndex")
+            ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                "shop.click_purchase could not find ShopMenu.currentItemIndex");
+
+    private static FieldInfo? FindField(Type type, string name)
+    {
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            var field = current.GetField(name, InstanceFlags);
+            if (field is not null)
+                return field;
+        }
+
+        return null;
+    }
 }

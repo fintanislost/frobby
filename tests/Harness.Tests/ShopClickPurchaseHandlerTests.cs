@@ -97,6 +97,20 @@ public class ShopClickPurchaseHandlerTests
     }
 
     [Fact]
+    public void Handle_PaidClickWithoutCurrencyDelta_ThrowsGameStateInvalid()
+    {
+        var p = JsonDocument.Parse("{\"item_id\":\"(F)terminal\"}").RootElement;
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ShopClickPurchaseHandler.Handle(p, new FakeWorld
+            {
+                Shop = new FakeShop { DebitOnClick = false },
+            }));
+
+        Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
+        Assert.Contains("did not change currency balance", ex.Message);
+    }
+
+    [Fact]
     public void Handle_ClicksMatchingItemAndReturnsCurrencyAndBounds()
     {
         var world = new FakeWorld();
@@ -171,6 +185,7 @@ public class ShopClickPurchaseHandlerTests
         public string? RevealedItemId { get; private set; }
         public int? RevealScrollAttempts { get; private set; }
         public (int X, int Y)? LastClick { get; private set; }
+        public bool DebitOnClick { get; init; } = true;
         public IReadOnlyList<IShopItem> Items { get; } = new[]
         {
             new ShopItem("starter", "(O)starter", "Starter", 1, null, -16, 0, "Object"),
@@ -198,6 +213,9 @@ public class ShopClickPurchaseHandlerTests
         public void Click(ShopClickTarget target, IShopCurrencyBalances balances)
         {
             LastClick = (target.Screen.X, target.Screen.Y);
+            if (!DebitOnClick)
+                return;
+
             var current = ShopCurrency.GetBalance(_currency, balances);
             ShopCurrency.SetBalance(_currency, balances, current - 25000);
         }
