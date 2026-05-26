@@ -39,6 +39,8 @@ public static class ShopPurchaseHandler
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 $"shop.purchase item not found: {req.ItemId}");
 
+        ShopCurrency.RequireSupported(shop.Currency, Method);
+        var previousCurrencyBalance = ShopCurrency.GetBalance(shop.Currency, world);
         var previousMoney = world.Money;
         if (!world.Purchase(item, req.Count))
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
@@ -52,26 +54,47 @@ public static class ShopPurchaseHandler
             DisplayName = item.DisplayName,
             Count = req.Count,
             UnitPrice = item.UnitPrice,
+            Currency = shop.Currency,
+            PreviousCurrencyBalance = previousCurrencyBalance,
+            CurrencyBalance = ShopCurrency.GetBalance(shop.Currency, world),
             PreviousMoney = previousMoney,
             Money = world.Money,
         });
     }
+
+    internal static int CheckedTotalPrice(int unitPrice, int count)
+    {
+        try
+        {
+            return checked(unitPrice * count);
+        }
+        catch (System.OverflowException ex)
+        {
+            throw new JsonRpcException(
+                JsonRpcErrorCode.InvalidParams,
+                "params.count is too large for shop.purchase total price",
+                ex);
+        }
+    }
 }
 
 internal interface IShopPurchaseWorld
+    : IShopCurrencyBalances
 {
     bool IsWorldReady { get; }
     int Tick { get; }
-    int Money { get; }
     IShopMenuState? ActiveShop { get; }
     bool Purchase(IShopItem item, int count);
 }
 
 internal sealed class SdvShopPurchaseWorld : IShopPurchaseWorld
 {
+    private readonly SdvShopCurrencyBalances _balances = new();
+
     public bool IsWorldReady => Game1.gameMode == Game1.playingGameMode && Game1.hasLoadedGame;
     public int Tick => Game1.ticks;
-    public int Money => Game1.player.Money;
+    public int Money { get => _balances.Money; set => _balances.Money = value; }
+    public int FestivalScore { get => _balances.FestivalScore; set => _balances.FestivalScore = value; }
     public IShopMenuState? ActiveShop => Game1.activeClickableMenu is ShopMenu shop
         ? new SdvShopMenuState(shop)
         : null;
@@ -82,15 +105,17 @@ internal sealed class SdvShopPurchaseWorld : IShopPurchaseWorld
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 "shop.purchase can only buy items from the active SDV shop");
 
-        var totalPrice = sdvItem.UnitPrice * count;
-        if (Game1.player.Money < totalPrice)
+        var totalPrice = ShopPurchaseHandler.CheckedTotalPrice(sdvItem.UnitPrice, count);
+        ShopCurrency.RequireSupported(sdvItem.Shop.currency, ShopPurchaseHandler.Method);
+        var balance = ShopCurrency.GetBalance(sdvItem.Shop.currency, this);
+        if (balance < totalPrice)
             return false;
 
         if (sdvItem.Salable.GetSalableInstance() is not Item purchased)
             return false;
 
         purchased.Stack = count;
-        Game1.player.Money -= totalPrice;
+        ShopCurrency.SetBalance(sdvItem.Shop.currency, this, balance - totalPrice);
         Game1.player.addItemByMenuIfNecessary(purchased);
         sdvItem.Salable.actionWhenPurchased(sdvItem.Shop.ShopId);
         return true;
