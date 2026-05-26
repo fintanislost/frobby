@@ -9,6 +9,8 @@ public sealed class ShopState
     public string MenuType { get; set; } = string.Empty;
     public string ShopId { get; set; } = string.Empty;
     public int Currency { get; set; }
+    public string CurrencyName { get; set; } = string.Empty;
+    public int? CurrencyBalance { get; set; }
     public List<ShopItemSummary> Items { get; set; } = new();
 }
 

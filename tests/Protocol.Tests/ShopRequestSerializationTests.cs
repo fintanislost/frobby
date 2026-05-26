@@ -52,22 +52,28 @@ public class ShopRequestSerializationTests
         var result = new ShopPurchaseResult
         {
             Tick = 44,
-            ShopId = "Carpenter",
-            ItemId = "(F)example_terminal",
-            DisplayName = "Example Terminal",
+            ShopId = "Festival_StardewValleyFair_StarTokens",
+            ItemId = "(F)FlashShifter.StardewValleyExpandedCP_Furniture_Catalogue_2",
+            DisplayName = "Furniture Catalogue 2",
             Count = 1,
-            UnitPrice = 25000,
-            PreviousMoney = 30000,
+            UnitPrice = 9999,
+            Currency = 1,
+            PreviousCurrencyBalance = 10000,
+            CurrencyBalance = 1,
+            PreviousMoney = 5000,
             Money = 5000,
         };
 
         var json = JsonSerializer.Serialize(result, ProtocolJson.Options);
 
         Assert.Contains("\"ok\":true", json);
-        Assert.Contains("\"shop_id\":\"Carpenter\"", json);
-        Assert.Contains("\"item_id\":\"(F)example_terminal\"", json);
-        Assert.Contains("\"unit_price\":25000", json);
-        Assert.Contains("\"previous_money\":30000", json);
+        Assert.Contains("\"shop_id\":\"Festival_StardewValleyFair_StarTokens\"", json);
+        Assert.Contains("\"item_id\":\"(F)FlashShifter.StardewValleyExpandedCP_Furniture_Catalogue_2\"", json);
+        Assert.Contains("\"unit_price\":9999", json);
+        Assert.Contains("\"currency\":1", json);
+        Assert.Contains("\"previous_currency_balance\":10000", json);
+        Assert.Contains("\"currency_balance\":1", json);
+        Assert.Contains("\"previous_money\":5000", json);
         Assert.Contains("\"money\":5000", json);
     }
 
@@ -79,7 +85,9 @@ public class ShopRequestSerializationTests
             Present = true,
             MenuType = "ShopMenu",
             ShopId = "ExampleMod.CustomVendor",
-            Currency = 0,
+            Currency = 1,
+            CurrencyName = "star_tokens",
+            CurrencyBalance = 10000,
             Items =
             {
                 new ShopItemSummary
@@ -101,7 +109,9 @@ public class ShopRequestSerializationTests
         Assert.Contains("\"present\":true", json);
         Assert.Contains("\"menu_type\":\"ShopMenu\"", json);
         Assert.Contains("\"shop_id\":\"ExampleMod.CustomVendor\"", json);
-        Assert.Contains("\"currency\":0", json);
+        Assert.Contains("\"currency\":1", json);
+        Assert.Contains("\"currency_name\":\"star_tokens\"", json);
+        Assert.Contains("\"currency_balance\":10000", json);
         Assert.Contains("\"item_id\":\"ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"display_name\":\"Custom Drink\"", json);

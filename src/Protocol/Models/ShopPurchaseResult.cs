@@ -8,6 +8,9 @@ public sealed class ShopPurchaseResult : MutatorOk
     public string DisplayName { get; set; } = string.Empty;
     public int Count { get; set; }
     public int UnitPrice { get; set; }
+    public int Currency { get; set; }
+    public int PreviousCurrencyBalance { get; set; }
+    public int CurrencyBalance { get; set; }
     public int PreviousMoney { get; set; }
     public int Money { get; set; }
 }
