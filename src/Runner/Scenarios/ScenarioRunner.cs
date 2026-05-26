@@ -2422,6 +2422,7 @@ public sealed class ScenarioRunner
             "combat_lab.spawn_monster" => $"Spawn {GetStringArg(step.Args, "kind") ?? "monster"} in Combat Lab",
             "combat_lab.relocate_monster" => $"Relocate monster from {GetStringArg(step.Args, "from_location") ?? "unknown"} to Combat Lab",
             "combat.attack" => DescribeCombatAttack(step.Args),
+            "shop.click_purchase" => $"Click purchase shop item \"{GetStringArg(step.Args, "item_id") ?? GetStringArg(step.Args, "display_name") ?? "unknown"}\"",
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",

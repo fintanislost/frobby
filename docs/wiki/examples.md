@@ -86,7 +86,9 @@ festival shops, use `state.tile_actions` to prove the shop action exists, then
 open the same data-backed shop ID with `shop.open` when the event click path
 does not leave a menu open. Use `world.interact_tile_action` for ordinary map
 actions, or a deliberate `input.click_tile.allow_event_input` click when
-player-like event input matters.
+player-like event input matters. Use `shop.click_purchase` after a `ShopMenu`
+is open when the test needs to validate the visible shop row click path instead
+of only the semantic `shop.purchase` helper.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

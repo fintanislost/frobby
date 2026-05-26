@@ -2468,6 +2468,52 @@ active shop uses a non-gold currency such as Stardew Fair star tokens.
 **Implemented in:** `src/Harness/Handlers/ShopPurchaseHandler.cs`
 **Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopPurchaseHandlerTests.cs`.
 
+### shop.click_purchase
+
+Clicks an item row in the active `ShopMenu` and lets Stardew's visible menu
+purchase path handle the buy. Use this when a scenario needs to prove the shop
+UI itself accepts the purchase. Use `shop.purchase` when the test only needs a
+stable semantic shop-data purchase.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 20, "method": "shop.click_purchase", "params": { "item_id": "(F)example_terminal", "count": 1, "scroll_attempts": 16 } }
+```
+
+Response:
+```json
+← { "jsonrpc": "2.0", "id": 20, "result": {
+      "ok": true,
+      "tick": 84206,
+      "shop_id": "Carpenter",
+      "item_id": "(F)example_terminal",
+      "display_name": "Example Terminal",
+      "count": 1,
+      "unit_price": 25000,
+      "currency": 0,
+      "previous_currency_balance": 30000,
+      "currency_balance": 5000,
+      "previous_money": 30000,
+      "money": 5000,
+      "screen": { "x": 860, "y": 420 },
+      "bounds": { "x": 500, "y": 380, "width": 720, "height": 80 },
+      "visible_index": 1,
+      "item_index": 2,
+      "scrolled": true
+   } }
+```
+
+`item_id` matches either raw or qualified item id. `display_name` may be used
+instead when a caller does not know the item id. Slice 27 supports `count: 1`;
+larger stack-click behavior should use a future explicit repeat/right-click
+feature. `screen` is the actual clicked point and `bounds` is the visible row
+region used for reports.
+
+**Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
+**Side effects:** scrolls/reveals the target shop row when needed, clicks that row, and expects a positive-price item to debit the active shop currency.
+**Implemented in:** `src/Harness/Handlers/ShopClickPurchaseHandler.cs`
+**Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopClickPurchaseHandlerTests.cs`.
+
 ### world.place_inventory_furniture
 
 Moves a furniture item from the player's inventory into a loaded location. This differs

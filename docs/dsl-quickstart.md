@@ -245,8 +245,16 @@ items by qualified id:
 } }
 ```
 
+Use `shop.purchase` for stable semantic purchases. Use `shop.click_purchase`
+when the scenario needs to prove the visible `ShopMenu` row can be clicked:
+
+```json
+{ "action": "shop.click_purchase", "args": { "item_id": "(O)ExampleMod.CustomItem" } }
+```
+
 Use `State.Shop()` in C# DSL tests when a test needs to inspect the active shop
-snapshot directly after a click flow or setup helper.
+snapshot directly after a click flow or setup helper. The C# DSL also exposes
+`Shop.Open`, `Shop.Purchase`, and `Shop.ClickPurchase`.
 
 Special-order scenarios should prove the active order and donation objective
 before mutating it:

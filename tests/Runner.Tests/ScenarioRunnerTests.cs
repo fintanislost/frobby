@@ -678,6 +678,78 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task ShopClickPurchase_PassesThroughAndReportsReadableStep()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"shop-click-purchase-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "shop.click_purchase")
+                        clickParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "shop.click_purchase" => JsonDocument.Parse("{\"ok\":true,\"tick\":45,\"shop_id\":\"Carpenter\",\"item_id\":\"(F)terminal\",\"display_name\":\"Terminal\",\"count\":1,\"unit_price\":25000,\"currency\":0,\"previous_currency_balance\":30000,\"currency_balance\":5000,\"previous_money\":30000,\"money\":5000,\"screen\":{\"x\":860,\"y\":420},\"bounds\":{\"x\":500,\"y\":380,\"width\":720,\"height\":80},\"visible_index\":1,\"item_index\":2,\"scrolled\":true}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/shop-click-purchase.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready",
+                    JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "shop_click_purchase_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "shop.click_purchase",
+                        Args = JsonDocument.Parse("{\"item_id\":\"(F)terminal\"}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("shop.click_purchase", calls);
+            Assert.Equal("(F)terminal", clickParams.GetProperty("item_id").GetString());
+            Assert.Equal("Click purchase shop item \"(F)terminal\"", report.Steps[0].Detail);
+            Assert.Contains("bitmap.capture", calls);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task FixtureLoad_WaitsForWarpToSettleBeforeFirstStep()
     {
         var socket = SocketPath();
