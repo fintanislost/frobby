@@ -140,6 +140,7 @@ public class ShopClickPurchaseHandlerTests
         Assert.Equal(1, purchase.VisibleIndex);
         Assert.Equal(2, purchase.ItemIndex);
         Assert.True(purchase.Scrolled);
+        Assert.True(purchase.HeldItemDeposited);
         Assert.Equal((860, 420), world.Shop!.LastClick);
         Assert.Equal("(F)terminal", world.Shop.RevealedItemId);
         Assert.Equal(16, world.Shop.RevealScrollAttempts);
@@ -210,14 +211,15 @@ public class ShopClickPurchaseHandlerTests
             };
         }
 
-        public void Click(ShopClickTarget target, IShopCurrencyBalances balances)
+        public ShopClickCompletion Click(ShopClickTarget target, IShopCurrencyBalances balances)
         {
             LastClick = (target.Screen.X, target.Screen.Y);
             if (!DebitOnClick)
-                return;
+                return new ShopClickCompletion();
 
             var current = ShopCurrency.GetBalance(_currency, balances);
             ShopCurrency.SetBalance(_currency, balances, current - 25000);
+            return new ShopClickCompletion { HeldItemDeposited = true };
         }
 
         private int IndexOf(IShopItem item)

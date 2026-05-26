@@ -122,6 +122,7 @@ public class ShopRequestSerializationTests
             VisibleIndex = 1,
             ItemIndex = 3,
             Scrolled = true,
+            HeldItemDeposited = true,
         };
 
         var json = JsonSerializer.Serialize(result, ProtocolJson.Options);
@@ -132,6 +133,7 @@ public class ShopRequestSerializationTests
         Assert.Contains("\"visible_index\":1", json);
         Assert.Contains("\"item_index\":3", json);
         Assert.Contains("\"scrolled\":true", json);
+        Assert.Contains("\"held_item_deposited\":true", json);
     }
 
     [Fact]

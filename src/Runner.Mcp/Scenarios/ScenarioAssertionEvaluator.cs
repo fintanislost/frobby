@@ -406,7 +406,8 @@ public sealed class ScenarioAssertionEvaluator
             return ScenarioAssertionEvaluationResult.Pass();
 
         var relationship = negated ? "matched forbidden" : "did not match";
-        return ScenarioAssertionEvaluationResult.Fail($"{lhs} {relationship} {rhs}");
+        return ScenarioAssertionEvaluationResult.Fail(
+            $"{lhs} {relationship} {rhs} (actual: {FormatJsonValue(value)})");
     }
 
     private async Task<ScenarioAssertionEvaluationResult> EvaluateStateContainsAssertionAsync(
@@ -634,6 +635,11 @@ public sealed class ScenarioAssertionEvaluator
 
         return null;
     }
+
+    private static string FormatJsonValue(JsonElement value)
+        => value.ValueKind == JsonValueKind.String
+            ? JsonSerializer.Serialize(value.GetString())
+            : value.GetRawText();
 
     private static string? TextContainsFailureDetail(JsonElement result)
     {

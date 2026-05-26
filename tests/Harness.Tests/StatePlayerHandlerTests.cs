@@ -47,6 +47,14 @@ public class StatePlayerHandlerTests
                 Assert.Equal(0, item.Quality);
                 Assert.Equal("Furniture", item.RuntimeType);
             });
+        Assert.NotNull(state.CursorItem);
+        Assert.Equal(-1, state.CursorItem.Slot);
+        Assert.Equal("(O)cursor_drink", state.CursorItem.QualifiedId);
+        Assert.Equal("Cursor Drink", state.CursorItem.Name);
+        Assert.NotNull(state.HeldItem);
+        Assert.Equal(-2, state.HeldItem.Slot);
+        Assert.Equal("(O)held_seed", state.HeldItem.QualifiedId);
+        Assert.Equal("Held Seed", state.HeldItem.Name);
     }
 
     [Fact]
@@ -88,5 +96,11 @@ public class StatePlayerHandlerTests
         {
             new PlayerInventoryItem(5, "(F)example_terminal", "example_terminal", "(F)example_terminal", "Example Terminal", 1, -9, 0, "Furniture"),
         };
+
+        public IPlayerInventoryItem? CursorItem { get; } =
+            new PlayerInventoryItem(-1, "(O)cursor_drink", "cursor_drink", "(O)cursor_drink", "Cursor Drink", 1, 0, 0, "Object");
+
+        public IPlayerInventoryItem? HeldItem { get; } =
+            new PlayerInventoryItem(-2, "(O)held_seed", "held_seed", "(O)held_seed", "Held Seed", 1, -74, 0, "Object");
     }
 }

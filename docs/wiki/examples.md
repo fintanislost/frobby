@@ -88,7 +88,9 @@ does not leave a menu open. Use `world.interact_tile_action` for ordinary map
 actions, or a deliberate `input.click_tile.allow_event_input` click when
 player-like event input matters. Use `shop.click_purchase` after a `ShopMenu`
 is open when the test needs to validate the visible shop row click path instead
-of only the semantic `shop.purchase` helper.
+of only the semantic `shop.purchase` helper. For ordinary item buys, Frobby
+finishes Stardew's native held-item step through the menu inventory grid so the
+scenario can assert the purchased item in `state.player.items`.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

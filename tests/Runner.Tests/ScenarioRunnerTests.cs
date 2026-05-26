@@ -700,7 +700,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "shop.click_purchase" => JsonDocument.Parse("{\"ok\":true,\"tick\":45,\"shop_id\":\"Carpenter\",\"item_id\":\"(F)terminal\",\"display_name\":\"Terminal\",\"count\":1,\"unit_price\":25000,\"currency\":0,\"previous_currency_balance\":30000,\"currency_balance\":5000,\"previous_money\":30000,\"money\":5000,\"screen\":{\"x\":860,\"y\":420},\"bounds\":{\"x\":500,\"y\":380,\"width\":720,\"height\":80},\"visible_index\":1,\"item_index\":2,\"scrolled\":true}").RootElement,
+                        "shop.click_purchase" => JsonDocument.Parse("{\"ok\":true,\"tick\":45,\"shop_id\":\"Carpenter\",\"item_id\":\"(F)terminal\",\"display_name\":\"Terminal\",\"count\":1,\"unit_price\":25000,\"currency\":0,\"previous_currency_balance\":30000,\"currency_balance\":5000,\"previous_money\":30000,\"money\":5000,\"screen\":{\"x\":860,\"y\":420},\"bounds\":{\"x\":500,\"y\":380,\"width\":720,\"height\":80},\"visible_index\":1,\"item_index\":2,\"scrolled\":true,\"held_item_deposited\":true}").RootElement,
                         "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/shop-click-purchase.png\",\"width\":1280,\"height\":720}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,

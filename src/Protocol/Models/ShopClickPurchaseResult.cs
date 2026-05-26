@@ -18,4 +18,5 @@ public sealed class ShopClickPurchaseResult : MutatorOk
     public int VisibleIndex { get; set; }
     public int ItemIndex { get; set; }
     public bool Scrolled { get; set; }
+    public bool HeldItemDeposited { get; set; }
 }

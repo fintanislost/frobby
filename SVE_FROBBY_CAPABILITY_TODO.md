@@ -220,10 +220,11 @@ Status key:
   - Verified: headless SVE scenario 34 entered the Stardew Valley Fair, opened `Festival_StardewValleyFair_StarTokens`, set the Fair star-token balance to Stardew's applied clamp of `9999`, bought SVE Furniture Catalogue 2, verified star tokens dropped to `0`, and verified gold was unchanged.
   - Follow-up candidate: menu-item click purchasing inside `ShopMenu` so tests can validate visible purchase controls instead of only semantic `shop.purchase`.
 
-- [ ] Active: Slice 27, menu-item click purchasing inside `ShopMenu`.
+- [x] Done: Slice 27, menu-item click purchasing inside `ShopMenu`.
   - SVE pressure: previous shop slices can inspect and semantically purchase from shops, but real mod UI testing should also prove the visible `ShopMenu` row/click path works for ordinary and alternate-currency shops.
   - Frobby goal: add a neutral click-based purchase action for active shop menus that can target an item by id/display name, scroll or reveal it when needed, click the visible purchase region, and report enough bounds/currency details for screenshots and assertions.
-  - Candidate SVE proof: buy an SVE festival shop item through the visible `ShopMenu` path and assert inventory plus currency changes.
+  - Done: `shop.click_purchase` targets a live `ShopMenu` row by item id/display name, scrolls/reveals the row, clicks it through Stardew's visible menu path, deposits any resulting `ShopMenu.heldItem` into the first empty menu inventory slot, and reports row/currency/deposit metadata.
+  - Verified: headless SVE scenario 35 buys SVE decorative tulips from the Flower Dance shop through the visible row click path and asserts gold plus inventory.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 

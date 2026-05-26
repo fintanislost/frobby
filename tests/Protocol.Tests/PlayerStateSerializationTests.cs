@@ -35,6 +35,30 @@ public class PlayerStateSerializationTests
             Quality = 0,
             RuntimeType = "Object",
         });
+        p.CursorItem = new PlayerItemSummary
+        {
+            Slot = -1,
+            Id = "(O)ExampleMod.CursorDrink",
+            ItemId = "ExampleMod.CursorDrink",
+            QualifiedId = "(O)ExampleMod.CursorDrink",
+            Name = "Cursor Drink",
+            Stack = 1,
+            Category = 0,
+            Quality = 0,
+            RuntimeType = "Object",
+        };
+        p.HeldItem = new PlayerItemSummary
+        {
+            Slot = -2,
+            Id = "(O)ExampleMod.HeldSeed",
+            ItemId = "ExampleMod.HeldSeed",
+            QualifiedId = "(O)ExampleMod.HeldSeed",
+            Name = "Held Seed",
+            Stack = 1,
+            Category = -74,
+            Quality = 0,
+            RuntimeType = "Object",
+        };
 
         var json = JsonSerializer.Serialize(p, ProtocolJson.Options);
 
@@ -46,6 +70,10 @@ public class PlayerStateSerializationTests
         Assert.Contains("\"events_seen\":[\"5532011\"]", json);
         Assert.Contains("\"item_id\":\"ExampleMod.CustomDrink\"", json);
         Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CustomDrink\"", json);
+        Assert.Contains("\"cursor_item\":{\"slot\":-1", json);
+        Assert.Contains("\"qualified_id\":\"(O)ExampleMod.CursorDrink\"", json);
+        Assert.Contains("\"held_item\":{\"slot\":-2", json);
+        Assert.Contains("\"qualified_id\":\"(O)ExampleMod.HeldSeed\"", json);
         Assert.Contains("\"runtime_type\":\"Object\"", json);
         Assert.DoesNotContain("MaxStamina", json);
         Assert.DoesNotContain("MailForTomorrow", json);

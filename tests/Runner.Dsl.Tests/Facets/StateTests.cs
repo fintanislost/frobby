@@ -29,7 +29,7 @@ public class StateTests
         SdvTestSession.ResetForTests();
         var inv = new StubInvoker
         {
-            NextJson = "{\"name\":\"Alice\",\"money\":5000,\"stamina\":200,\"max_stamina\":270,\"health\":100,\"location\":\"Farm\",\"tile\":{\"x\":64,\"y\":15}}",
+            NextJson = "{\"name\":\"Alice\",\"money\":5000,\"stamina\":200,\"max_stamina\":270,\"health\":100,\"location\":\"Farm\",\"tile\":{\"x\":64,\"y\":15},\"cursor_item\":{\"slot\":-1,\"id\":\"(O)cursor_drink\",\"item_id\":\"cursor_drink\",\"qualified_id\":\"(O)cursor_drink\",\"name\":\"Cursor Drink\",\"stack\":1,\"runtime_type\":\"Object\"},\"held_item\":{\"slot\":-2,\"id\":\"(O)held_seed\",\"item_id\":\"held_seed\",\"qualified_id\":\"(O)held_seed\",\"name\":\"Held Seed\",\"stack\":1,\"runtime_type\":\"Object\"}}",
         };
         SdvTestSession.InitializeForTests(inv);
         try
@@ -38,6 +38,10 @@ public class StateTests
             Assert.Equal("state.player", inv.LastMethod);
             Assert.Equal("Alice", p.Name);
             Assert.Equal(5000, p.Money);
+            Assert.NotNull(p.CursorItem);
+            Assert.Equal("(O)cursor_drink", p.CursorItem.QualifiedId);
+            Assert.NotNull(p.HeldItem);
+            Assert.Equal("(O)held_seed", p.HeldItem.QualifiedId);
         }
         finally { SdvTestSession.ResetForTests(); }
     }

@@ -252,6 +252,13 @@ when the scenario needs to prove the visible `ShopMenu` row can be clicked:
 { "action": "shop.click_purchase", "args": { "item_id": "(O)ExampleMod.CustomItem" } }
 ```
 
+Native shop-row clicks create Stardew's `ShopMenu.heldItem` for ordinary item
+buys. Frobby completes that visible purchase path by depositing the held item
+through the first empty menu inventory slot, so click-purchase scenarios should
+normally assert `state.player.items contains qualified_id ...`. The
+`shop.click_purchase` response includes `held_item_deposited` when this extra
+native menu step was needed and completed.
+
 Use `State.Shop()` in C# DSL tests when a test needs to inspect the active shop
 snapshot directly after a click flow or setup helper. The C# DSL also exposes
 `Shop.Open`, `Shop.Purchase`, and `Shop.ClickPurchase`.

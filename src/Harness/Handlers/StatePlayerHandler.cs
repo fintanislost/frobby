@@ -48,23 +48,26 @@ public static class StatePlayerHandler
                     RuntimeType = b.RuntimeType,
                 })
                 .ToList(),
-            Items = world.Items
-                .Select(i => new PlayerItemSummary
-                {
-                    Slot = i.Slot,
-                    Id = i.Id,
-                    ItemId = i.ItemId,
-                    QualifiedId = i.QualifiedId,
-                    Name = i.Name,
-                    Stack = i.Stack,
-                    Category = i.Category,
-                    Quality = i.Quality,
-                    RuntimeType = i.RuntimeType,
-                })
-                .ToList(),
+            Items = world.Items.Select(ProjectItem).ToList(),
+            CursorItem = world.CursorItem is { } cursorItem ? ProjectItem(cursorItem) : null,
+            HeldItem = world.HeldItem is { } heldItem ? ProjectItem(heldItem) : null,
         };
         return ProtocolJson.ToElement(state);
     }
+
+    private static PlayerItemSummary ProjectItem(IPlayerInventoryItem item)
+        => new()
+        {
+            Slot = item.Slot,
+            Id = item.Id,
+            ItemId = item.ItemId,
+            QualifiedId = item.QualifiedId,
+            Name = item.Name,
+            Stack = item.Stack,
+            Category = item.Category,
+            Quality = item.Quality,
+            RuntimeType = item.RuntimeType,
+        };
 }
 
 internal interface IPlayerStateWorld
@@ -86,6 +89,8 @@ internal interface IPlayerStateWorld
     bool CanMove { get; }
     IReadOnlyList<IPlayerBuffSummary> Buffs { get; }
     IReadOnlyList<IPlayerInventoryItem> Items { get; }
+    IPlayerInventoryItem? CursorItem { get; }
+    IPlayerInventoryItem? HeldItem { get; }
 }
 
 internal interface IPlayerInventoryItem
@@ -166,23 +171,48 @@ internal sealed class SdvPlayerStateWorld : IPlayerStateWorld
                 if (Player.Items[slot] is not Item item)
                     continue;
 
-                var qualifiedId = item.QualifiedItemId ?? item.ItemId ?? string.Empty;
-                var itemId = item.ItemId ?? StripQualifiedPrefix(qualifiedId);
-
-                items.Add(new PlayerInventoryItem(
-                    slot,
-                    qualifiedId,
-                    itemId,
-                    qualifiedId,
-                    item.DisplayName ?? item.Name ?? string.Empty,
-                    item.Stack,
-                    item.Category,
-                    item.Quality,
-                    item.GetType().Name));
+                items.Add(ProjectInventoryItem(slot, item));
             }
 
             return items;
         }
+    }
+
+    public IPlayerInventoryItem? CursorItem
+        => Player.CursorSlotItem is Item item ? ProjectInventoryItem(-1, item) : null;
+
+    public IPlayerInventoryItem? HeldItem
+    {
+        get
+        {
+            if (Player.ActiveObject is Item activeObject)
+                return ProjectInventoryItem(-2, activeObject);
+
+            foreach (var memberName in new[] { "ActiveItem", "activeItem", "CurrentItem", "currentItem" })
+            {
+                if (Unwrap(ReflectionValue.ReadRaw(Player, memberName)) is Item item)
+                    return ProjectInventoryItem(-2, item);
+            }
+
+            return null;
+        }
+    }
+
+    private static IPlayerInventoryItem ProjectInventoryItem(int slot, Item item)
+    {
+        var qualifiedId = item.QualifiedItemId ?? item.ItemId ?? string.Empty;
+        var itemId = item.ItemId ?? StripQualifiedPrefix(qualifiedId);
+
+        return new PlayerInventoryItem(
+            slot,
+            qualifiedId,
+            itemId,
+            qualifiedId,
+            item.DisplayName ?? item.Name ?? string.Empty,
+            item.Stack,
+            item.Category,
+            item.Quality,
+            item.GetType().Name);
     }
 
     internal static string StripQualifiedPrefix(string value)

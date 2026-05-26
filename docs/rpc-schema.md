@@ -145,14 +145,41 @@ Returns the local farmer's current state, including a compact inventory snapshot
           "quality": 0,
           "runtime_type": "Furniture"
         }
-      ]
+      ],
+      "cursor_item": {
+        "slot": -1,
+        "id": "(O)example_seed",
+        "item_id": "example_seed",
+        "qualified_id": "(O)example_seed",
+        "name": "Example Seed",
+        "stack": 1,
+        "category": -74,
+        "quality": 0,
+        "runtime_type": "Object"
+      },
+      "held_item": {
+        "slot": -2,
+        "id": "(O)example_flower_pot",
+        "item_id": "example_flower_pot",
+        "qualified_id": "(O)example_flower_pot",
+        "name": "Example Flower Pot",
+        "stack": 1,
+        "category": -24,
+        "quality": 0,
+        "runtime_type": "Furniture"
+      }
    } }
 ```
 
 Inventory `id` remains the backwards-compatible stable identifier. New tests should
 prefer `qualified_id` for exact Stardew 1.6 item matching and `item_id` when a
 scenario intentionally wants the raw unqualified id. Metadata fields are omitted
-when Stardew or a mod does not expose them.
+when Stardew or a mod does not expose them. `cursor_item` is present when the
+farmer is holding an item on the cursor, such as after a native `ShopMenu` row
+click; it uses the same item summary shape as inventory entries and reports
+`slot: -1`. `held_item` is present when Stardew reports a current farmer-held
+item, using `slot: -2`; this helps test visible interactions that hand the
+player an item without adding it directly to a backpack slot.
 `mail_received`, `mail_for_tomorrow`, `events_seen`, and `secret_notes_seen`
 expose the local farmer's save-state flags for relationship, event, mail-gated,
 pending-mail, and secret-note scenario setup/verification. `mail_for_tomorrow`
@@ -2499,7 +2526,8 @@ Response:
       "bounds": { "x": 500, "y": 380, "width": 720, "height": 80 },
       "visible_index": 1,
       "item_index": 2,
-      "scrolled": true
+      "scrolled": true,
+      "held_item_deposited": true
    } }
 ```
 
@@ -2507,10 +2535,12 @@ Response:
 instead when a caller does not know the item id. Slice 27 supports `count: 1`;
 larger stack-click behavior should use a future explicit repeat/right-click
 feature. `screen` is the actual clicked point and `bounds` is the visible row
-region used for reports.
+region used for reports. Native shop-row clicks can create
+`ShopMenu.heldItem`; when that happens, Frobby deposits it into the first empty
+menu inventory slot and reports `held_item_deposited: true`.
 
 **Preconditions:** a world must be loaded and `Game1.activeClickableMenu` must be a `ShopMenu`.
-**Side effects:** scrolls/reveals the target shop row when needed, clicks that row, and expects a positive-price item to debit the active shop currency.
+**Side effects:** scrolls/reveals the target shop row when needed, clicks that row, expects a positive-price item to debit the active shop currency, and deposits any resulting `ShopMenu.heldItem` into an empty inventory slot.
 **Implemented in:** `src/Harness/Handlers/ShopClickPurchaseHandler.cs`
 **Tested in:** `tests/Protocol.Tests/ShopRequestSerializationTests.cs` + `tests/Harness.Tests/ShopClickPurchaseHandlerTests.cs`.
 

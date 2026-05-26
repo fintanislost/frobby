@@ -54,7 +54,7 @@ public static class ShopClickPurchaseHandler
 
         var previousCurrencyBalance = ShopCurrency.GetBalance(shop.Currency, world);
         var previousMoney = world.Money;
-        shop.Click(target, world);
+        var click = shop.Click(target, world);
         var currencyBalance = ShopCurrency.GetBalance(shop.Currency, world);
         if (item.UnitPrice > 0 && currencyBalance >= previousCurrencyBalance)
         {
@@ -81,6 +81,7 @@ public static class ShopClickPurchaseHandler
             VisibleIndex = target.VisibleIndex,
             ItemIndex = target.ItemIndex,
             Scrolled = target.Scrolled,
+            HeldItemDeposited = click.HeldItemDeposited,
         });
     }
 
@@ -109,7 +110,7 @@ internal interface IShopClickMenuState
     : IShopMenuState
 {
     ShopClickTarget? RevealItem(IShopItem item, int scrollAttempts);
-    void Click(ShopClickTarget target, IShopCurrencyBalances balances);
+    ShopClickCompletion Click(ShopClickTarget target, IShopCurrencyBalances balances);
 }
 
 internal sealed class ShopClickTarget
@@ -119,6 +120,11 @@ internal sealed class ShopClickTarget
     public int VisibleIndex { get; init; }
     public int ItemIndex { get; init; }
     public bool Scrolled { get; init; }
+}
+
+internal sealed class ShopClickCompletion
+{
+    public bool HeldItemDeposited { get; init; }
 }
 
 internal sealed class SdvShopClickPurchaseWorld : IShopClickPurchaseWorld
@@ -204,11 +210,39 @@ internal sealed class SdvShopClickMenuState : IShopClickMenuState
         };
     }
 
-    public void Click(ShopClickTarget target, IShopCurrencyBalances balances)
+    public ShopClickCompletion Click(ShopClickTarget target, IShopCurrencyBalances balances)
     {
         ControlledCursor.Set(target.Screen.X, target.Screen.Y);
         _shop.performHoverAction(target.Screen.X, target.Screen.Y);
         _shop.receiveLeftClick(target.Screen.X, target.Screen.Y);
+        _shop.releaseLeftClick(target.Screen.X, target.Screen.Y);
+
+        return new ShopClickCompletion
+        {
+            HeldItemDeposited = TryDepositHeldItem(),
+        };
+    }
+
+    private bool TryDepositHeldItem()
+    {
+        if (_shop.heldItem is not Item heldItem)
+            return false;
+
+        foreach (var component in _shop.inventory.inventory)
+        {
+            if (_shop.inventory.getItemFromClickableComponent(component) is not null)
+                continue;
+
+            var bounds = component.bounds;
+            var x = bounds.X + bounds.Width / 2;
+            var y = bounds.Y + bounds.Height / 2;
+            ControlledCursor.Set(x, y);
+            _shop.heldItem = _shop.inventory.leftClick(x, y, heldItem);
+            _shop.releaseLeftClick(x, y);
+            return _shop.heldItem is null;
+        }
+
+        return false;
     }
 
     private int FindItemIndex(IShopItem target)
