@@ -16,16 +16,19 @@ public static class StateShopHandler
         => Handle(paramsElement, ProductionWorld);
 
     internal static JsonElement Handle(JsonElement? paramsElement, IShopStateWorld world)
-        => ProtocolJson.ToElement(ShopStateProjector.Project(world.ActiveShop));
+        => ProtocolJson.ToElement(ShopStateProjector.Project(world.ActiveShop, world.Balances));
 }
 
 internal interface IShopStateWorld
 {
     IShopMenuState? ActiveShop { get; }
+    IShopCurrencyBalances Balances { get; }
 }
 
 internal sealed class SdvShopStateWorld : IShopStateWorld
 {
+    public IShopCurrencyBalances Balances { get; } = new SdvShopCurrencyBalances();
+
     public IShopMenuState? ActiveShop => Game1.activeClickableMenu is ShopMenu shop
         ? new SdvShopMenuState(shop)
         : null;

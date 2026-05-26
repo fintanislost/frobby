@@ -10,10 +10,14 @@ namespace SdvTestFramework.Harness.Handlers;
 
 internal static class ShopStateProjector
 {
-    public static ShopState Project(IShopMenuState? shop)
+    public static ShopState Project(IShopMenuState? shop, IShopCurrencyBalances? balances = null)
     {
         if (shop is null)
             return new ShopState();
+
+        var currencyBalance = balances is not null && ShopCurrency.IsSupported(shop.Currency)
+            ? ShopCurrency.GetBalance(shop.Currency, balances)
+            : (int?)null;
 
         return new ShopState
         {
@@ -21,6 +25,8 @@ internal static class ShopStateProjector
             MenuType = shop.MenuType,
             ShopId = shop.ShopId,
             Currency = shop.Currency,
+            CurrencyName = ShopCurrency.Name(shop.Currency),
+            CurrencyBalance = currencyBalance,
             Items = shop.Items
                 .Select(item => new ShopItemSummary
                 {
