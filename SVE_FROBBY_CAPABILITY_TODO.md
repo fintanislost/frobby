@@ -211,7 +211,19 @@ Status key:
   - Done: `input.click_tile.allow_event_input` opt-in for player-controlled event/festival maps, docs, and SVE scenario 33 against the Flower Dance festival shop.
   - Verified: headless SVE scenario 33 entered the Flower Dance, proved the active festival map exposes `Shop Festival_FlowerDance_Pierre`, opened the same data-backed shop through `shop.open`, bought SVE decorative tulips, and verified money/inventory state. Adjacent festival scenarios 19 and 32 still pass.
   - Caveat: direct `world.interact_tile_action` and `input.click_tile.allow_event_input` did not leave the event-owned Flower Dance shop menu open in live SDV; the stable neutral flow is map-action discovery plus `shop.open` for the discovered shop ID.
-  - Follow-up candidates: star-token Fair shop currency handling, menu-item click purchasing inside `ShopMenu`, movie theater NPC setup, and grange judging command progression.
+  - Follow-up candidates: menu-item click purchasing inside `ShopMenu`, movie theater NPC setup, and grange judging command progression.
+
+- [x] Done: Slice 26, alternate shop currency handling.
+  - SVE pressure: the Stardew Valley Fair star-token shop uses a non-gold currency, so tests need to inspect, seed, spend, and assert the active shop currency without assuming player money.
+  - Frobby goal: expose active shop currency metadata and balances, set supported shop currencies through a neutral player RPC, and make purchases debit the same currency Stardew uses for the active `ShopMenu`.
+  - Done: `state.shop.currency`, `state.shop.currency_name`, `state.shop.currency_balance`, `player.set_shop_currency`, star-token support, alternate-currency debit in `shop.purchase`, and docs.
+  - Verified: headless SVE scenario 34 entered the Stardew Valley Fair, opened `Festival_StardewValleyFair_StarTokens`, set the Fair star-token balance to Stardew's applied clamp of `9999`, bought SVE Furniture Catalogue 2, verified star tokens dropped to `0`, and verified gold was unchanged.
+  - Follow-up candidate: menu-item click purchasing inside `ShopMenu` so tests can validate visible purchase controls instead of only semantic `shop.purchase`.
+
+- [ ] Pending: Slice 27, menu-item click purchasing inside `ShopMenu`.
+  - SVE pressure: previous shop slices can inspect and semantically purchase from shops, but real mod UI testing should also prove the visible `ShopMenu` row/click path works for ordinary and alternate-currency shops.
+  - Frobby goal: add a neutral click-based purchase action for active shop menus that can target an item by id/display name, scroll or reveal it when needed, click the visible purchase region, and report enough bounds/currency details for screenshots and assertions.
+  - Candidate SVE proof: buy an SVE festival shop item through the visible `ShopMenu` path and assert inventory plus currency changes.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
