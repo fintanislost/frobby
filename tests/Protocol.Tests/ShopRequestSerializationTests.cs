@@ -78,6 +78,63 @@ public class ShopRequestSerializationTests
     }
 
     [Fact]
+    public void ShopClickPurchaseRequest_DefaultsCountAndScrollAttempts()
+    {
+        var json = "{\"item_id\":\"(F)example_terminal\"}";
+        var req = JsonSerializer.Deserialize<ShopClickPurchaseRequest>(json, ProtocolJson.Options)!;
+
+        Assert.Equal("(F)example_terminal", req.ItemId);
+        Assert.Equal(string.Empty, req.DisplayName);
+        Assert.Equal(1, req.Count);
+        Assert.Equal(16, req.ScrollAttempts);
+    }
+
+    [Fact]
+    public void ShopClickPurchaseRequest_DeserializesDisplayNameTarget()
+    {
+        var json = "{\"display_name\":\"Decorative Tulips\",\"count\":1,\"scroll_attempts\":4}";
+        var req = JsonSerializer.Deserialize<ShopClickPurchaseRequest>(json, ProtocolJson.Options)!;
+
+        Assert.Equal(string.Empty, req.ItemId);
+        Assert.Equal("Decorative Tulips", req.DisplayName);
+        Assert.Equal(1, req.Count);
+        Assert.Equal(4, req.ScrollAttempts);
+    }
+
+    [Fact]
+    public void ShopClickPurchaseResult_SerializesClickMetadata()
+    {
+        var result = new ShopClickPurchaseResult
+        {
+            Tick = 45,
+            ShopId = "Festival_FlowerDance_Pierre",
+            ItemId = "(F)FlashShifter.StardewValleyExpandedCP_Decorative_Tulips",
+            DisplayName = "Decorative Tulips",
+            Count = 1,
+            UnitPrice = 400,
+            Currency = 0,
+            PreviousCurrencyBalance = 1000,
+            CurrencyBalance = 600,
+            PreviousMoney = 1000,
+            Money = 600,
+            Screen = new PixelPoint { X = 880, Y = 420 },
+            Bounds = new MenuBounds { X = 500, Y = 380, Width = 760, Height = 80 },
+            VisibleIndex = 1,
+            ItemIndex = 3,
+            Scrolled = true,
+        };
+
+        var json = JsonSerializer.Serialize(result, ProtocolJson.Options);
+
+        Assert.Contains("\"shop_id\":\"Festival_FlowerDance_Pierre\"", json);
+        Assert.Contains("\"screen\":{\"x\":880,\"y\":420}", json);
+        Assert.Contains("\"bounds\":{\"x\":500,\"y\":380,\"width\":760,\"height\":80}", json);
+        Assert.Contains("\"visible_index\":1", json);
+        Assert.Contains("\"item_index\":3", json);
+        Assert.Contains("\"scrolled\":true", json);
+    }
+
+    [Fact]
     public void ShopState_SerializesLiveShopInventory()
     {
         var state = new ShopState
