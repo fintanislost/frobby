@@ -242,6 +242,12 @@ Status key:
   - Done: festival actor dialogue projection, event-actor click fallback, visible-page dialogue projection, `event.advance.until_closed`, robust menu-choice selection, `festival.set_grange_display`, `festival.continue`, and `festival.finish_grange_judging`.
   - Verified: headless SVE scenario 37 starts the Fair, clicks Lewis, captures the judging prompt, seeds a vanilla grange display, applies the deterministic Fair result fallback, and asserts SVE after-judging dialogue.
 
+- [ ] Planning: Slice 30, movie ticket invite flow.
+  - SVE pressure: custom NPC movie reactions, movie-ticket invite paths, theater progression flags, and theater-specific NPC state should be testable through player-like selected-item interaction.
+  - Frobby goal: prove a player can select a movie ticket, use it on a custom NPC, and assert the resulting invite dialogue/state without SVE-specific framework code.
+  - Design spec: `docs/superpowers/specs/2026-05-27-sve-slice-30-movie-ticket-invite-design.md`.
+  - Follow-up candidates: concession purchase/taste validation, full movie screening reactions, and Claire/Martin worker invite edge cases.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
