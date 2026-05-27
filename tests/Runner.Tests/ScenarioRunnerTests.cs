@@ -678,6 +678,85 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task InputClickEventActor_ResolvesActorTileThenClicksTile()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"click-event-actor-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.click_tile")
+                        clickParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Lewis\",\"tile\":{\"x\":42,\"y\":57},\"pixel\":{\"x\":2688,\"y\":3648},\"facing_direction\":2,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Town\",\"tile\":{\"x\":42,\"y\":57},\"screen\":{\"x\":2720,\"y\":3680},\"world\":{\"x\":2720,\"y\":3680},\"handled\":true}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-event-actor.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "click_event_actor_report",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "input.click_event_actor",
+                        Args = JsonDocument.Parse("{\"actor_name\":\"lewis\",\"location\":\"Town\"}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("state.event", calls);
+            Assert.Contains("input.click_tile", calls);
+            Assert.Equal("Town", clickParams.GetProperty("location").GetString());
+            Assert.Equal(42, clickParams.GetProperty("x").GetInt32());
+            Assert.Equal(57, clickParams.GetProperty("y").GetInt32());
+            Assert.Equal("left", clickParams.GetProperty("button").GetString());
+            Assert.True(clickParams.GetProperty("allow_event_input").GetBoolean());
+            Assert.Equal(32, clickParams.GetProperty("screen_offset_x").GetInt32());
+            Assert.Equal(32, clickParams.GetProperty("screen_offset_y").GetInt32());
+            Assert.Equal("Click event actor Lewis", report.Steps[0].Detail);
+            Assert.Contains("bitmap.capture", calls);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ShopClickPurchase_PassesThroughAndReportsReadableStep()
     {
         var socket = SocketPath();
@@ -823,6 +902,7 @@ public class ScenarioRunnerTests
     [InlineData("ui.hover_text", true)]
     [InlineData("input.click_text", true)]
     [InlineData("input.click_tile", true)]
+    [InlineData("input.click_event_actor", true)]
     [InlineData("input.hover_text", true)]
     [InlineData("freeze.begin", true)]
     public void ShouldAutoCaptureStep_SkipsTimingAndInstrumentationSteps(string action, bool expected)
@@ -3326,6 +3406,61 @@ public class ScenarioRunnerTests
                 {
                     Action = "wait.event_active",
                     Args = JsonDocument.Parse("{\"id\":\"fall16\",\"location\":\"Town\",\"is_festival\":true,\"actor_name\":\"Sophia\",\"actor_x\":19,\"actor_y\":77,\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                },
+            },
+        }, cts.Token);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+        Assert.True(eventPolls >= 2);
+
+        cts.Cancel();
+        try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitEventActive_FiltersByActorDialogueText()
+    {
+        var socket = SocketPath();
+        var eventPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" when eventPolls++ == 0 => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Lewis\",\"tile\":{\"x\":42,\"y\":57},\"pixel\":{\"x\":2688,\"y\":3648},\"facing_direction\":2,\"current_frame\":0,\"dialogue_key\":\"Strings\\\\Events:TownFair_Lewis_Greeting\",\"dialogue_text\":\"Welcome to the Stardew Valley Fair!\"}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "state.event" => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Town\",\"id\":\"fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Lewis\",\"tile\":{\"x\":42,\"y\":57},\"pixel\":{\"x\":2688,\"y\":3648},\"facing_direction\":2,\"current_frame\":0,\"dialogue_key\":\"Strings\\\\Events:TownFair_Lewis_Judging\",\"dialogue_text\":\"Now judging the grange displays.\"}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        for (int i = 0; i < 40 && !File.Exists(socket); i++)
+            await Task.Delay(50, cts.Token);
+
+        using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+        _ = client.RunAsync(cts.Token);
+
+        var runner = new ScenarioRunner(client);
+        var report = await runner.RunAsync(new ScenarioSpec
+        {
+            Name = "wait_event_active_actor_dialogue",
+            Steps = new()
+            {
+                new ScenarioStep
+                {
+                    Action = "wait.event_active",
+                    Args = JsonDocument.Parse("{\"id\":\"fall16\",\"actor_name\":\"Lewis\",\"actor_dialogue_text\":\"GRANGE DISPLAYS\",\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
                 },
             },
         }, cts.Token);

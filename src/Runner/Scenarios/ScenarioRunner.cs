@@ -273,6 +273,10 @@ public sealed class ScenarioRunner
                     {
                         await InvokeMenuAdvanceAsync(step, ct);
                     }
+                    else if (step.Action == "input.click_event_actor")
+                    {
+                        stepDetail = await InvokeInputClickEventActorAsync(step, ct);
+                    }
                     else if (step.Action == "time.next_day")
                     {
                         await InvokeTimeNextDayAsync(step, ct);
@@ -1545,17 +1549,49 @@ public sealed class ScenarioRunner
 
     private static bool EventActorMatches(EventState state, WaitEventStepArgs args)
     {
-        if (string.IsNullOrWhiteSpace(args.ActorName))
+        var hasActorFilter = !string.IsNullOrWhiteSpace(args.ActorName)
+            || (args.ActorX is not null && args.ActorY is not null)
+            || !string.IsNullOrWhiteSpace(args.ActorDialogueText)
+            || !string.IsNullOrWhiteSpace(args.ActorDialogueTextMatches)
+            || !string.IsNullOrWhiteSpace(args.ActorDialogueKey);
+        if (!hasActorFilter)
             return true;
 
         foreach (var actor in state.Actors)
         {
-            if (!string.Equals(actor.Name, args.ActorName, StringComparison.Ordinal))
+            if (!string.IsNullOrWhiteSpace(args.ActorName)
+                && !string.Equals(actor.Name, args.ActorName, StringComparison.Ordinal))
+            {
                 continue;
-            if (args.ActorX is null && args.ActorY is null)
-                return true;
-            if (actor.Tile.X == args.ActorX && actor.Tile.Y == args.ActorY)
-                return true;
+            }
+            if (args.ActorX is not null
+                && args.ActorY is not null
+                && (actor.Tile.X != args.ActorX || actor.Tile.Y != args.ActorY))
+            {
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(args.ActorDialogueText)
+                && (string.IsNullOrEmpty(actor.DialogueText)
+                    || actor.DialogueText.IndexOf(args.ActorDialogueText, StringComparison.OrdinalIgnoreCase) < 0))
+            {
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(args.ActorDialogueTextMatches)
+                && (string.IsNullOrEmpty(actor.DialogueText)
+                    || !System.Text.RegularExpressions.Regex.IsMatch(
+                        actor.DialogueText,
+                        args.ActorDialogueTextMatches,
+                        System.Text.RegularExpressions.RegexOptions.IgnoreCase)))
+            {
+                continue;
+            }
+            if (!string.IsNullOrWhiteSpace(args.ActorDialogueKey)
+                && !string.Equals(actor.DialogueKey, args.ActorDialogueKey, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            return true;
         }
 
         return false;
@@ -1569,6 +1605,9 @@ public sealed class ScenarioRunner
         if (args.IsFestival is not null) filters.Add($"is_festival={args.IsFestival.Value.ToString().ToLowerInvariant()}");
         if (!string.IsNullOrWhiteSpace(args.ActorName)) filters.Add($"actor_name={args.ActorName}");
         if (args.ActorX is not null && args.ActorY is not null) filters.Add($"actor_tile={args.ActorX},{args.ActorY}");
+        if (!string.IsNullOrWhiteSpace(args.ActorDialogueText)) filters.Add($"actor_dialogue_text contains {args.ActorDialogueText}");
+        if (!string.IsNullOrWhiteSpace(args.ActorDialogueTextMatches)) filters.Add($"actor_dialogue_text_matches={args.ActorDialogueTextMatches}");
+        if (!string.IsNullOrWhiteSpace(args.ActorDialogueKey)) filters.Add($"actor_dialogue_key={args.ActorDialogueKey}");
         return filters.Count == 0 ? "any active event" : string.Join(", ", filters);
     }
 
@@ -1577,13 +1616,83 @@ public sealed class ScenarioRunner
         if (actors.Count == 0)
             return "[]";
 
-        return "[" + string.Join(", ", actors.Select(a => $"{a.Name}@{a.Tile.X},{a.Tile.Y}")) + "]";
+        return "[" + string.Join(", ", actors.Select(FormatEventActor)) + "]";
     }
+
+    private static string FormatEventActor(EventActorState actor)
+    {
+        var dialogue = string.IsNullOrWhiteSpace(actor.DialogueText)
+            ? string.Empty
+            : $" \"{Shorten(actor.DialogueText, 48)}\"";
+        return $"{actor.Name}@{actor.Tile.X},{actor.Tile.Y}{dialogue}";
+    }
+
+    private static string Shorten(string value, int maxLength)
+        => value.Length <= maxLength
+            ? value
+            : value[..Math.Max(0, maxLength - 3)] + "...";
 
     private static string FormatEventState(EventState? state)
         => state is null
             ? "nothing"
             : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}, actors={FormatEventActors(state.Actors)}";
+
+    private async Task<string> InvokeInputClickEventActorAsync(ScenarioStep step, CancellationToken ct)
+    {
+        var args = step.Args is { ValueKind: JsonValueKind.Object } obj
+            ? JsonSerializer.Deserialize<InputClickEventActorStepArgs>(obj.GetRawText(), ProtocolJson.Options) ?? new InputClickEventActorStepArgs()
+            : new InputClickEventActorStepArgs();
+
+        if (string.IsNullOrWhiteSpace(args.ActorName))
+            throw new InvalidOperationException("input.click_event_actor requires args.actor_name");
+
+        var state = await ReadEventStateAsync(step.Action, ct);
+        if (!state.Active)
+            throw new InvalidOperationException($"input.click_event_actor found no active event; last observed {FormatEventState(state)}");
+        if (!string.IsNullOrWhiteSpace(args.Location)
+            && !string.Equals(state.Location, args.Location, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"input.click_event_actor location guard expected {args.Location}, active event location is {state.Location}; " +
+                $"observed actors={FormatEventActors(state.Actors)}");
+        }
+
+        var actor = state.Actors.FirstOrDefault(a => string.Equals(a.Name, args.ActorName, StringComparison.OrdinalIgnoreCase));
+        if (actor is null)
+        {
+            throw new InvalidOperationException(
+                $"input.click_event_actor could not find actor '{args.ActorName}' in active event; " +
+                $"observed actors={FormatEventActors(state.Actors)}");
+        }
+
+        var clickParams = ProtocolJson.ToElement(new InputClickTileRequest
+        {
+            Location = args.Location ?? state.Location,
+            X = actor.Tile.X,
+            Y = actor.Tile.Y,
+            Button = string.IsNullOrWhiteSpace(args.Button) ? "left" : args.Button,
+            AllowEventInput = args.AllowEventInput,
+            ScreenOffsetX = args.ScreenOffsetX ?? 32,
+            ScreenOffsetY = args.ScreenOffsetY ?? 32,
+        });
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(DefaultStepRpcTimeoutMs);
+        JsonRpcResponse resp;
+        try
+        {
+            resp = await _session.InvokeAsync("input.click_tile", clickParams, timeout.Token);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            throw new TimeoutException($"step '{step.Action}' timed out after {DefaultStepRpcTimeoutMs}ms");
+        }
+
+        if (resp.Error is { } error)
+            throw new InvalidOperationException($"step '{step.Action}' failed during input.click_tile: {error.Message}");
+
+        return $"Click event actor {actor.Name}";
+    }
 
     private async Task InvokeFixtureSaveReloadAsync(ScenarioStep step, string? scenarioFixture, CancellationToken ct)
     {
@@ -2907,8 +3016,21 @@ public sealed class ScenarioRunner
         public string? ActorName { get; set; }
         public int? ActorX { get; set; }
         public int? ActorY { get; set; }
+        public string? ActorDialogueText { get; set; }
+        public string? ActorDialogueTextMatches { get; set; }
+        public string? ActorDialogueKey { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
+    }
+
+    private sealed class InputClickEventActorStepArgs
+    {
+        public string? ActorName { get; set; }
+        public string? Location { get; set; }
+        public string Button { get; set; } = "left";
+        public bool AllowEventInput { get; set; } = true;
+        public int? ScreenOffsetX { get; set; }
+        public int? ScreenOffsetY { get; set; }
     }
 
     /// <summary>
