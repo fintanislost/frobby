@@ -68,13 +68,12 @@ public static class InputClickTileHandler
         var screenX = worldX - world.ViewportX;
         var screenY = worldY - world.ViewportY;
         var targetNpcName = button == "right" ? world.FindNpcAtTile(tileX, tileY) : null;
+        var selectedItem = world.SelectedItem;
         var handled = button == "right"
             ? world.ClickRightTile(worldX, worldY, screenX, screenY)
             : world.ClickLeftTile(worldX, worldY, screenX, screenY);
         var npcFallbackUsed = false;
-        if (button == "right"
-            && targetNpcName is not null
-            && (!handled || !world.HasActiveMenu || world.HasBlankDialogueMenu))
+        if (ShouldUseNpcFallback(button, targetNpcName, handled, world, selectedItem))
         {
             npcFallbackUsed = world.InteractNpcAtTile(tileX, tileY);
             handled = handled || npcFallbackUsed;
@@ -88,13 +87,38 @@ public static class InputClickTileHandler
             Tile = new TilePoint { X = tileX, Y = tileY },
             Screen = new PixelPoint { X = screenX, Y = screenY },
             World = new PixelPoint { X = worldX, Y = worldY },
-            SelectedItem = world.SelectedItem is { } selected
+            SelectedItem = selectedItem is { } selected
                 ? PlayerSelectItemHandler.ToSummary(selected)
                 : null,
             Handled = handled,
             TargetNpcName = targetNpcName,
             NpcFallbackUsed = npcFallbackUsed,
         });
+    }
+
+    private static bool ShouldUseNpcFallback(
+        string button,
+        string? targetNpcName,
+        bool handled,
+        IInputTileClickWorld world,
+        ISelectableInventoryItem? selectedItem)
+    {
+        if (button != "right" || targetNpcName is null)
+            return false;
+
+        if (IsSelectedInventoryObject(selectedItem))
+            return false;
+
+        return !handled || !world.HasActiveMenu || world.HasBlankDialogueMenu;
+    }
+
+    private static bool IsSelectedInventoryObject(ISelectableInventoryItem? selectedItem)
+    {
+        if (selectedItem is null)
+            return false;
+
+        return string.Equals(selectedItem.RuntimeType, "Object", StringComparison.Ordinal)
+            || selectedItem.QualifiedId.StartsWith("(O)", StringComparison.Ordinal);
     }
 
     private static string NormalizeButton(InputClickTileRequest req)

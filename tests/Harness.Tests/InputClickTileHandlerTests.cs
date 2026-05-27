@@ -93,6 +93,7 @@ public class InputClickTileHandlerTests
         {
             TargetNpcName = "Claire",
             HasBlankDialogueMenuAfterClick = true,
+            SelectedItem = null,
         };
         var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
 
@@ -114,6 +115,7 @@ public class InputClickTileHandlerTests
         {
             TargetNpcName = "Claire",
             HasActiveMenu = false,
+            SelectedItem = null,
         };
         var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
 
@@ -124,6 +126,49 @@ public class InputClickTileHandlerTests
         Assert.Equal("Claire", result.TargetNpcName);
         Assert.True(result.NpcFallbackUsed);
         Assert.True(result.Handled);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithSelectedObject_DoesNotUseNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Sophia",
+            HasBlankDialogueMenuAfterClick = true,
+            SelectedItem = new SelectableInventoryItem(2, "(O)809", "809", "Movie Ticket", 1, 0, 0, "Object"),
+        };
+        var p = JsonDocument.Parse("{\"x\":18,\"y\":10,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.ClickInvoked);
+        Assert.False(world.NpcFallbackInvoked);
+        Assert.Equal("Sophia", result.TargetNpcName);
+        Assert.False(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+        Assert.Equal("(O)809", result.SelectedItem!.QualifiedId);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithSelectedTool_StillUsesNpcFallbackForBlankDialogue()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasBlankDialogueMenuAfterClick = true,
+            SelectedItem = new SelectableInventoryItem(0, "(T)Hoe", "Hoe", "Hoe", 1, null, null, "Hoe"),
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+        Assert.Equal("(T)Hoe", result.SelectedItem!.QualifiedId);
     }
 
     [Fact]
