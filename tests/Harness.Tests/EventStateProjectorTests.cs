@@ -129,6 +129,29 @@ public class EventStateProjectorTests
         Assert.Equal("Pet Dusty", state.Choices[0].Text);
     }
 
+    [Fact]
+    public void ToState_ActiveEvent_ProjectsActorDialogueSummary()
+    {
+        var state = EventStateProjector.ToState(new EventProjectionSource
+        {
+            CurrentEvent = new FakeEvent
+            {
+                actors = new List<object>
+                {
+                    new FakeDialogueActor("Lewis", 53, 63, 3392, 4032, 2, 12),
+                },
+            },
+            EventUp = true,
+            LocationName = "Town",
+            Viewport = new Rectangle(0, 0, 1280, 720),
+        });
+
+        var actor = Assert.Single(state.Actors);
+        Assert.Equal("SVE.Fair_Judging", actor.DialogueKey);
+        Assert.Equal("Please clear out your grange display.", actor.DialogueText);
+        Assert.Equal(2, actor.DialogueCount);
+    }
+
     private sealed class FakeQuestionMenu
     {
         public string question = "What should I do?";
@@ -158,5 +181,41 @@ public class EventStateProjectorTests
 
         public string responseKey;
         public string responseText;
+    }
+
+    private sealed class FakeDialogueActor
+    {
+        public FakeDialogueActor(string name, int tileX, int tileY, int pixelX, int pixelY, int facing, int frame)
+        {
+            Name = name;
+            TilePoint = new Point(tileX, tileY);
+            Position = new Vector2(pixelX, pixelY);
+            FacingDirection = facing;
+            Sprite = new FakeSprite { CurrentFrame = frame };
+            CurrentDialogue = new List<FakeDialogue>
+            {
+                new("SVE.Fair_Judging", "Please clear out your grange display."),
+                new("Other", "Ignored"),
+            };
+        }
+
+        public string Name { get; }
+        public Point TilePoint { get; }
+        public Vector2 Position { get; }
+        public int FacingDirection { get; }
+        public FakeSprite Sprite { get; }
+        public List<FakeDialogue> CurrentDialogue { get; }
+    }
+
+    private sealed class FakeDialogue
+    {
+        public FakeDialogue(string key, string text)
+        {
+            dialogueKey = key;
+            Text = text;
+        }
+
+        public string dialogueKey;
+        public string Text { get; }
     }
 }

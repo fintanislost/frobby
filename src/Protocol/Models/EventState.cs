@@ -25,6 +25,9 @@ public sealed class EventActorState
     public PixelPoint Pixel { get; set; } = new();
     public int FacingDirection { get; set; }
     public int CurrentFrame { get; set; }
+    public string DialogueKey { get; set; } = string.Empty;
+    public string DialogueText { get; set; } = string.Empty;
+    public int DialogueCount { get; set; }
 }
 
 public sealed class EventDialogueState

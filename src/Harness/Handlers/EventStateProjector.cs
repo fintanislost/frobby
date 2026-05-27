@@ -85,6 +85,7 @@ internal static class EventStateProjector
         var tile = ReadPoint(actor, "TilePoint", "Tile", "tilePoint", "tile");
         var pixel = ReadVector(actor, "Position", "position");
         var sprite = ReadMember(actor, "Sprite") ?? ReadMember(actor, "sprite");
+        var dialogue = ProjectActorDialogue(actor);
         return new EventActorState
         {
             Name = ReadString(actor, "Name", "name", "displayName", "DisplayName"),
@@ -94,7 +95,64 @@ internal static class EventStateProjector
             CurrentFrame = sprite is null
                 ? ReadInt(actor, "CurrentFrame", "currentFrame")
                 : ReadInt(sprite, "CurrentFrame", "currentFrame"),
+            DialogueKey = dialogue.Key,
+            DialogueText = dialogue.Text,
+            DialogueCount = dialogue.Count,
         };
+    }
+
+    private static (string Key, string Text, int Count) ProjectActorDialogue(object actor)
+    {
+        var currentDialogue = ReadMember(actor, "CurrentDialogue") ?? ReadMember(actor, "currentDialogue");
+        if (currentDialogue is not IEnumerable enumerable || currentDialogue is string)
+            return (string.Empty, string.Empty, 0);
+
+        object? first = null;
+        var count = 0;
+        foreach (var item in enumerable)
+        {
+            if (item is null)
+                continue;
+
+            first ??= item;
+            count++;
+        }
+
+        if (first is null)
+            return (string.Empty, string.Empty, 0);
+
+        return (
+            ReadString(first, "dialogueKey", "DialogueKey", "key", "Key"),
+            ReadDialogueText(first),
+            count);
+    }
+
+    private static string ReadDialogueText(object dialogue)
+    {
+        foreach (var name in new[] { "Text", "text", "currentDialogue", "CurrentDialogue", "dialogue", "Dialogue" })
+        {
+            var value = ReadMember(dialogue, name);
+            if (value is string s)
+                return s;
+            if (value is not null && (value.GetType().IsPrimitive || value.GetType().IsEnum))
+                return value.ToString() ?? string.Empty;
+        }
+
+        return InvokeStringMethod(dialogue, "getCurrentDialogue", "GetCurrentDialogue");
+    }
+
+    private static string InvokeStringMethod(object source, params string[] names)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = source.GetType();
+        foreach (var name in names)
+        {
+            var method = type.GetMethod(name, flags, binder: null, Type.EmptyTypes, modifiers: null);
+            if (method?.Invoke(source, Array.Empty<object>()) is string value)
+                return value;
+        }
+
+        return string.Empty;
     }
 
     private static object? ReadMember(object source, string name)
