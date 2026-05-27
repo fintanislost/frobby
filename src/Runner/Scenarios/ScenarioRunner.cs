@@ -1621,10 +1621,13 @@ public sealed class ScenarioRunner
 
     private static string FormatEventActor(EventActorState actor)
     {
+        var dialogueKey = string.IsNullOrWhiteSpace(actor.DialogueKey)
+            ? string.Empty
+            : $" dialogue_key={actor.DialogueKey}";
         var dialogue = string.IsNullOrWhiteSpace(actor.DialogueText)
             ? string.Empty
             : $" \"{Shorten(actor.DialogueText, 48)}\"";
-        return $"{actor.Name}@{actor.Tile.X},{actor.Tile.Y}{dialogue}";
+        return $"{actor.Name}@{actor.Tile.X},{actor.Tile.Y}{dialogueKey}{dialogue}";
     }
 
     private static string Shorten(string value, int maxLength)
@@ -1647,13 +1650,14 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException("input.click_event_actor requires args.actor_name");
 
         var state = await ReadEventStateAsync(step.Action, ct);
+        var requestedLocation = string.IsNullOrWhiteSpace(args.Location) ? null : args.Location;
         if (!state.Active)
             throw new InvalidOperationException($"input.click_event_actor found no active event; last observed {FormatEventState(state)}");
-        if (!string.IsNullOrWhiteSpace(args.Location)
-            && !string.Equals(state.Location, args.Location, StringComparison.Ordinal))
+        if (requestedLocation is not null
+            && !string.Equals(state.Location, requestedLocation, StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                $"input.click_event_actor location guard expected {args.Location}, active event location is {state.Location}; " +
+                $"input.click_event_actor location guard expected {requestedLocation}, active event location is {state.Location}; " +
                 $"observed actors={FormatEventActors(state.Actors)}");
         }
 
@@ -1667,7 +1671,7 @@ public sealed class ScenarioRunner
 
         var clickParams = ProtocolJson.ToElement(new InputClickTileRequest
         {
-            Location = args.Location ?? state.Location,
+            Location = requestedLocation ?? state.Location,
             X = actor.Tile.X,
             Y = actor.Tile.Y,
             Button = string.IsNullOrWhiteSpace(args.Button) ? "left" : args.Button,
@@ -1676,8 +1680,9 @@ public sealed class ScenarioRunner
             ScreenOffsetY = args.ScreenOffsetY ?? 32,
         });
 
+        var timeoutMs = GetIntArg(step.Args, "timeout_ms") ?? DefaultStepRpcTimeoutMs;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(DefaultStepRpcTimeoutMs);
+        timeout.CancelAfter(timeoutMs);
         JsonRpcResponse resp;
         try
         {
@@ -1685,7 +1690,7 @@ public sealed class ScenarioRunner
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw new TimeoutException($"step '{step.Action}' timed out after {DefaultStepRpcTimeoutMs}ms");
+            throw new TimeoutException($"step '{step.Action}' timed out after {timeoutMs}ms");
         }
 
         if (resp.Error is { } error)
