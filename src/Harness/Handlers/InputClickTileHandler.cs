@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using System.Reflection;
 using SdvTestFramework.Harness.Determinism;
 using SdvTestFramework.Harness.Rpc;
 using SdvTestFramework.Protocol;
@@ -212,9 +214,9 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
 
     public bool InteractNpcAtTile(int tileX, int tileY)
     {
-        var npc = FindNpc(tileX, tileY);
+        var npc = FindLocationNpc(tileX, tileY);
         if (npc is null)
-            return false;
+            return InteractEventActorAtTile(tileX, tileY);
 
         if (HasBlankDialogueMenu)
             Game1.activeClickableMenu = null;
@@ -234,7 +236,38 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
         return handled || Game1.activeClickableMenu is not null;
     }
 
+    private bool InteractEventActorAtTile(int tileX, int tileY)
+    {
+        var ev = CurrentEvent;
+        var actor = FindEventActor(tileX, tileY);
+        if (ev is null || actor is null)
+            return false;
+
+        if (HasBlankDialogueMenu)
+            Game1.activeClickableMenu = null;
+
+        var handled = ev.checkAction(
+            new xTile.Dimensions.Location(tileX, tileY),
+            Game1.viewport,
+            Game1.player);
+        if (Game1.activeClickableMenu is null || HasBlankDialogueMenu)
+        {
+            if (HasBlankDialogueMenu)
+                Game1.activeClickableMenu = null;
+
+            if (actor.CurrentDialogue.Count > 0)
+                Game1.DrawDialogue(actor.CurrentDialogue.Peek());
+            else
+                Game1.drawDialogue(actor);
+        }
+
+        return handled || Game1.activeClickableMenu is not null;
+    }
+
     private static NPC? FindNpc(int tileX, int tileY)
+        => FindLocationNpc(tileX, tileY) ?? FindEventActor(tileX, tileY);
+
+    private static NPC? FindLocationNpc(int tileX, int tileY)
     {
         var tileRect = new Rectangle(tileX * TileSize, tileY * TileSize, TileSize, TileSize);
         foreach (var npc in CurrentLocation.characters)
@@ -250,6 +283,52 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
         }
 
         return null;
+    }
+
+    private static NPC? FindEventActor(int tileX, int tileY)
+    {
+        var tileRect = new Rectangle(tileX * TileSize, tileY * TileSize, TileSize, TileSize);
+        foreach (var actor in ReadActiveEventNpcs())
+        {
+            if ((actor.TilePoint.X == tileX && actor.TilePoint.Y == tileY)
+                || actor.GetBoundingBox().Intersects(tileRect))
+            {
+                return actor;
+            }
+        }
+
+        return null;
+    }
+
+    private static StardewValley.Event? CurrentEvent
+        => Game1.CurrentEvent ?? Game1.currentLocation?.currentEvent;
+
+    private static IEnumerable ReadActors(object? ev)
+    {
+        if (ev is null)
+            yield break;
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = ev.GetType();
+        foreach (var name in new[] { "actors", "Actors", "characters", "Characters", "festivalActors" })
+        {
+            var value = type.GetField(name, flags)?.GetValue(ev)
+                ?? type.GetProperty(name, flags)?.GetValue(ev);
+            if (value is IEnumerable enumerable && value is not string)
+            {
+                foreach (var item in enumerable)
+                    yield return item;
+            }
+        }
+    }
+
+    private static System.Collections.Generic.IEnumerable<NPC> ReadActiveEventNpcs()
+    {
+        foreach (var actor in ReadActors(CurrentEvent))
+        {
+            if (actor is NPC npc)
+                yield return npc;
+        }
     }
 
     private static void PrimeCursor(int worldX, int worldY, int screenX, int screenY)

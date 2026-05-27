@@ -51,7 +51,8 @@ public static class InputClickMenuChoiceHandler
         if (match is null)
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid, $"{Method} could not find menu choice: {ChoiceLabel(req)}");
 
-        var bounds = match.Value;
+        SetSelectedResponse(menu, match.Value.Index);
+        var bounds = match.Value.Bounds;
         var x = bounds.X + bounds.Width / 2;
         var y = bounds.Y + bounds.Height / 2;
         menu.performHoverAction(x, y);
@@ -63,7 +64,7 @@ public static class InputClickMenuChoiceHandler
         return ProtocolJson.ToElement(new MutatorOk { Tick = getTick() });
     }
 
-    private static Rectangle? FindChoice(IClickableMenu menu, InputClickMenuChoiceRequest req)
+    private static ChoiceMatch? FindChoice(IClickableMenu menu, InputClickMenuChoiceRequest req)
     {
         var responses = ReadChoiceResponses(menu);
         var components = ReadClickableComponents(menu);
@@ -71,10 +72,26 @@ public static class InputClickMenuChoiceHandler
         for (var i = 0; i < count; i++)
         {
             if (ChoiceMatches(responses[i], req))
-                return components[i].bounds;
+                return new ChoiceMatch(i, components[i].bounds);
         }
 
         return null;
+    }
+
+    private static void SetSelectedResponse(object menu, int index)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var type = menu.GetType();
+        var field = type.GetField("selectedResponse", flags);
+        if (field?.FieldType == typeof(int))
+        {
+            field.SetValue(menu, index);
+            return;
+        }
+
+        var property = type.GetProperty("selectedResponse", flags);
+        if (property?.CanWrite == true && property.PropertyType == typeof(int))
+            property.SetValue(menu, index);
     }
 
     private static List<ChoiceResponse> ReadChoiceResponses(object menu)
@@ -168,4 +185,5 @@ public static class InputClickMenuChoiceHandler
     }
 
     private readonly record struct ChoiceResponse(string Key, string Text);
+    private readonly record struct ChoiceMatch(int Index, Rectangle Bounds);
 }

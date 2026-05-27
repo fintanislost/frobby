@@ -52,9 +52,56 @@ public class ScenarioRunnerContentAssetTests
 
         var report = await runner.RunAsync(spec, cts.Token);
 
-        Assert.True(report.Passed);
+        Assert.True(report.Passed, string.Join(Environment.NewLine, report.Failures));
         Assert.Equal(1, report.AssertionsPassed);
         Assert.Contains("content.asset", calls);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task ContentAssetAssertion_EvaluatesBracketedEntryKeyExpression()
+    {
+        var (cts, server, client, _) = await StartFakeHarness(SocketPath(), """
+        {
+          "name": "Data/Festivals/fall16",
+          "exists": true,
+          "kind": "data",
+          "runtime_type": "Dictionary\u00602",
+          "summary": {
+            "entries": {
+              "Set-Up_additionalCharacters": {
+                "exists": true,
+                "value": "Sophia 47 60 down/Andy 49 70 down"
+              }
+            }
+          }
+        }
+        """);
+        using var _ = cts;
+        using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "content_asset_bracketed_entry_key",
+            Assertions = new()
+            {
+                new ScenarioAssertion
+                {
+                    Type = "content.asset",
+                    Asset = "Data/Festivals/fall16",
+                    AssetType = "data",
+                    EntryKeys = new[] { "Set-Up_additionalCharacters" },
+                    Expr = "asset.entries['Set-Up_additionalCharacters'].value contains 'Sophia'",
+                },
+            },
+        };
+
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.True(report.Passed);
+        Assert.Equal(1, report.AssertionsPassed);
         cts.Cancel();
         try { await server; } catch (OperationCanceledException) { }
     }

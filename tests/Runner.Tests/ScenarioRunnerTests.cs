@@ -757,6 +757,83 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task InputClickEventActor_WaitsForFadeBeforeClickingTile()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"click-event-actor-fade-report-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        var calls = new List<string>();
+        var statusCalls = 0;
+        var clickParams = default(JsonElement);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    calls.Add(req.Method);
+                    if (req.Method == "input.click_tile")
+                        clickParams = req.Params!.Value.Clone();
+
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" => JsonDocument.Parse("{\"active\":true,\"event_up\":true,\"location\":\"Temp\",\"id\":\"festival_fall16\",\"is_festival\":true,\"actors\":[{\"name\":\"Lewis\",\"tile\":{\"x\":25,\"y\":53},\"pixel\":{\"x\":1600,\"y\":3392},\"facing_direction\":2,\"current_frame\":0}],\"dialogue\":null,\"viewport\":{\"x\":0,\"y\":0,\"width\":1280,\"height\":720}}").RootElement,
+                        "freeze.status" => JsonDocument.Parse(++statusCalls == 1
+                            ? "{\"frozen\":false,\"is_warping\":false,\"is_fading\":true,\"tick\":1}"
+                            : "{\"frozen\":false,\"is_warping\":false,\"is_fading\":false,\"tick\":2}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Temp\",\"tile\":{\"x\":25,\"y\":53},\"screen\":{\"x\":1632,\"y\":3424},\"world\":{\"x\":1632,\"y\":3424},\"handled\":true}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-event-actor-fade.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "click_event_actor_fade",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "input.click_event_actor",
+                        Args = JsonDocument.Parse("{\"actor_name\":\"Lewis\",\"timeout_ms\":1000,\"poll_ms\":1}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Equal(2, statusCalls);
+            Assert.Contains("input.click_tile", calls);
+            Assert.Equal("Temp", clickParams.GetProperty("location").GetString());
+            Assert.Equal(25, clickParams.GetProperty("x").GetInt32());
+            Assert.Equal(53, clickParams.GetProperty("y").GetInt32());
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task ShopClickPurchase_PassesThroughAndReportsReadableStep()
     {
         var socket = SocketPath();

@@ -110,6 +110,16 @@ public class StateMenuHandlerTests
         Assert.Equal("The vineyard is quiet this morning.", projected.Text);
     }
 
+    [Fact]
+    public void TryProjectDialogue_PrefersVisibleMenuStringOverFullDialogue()
+    {
+        var projected = StateMenuHandler.TryProjectDialogue(new FakePagedStardewDialogueMenu());
+
+        Assert.NotNull(projected);
+        Assert.Equal("Camilla", projected!.Speaker);
+        Assert.Equal("This is the visible page.", projected.Text);
+    }
+
     private sealed class FakeTerminalMenu
     {
         private readonly object _currentPanel;
@@ -191,6 +201,13 @@ public class StateMenuHandlerTests
     private sealed class FakeStardewDialogueMenu
     {
         public object characterDialogue = new FakeCharacterDialogueWithText();
+    }
+
+    private sealed class FakePagedStardewDialogueMenu
+    {
+        public object characterDialogue = new FakeCharacterDialogueWithText();
+
+        private string getCurrentString() => "This is the visible page.";
     }
 
     private sealed class FakeCharacterDialogue

@@ -208,7 +208,11 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use `festival.start`, `wait.event_active` with `is_festival`, and
   `wait.location_content` contained-item filters when testing active festival
   maps, festival chests, or other runtime containers. Keep festival-specific
-  item ids and tile coordinates in the mod repo scenarios.
+  item ids and tile coordinates in the mod repo scenarios. For Stardew Fair
+  judging coverage, combine event actor waits, click-based Lewis interaction,
+  `event.advance`, `festival.set_grange_display`, `festival.continue`, and the
+  Fair-scoped `festival.finish_grange_judging` fallback when the live scripted
+  movement path is too long or flaky for a UI scenario.
 - Use `state.special_orders` and runner-side `wait.special_order` for special
   order registration, event-gated order activation, objective progress, donated
   item state, completion keys, and returned donations. Keep mod-specific order

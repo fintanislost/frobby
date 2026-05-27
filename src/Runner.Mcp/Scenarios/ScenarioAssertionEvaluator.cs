@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -162,7 +163,7 @@ public sealed class ScenarioAssertionEvaluator
     private static ScenarioAssertionEvaluationResult EvaluateResultExpression(JsonElement root, string expr)
     {
         var trimmed = expr.Trim();
-        var pathPattern = @"[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\])?)*";
+        var pathPattern = JsonPathPattern();
         var containsMatch = Regex.Match(
             trimmed,
             $@"^result\.({pathPattern})\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
@@ -174,8 +175,14 @@ public sealed class ScenarioAssertionEvaluator
 
             if (!TryResolveResultPath(root, path, out var array))
                 return ScenarioAssertionEvaluationResult.Fail($"{path} was not found");
+            if (objectField is null && array.ValueKind == JsonValueKind.String)
+            {
+                return array.GetString()?.Contains(literal, StringComparison.Ordinal) == true
+                    ? ScenarioAssertionEvaluationResult.Pass()
+                    : ScenarioAssertionEvaluationResult.Fail($"expected {path} to contain '{literal}'");
+            }
             if (array.ValueKind != JsonValueKind.Array)
-                return ScenarioAssertionEvaluationResult.Fail($"{path} was not an array");
+                return ScenarioAssertionEvaluationResult.Fail($"{path} was not an array or string");
 
             foreach (var element in array.EnumerateArray())
             {
@@ -218,7 +225,7 @@ public sealed class ScenarioAssertionEvaluator
     private static bool TryResolveResultPath(JsonElement root, string path, out JsonElement value)
     {
         value = default;
-        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = SplitJsonPath(path);
         if (tokens.Length == 0 || tokens[0] != "result")
             return false;
 
@@ -275,7 +282,7 @@ public sealed class ScenarioAssertionEvaluator
         var trimmed = expr.Trim();
         var containsMatch = Regex.Match(
             trimmed,
-            @"^asset\.([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
+            $@"^asset\.({JsonPathPattern()})\s+contains(?:\s+([A-Za-z_][A-Za-z0-9_]*))?\s+(['""])(.*?)\3$");
         if (containsMatch.Success)
         {
             var path = "asset." + containsMatch.Groups[1].Value;
@@ -284,8 +291,14 @@ public sealed class ScenarioAssertionEvaluator
 
             if (!TryResolveAssetPath(assetRoot, path, out var array))
                 return ScenarioAssertionEvaluationResult.Fail($"{path} was not found");
+            if (objectField is null && array.ValueKind == JsonValueKind.String)
+            {
+                return array.GetString()?.Contains(literal, StringComparison.Ordinal) == true
+                    ? ScenarioAssertionEvaluationResult.Pass()
+                    : ScenarioAssertionEvaluationResult.Fail($"expected {path} to contain '{literal}'");
+            }
             if (array.ValueKind != JsonValueKind.Array)
-                return ScenarioAssertionEvaluationResult.Fail($"{path} was not an array");
+                return ScenarioAssertionEvaluationResult.Fail($"{path} was not an array or string");
 
             foreach (var element in array.EnumerateArray())
             {
@@ -329,7 +342,7 @@ public sealed class ScenarioAssertionEvaluator
     private static bool TryResolveAssetPath(JsonElement assetRoot, string path, out JsonElement value)
     {
         value = default;
-        var tokens = path.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = SplitJsonPath(path);
         if (tokens.Length == 0 || tokens[0] != "asset")
             return false;
         if (tokens.Length == 1)
@@ -559,7 +572,7 @@ public sealed class ScenarioAssertionEvaluator
     private static bool TryReadJsonToken(JsonElement current, string token, out JsonElement value)
     {
         value = default;
-        var match = Regex.Match(token, @"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$");
+        var match = Regex.Match(token, @"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\]|\[['""](.+?)['""]\])?$");
         if (!match.Success)
             return false;
 
@@ -567,6 +580,13 @@ public sealed class ScenarioAssertionEvaluator
             return false;
         if (!current.TryGetProperty(match.Groups[1].Value, out value))
             return false;
+
+        if (match.Groups[3].Success)
+        {
+            if (value.ValueKind != JsonValueKind.Object)
+                return false;
+            return value.TryGetProperty(match.Groups[3].Value, out value);
+        }
 
         if (!match.Groups[2].Success)
             return true;
@@ -578,6 +598,58 @@ public sealed class ScenarioAssertionEvaluator
             return false;
         value = value[index];
         return true;
+    }
+
+    private static string JsonPathPattern()
+        => @"[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\]|\[['""][^'""]+['""]\])?(?:\.[A-Za-z_][A-Za-z0-9_]*(?:\[\d+\]|\[['""][^'""]+['""]\])?)*";
+
+    private static string[] SplitJsonPath(string path)
+    {
+        var tokens = new List<string>();
+        var start = 0;
+        var bracketDepth = 0;
+        var quote = '\0';
+
+        for (var i = 0; i < path.Length; i++)
+        {
+            var c = path[i];
+            if (quote != '\0')
+            {
+                if (c == quote && (i == 0 || path[i - 1] != '\\'))
+                    quote = '\0';
+                continue;
+            }
+
+            if (bracketDepth > 0 && (c == '\'' || c == '"'))
+            {
+                quote = c;
+                continue;
+            }
+
+            if (c == '[')
+            {
+                bracketDepth++;
+                continue;
+            }
+
+            if (c == ']')
+            {
+                bracketDepth = Math.Max(0, bracketDepth - 1);
+                continue;
+            }
+
+            if (c == '.' && bracketDepth == 0)
+            {
+                if (i > start)
+                    tokens.Add(path[start..i]);
+                start = i + 1;
+            }
+        }
+
+        if (start < path.Length)
+            tokens.Add(path[start..]);
+
+        return tokens.ToArray();
     }
 
     private static bool TrySplitEqualityExpression(

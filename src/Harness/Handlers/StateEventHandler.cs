@@ -12,6 +12,11 @@ public static class StateEventHandler
 
     public static JsonElement Handle(JsonElement? paramsElement)
     {
+        // festival.start may return before the game has settled on the active festival
+        // event object. Scenarios poll state.event for actors, so apply queued festival
+        // actor additions immediately before projection as well as from UpdateTicked.
+        SdvFestivalStartWorld.ApplyPendingAdditionalActors();
+
         var currentLocation = Game1.currentLocation;
         var viewport = Game1.viewport;
         var state = EventStateProjector.ToState(new EventProjectionSource

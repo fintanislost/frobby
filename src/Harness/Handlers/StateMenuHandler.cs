@@ -210,7 +210,7 @@ public static class StateMenuHandler
             return null;
 
         var dialogue = ReadMember(menu, "characterDialogue");
-        var text = ReadFirstString(menu, "dialogue", "currentDialogue", "message", "text", "question");
+        var text = ReadFirstString(menu, "getCurrentString", "dialogue", "currentDialogue", "message", "text", "question");
         if (string.IsNullOrWhiteSpace(text) && dialogue is not null)
             text = ReadDialogueText(dialogue);
 
@@ -278,12 +278,33 @@ public static class StateMenuHandler
     {
         foreach (var name in names)
         {
-            var value = ReadMember(source, name);
-            if (value is string text && !string.IsNullOrWhiteSpace(text))
+            var text = ReadStringMemberOrMethod(source, name);
+            if (!string.IsNullOrWhiteSpace(text))
                 return text;
         }
 
         return string.Empty;
+    }
+
+    private static string ReadStringMemberOrMethod(object source, string name)
+    {
+        var value = ReadMember(source, name);
+        if (value is string memberText)
+            return memberText;
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        var method = source.GetType().GetMethod(name, flags, Type.EmptyTypes);
+        if (method is null || method.ReturnType != typeof(string))
+            return string.Empty;
+
+        try
+        {
+            return method.Invoke(source, null) as string ?? string.Empty;
+        }
+        catch (TargetInvocationException)
+        {
+            return string.Empty;
+        }
     }
 
     private static int? ReadFirstInt(object source, params string[] names)

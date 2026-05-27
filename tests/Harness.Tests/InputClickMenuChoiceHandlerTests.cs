@@ -65,6 +65,17 @@ public class InputClickMenuChoiceHandlerTests
         Assert.Equal((250, 420), menu.LastLeftClick);
     }
 
+    [Fact]
+    public void Handle_TextMatch_SetsSelectedResponseBeforeClick()
+    {
+        var menu = new FakeSelectedResponseChoiceMenu();
+        var p = JsonDocument.Parse("{\"text_equals\":\"Yes.\"}").RootElement;
+
+        InputClickMenuChoiceHandler.Handle(p, () => menu, () => 0);
+
+        Assert.Equal(0, menu.AcceptedResponse);
+    }
+
     private sealed class FakeChoiceMenu : IClickableMenu
     {
         public FakeResponse[] responses =
@@ -140,5 +151,26 @@ public class InputClickMenuChoiceHandlerTests
             if (LastHover == (x, y))
                 LastLeftClick = (x, y);
         }
+    }
+
+    private sealed class FakeSelectedResponseChoiceMenu : IClickableMenu
+    {
+        public FakeResponse[] responses =
+        {
+            new("yes", "Yes."),
+            new("no", "Not yet."),
+        };
+
+        public ClickableComponent[] responseCC =
+        {
+            new(new Rectangle(100, 400, 300, 40), "yes"),
+            new(new Rectangle(100, 460, 300, 40), "no"),
+        };
+
+        public int selectedResponse = -1;
+        public int? AcceptedResponse { get; private set; }
+
+        public override void receiveLeftClick(int x, int y, bool playSound = true)
+            => AcceptedResponse = selectedResponse >= 0 ? selectedResponse : null;
     }
 }

@@ -79,6 +79,8 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/33-sve-flower-dance-shop-flow.test.json`
 - SVE movie theater NPC tile click:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/36-sve-movie-theater-npc-click.test.json`
+- SVE Fair grange judging progression:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/37-sve-fair-grange-judging-progression.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
 festival maps, or festival shops. For active event or festival actors, wait with
@@ -97,6 +99,10 @@ scenario can assert the purchased item in `state.player.items`. Use
 loaded NPC to reflect relationship-gated schedule content after save setup, and
 use `input.click_tile` when the coverage goal is player-like NPC tile
 interaction rather than direct semantic interaction.
+For Stardew Fair grange judging flows, start with player-like festival entry and
+Lewis interaction, then use `festival.set_grange_display` for deterministic item
+setup and `festival.finish_grange_judging` only as the Fair-scoped fallback when
+the live scripted movement path would make the scenario slow or flaky.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

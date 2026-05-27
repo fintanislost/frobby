@@ -1648,10 +1648,37 @@ public sealed class ScenarioRunner
 
         if (string.IsNullOrWhiteSpace(args.ActorName))
             throw new InvalidOperationException("input.click_event_actor requires args.actor_name");
+        if (args.TimeoutMs < 1)
+            throw new InvalidOperationException("input.click_event_actor requires args.timeout_ms >= 1");
+        if (args.PollMs < 1)
+            throw new InvalidOperationException("input.click_event_actor requires args.poll_ms >= 1");
 
-        var state = await ReadEventStateAsync(step.Action, ct);
         var requestedLocation = string.IsNullOrWhiteSpace(args.Location) ? null : args.Location;
-        if (!state.Active)
+        var elapsed = Stopwatch.StartNew();
+        EventState? state = null;
+        EventActorState? actor = null;
+        var warpSettled = false;
+
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            state = await ReadEventStateAsync(step.Action, ct);
+            if (state.Active
+                && (requestedLocation is null || string.Equals(state.Location, requestedLocation, StringComparison.Ordinal)))
+            {
+                actor = state.Actors.FirstOrDefault(a => string.Equals(a.Name, args.ActorName, StringComparison.OrdinalIgnoreCase));
+                if (actor is not null)
+                {
+                    warpSettled = await IsWarpSettledAsync(ct);
+                    if (warpSettled)
+                        break;
+                }
+            }
+
+            await Task.Delay(args.PollMs, ct);
+        }
+
+        if (state is null || !state.Active)
             throw new InvalidOperationException($"input.click_event_actor found no active event; last observed {FormatEventState(state)}");
         if (requestedLocation is not null
             && !string.Equals(state.Location, requestedLocation, StringComparison.Ordinal))
@@ -1660,13 +1687,17 @@ public sealed class ScenarioRunner
                 $"input.click_event_actor location guard expected {requestedLocation}, active event location is {state.Location}; " +
                 $"observed actors={FormatEventActors(state.Actors)}");
         }
-
-        var actor = state.Actors.FirstOrDefault(a => string.Equals(a.Name, args.ActorName, StringComparison.OrdinalIgnoreCase));
         if (actor is null)
         {
             throw new InvalidOperationException(
                 $"input.click_event_actor could not find actor '{args.ActorName}' in active event; " +
                 $"observed actors={FormatEventActors(state.Actors)}");
+        }
+        if (!warpSettled)
+        {
+            throw new TimeoutException(
+                $"input.click_event_actor timed out after {args.TimeoutMs}ms waiting for warp/fade to settle; " +
+                $"last observed {FormatEventState(state)}");
         }
 
         var clickParams = ProtocolJson.ToElement(new InputClickTileRequest
@@ -1680,9 +1711,8 @@ public sealed class ScenarioRunner
             ScreenOffsetY = args.ScreenOffsetY ?? 32,
         });
 
-        var timeoutMs = GetIntArg(step.Args, "timeout_ms") ?? DefaultStepRpcTimeoutMs;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(timeoutMs);
+        timeout.CancelAfter(DefaultStepRpcTimeoutMs);
         JsonRpcResponse resp;
         try
         {
@@ -1690,7 +1720,7 @@ public sealed class ScenarioRunner
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            throw new TimeoutException($"step '{step.Action}' timed out after {timeoutMs}ms");
+            throw new TimeoutException($"step '{step.Action}' timed out after {DefaultStepRpcTimeoutMs}ms during input.click_tile");
         }
 
         if (resp.Error is { } error)
@@ -2012,6 +2042,12 @@ public sealed class ScenarioRunner
         }
 
         var args = ParseMenuAdvanceArgs(step);
+        if (args.UntilClosed)
+        {
+            await InvokeMenuAdvanceUntilClosedAsync(step.Action, args, ct);
+            return;
+        }
+
         var elapsed = Stopwatch.StartNew();
         MenuState? lastObserved = null;
         while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
@@ -2048,6 +2084,66 @@ public sealed class ScenarioRunner
             ? "nothing"
             : $"present={lastObserved.Present}, type='{lastObserved.Type}', bounds={(lastObserved.Bounds is null ? "none" : $"{lastObserved.Bounds.Width}x{lastObserved.Bounds.Height}")}";
         throw new TimeoutException($"{step.Action} timed out after {args.TimeoutMs}ms waiting for an active menu with bounds; last observed {last}");
+    }
+
+    private async Task InvokeMenuAdvanceUntilClosedAsync(string action, MenuAdvanceStepArgs args, CancellationToken ct)
+    {
+        var elapsed = Stopwatch.StartNew();
+        MenuState? lastObserved = null;
+        var clicks = 0;
+        while (elapsed.ElapsedMilliseconds < args.TimeoutMs)
+        {
+            ct.ThrowIfCancellationRequested();
+            var menuResp = await _session.InvokeAsync("state.menu", params_: null, ct);
+            if (menuResp.Error is { } menuError)
+                throw new InvalidOperationException($"step '{action}' failed during state.menu: {menuError.Message}");
+
+            if (menuResp.Result is { } menuRoot)
+                lastObserved = JsonSerializer.Deserialize<MenuState>(menuRoot.GetRawText(), ProtocolJson.Options);
+
+            if (lastObserved?.Present != true)
+                return;
+
+            if (lastObserved.Bounds is not { Width: > 0, Height: > 0 }
+                || ShouldWaitForMenuReady(lastObserved, args))
+            {
+                await Task.Delay(args.PollMs, ct);
+                continue;
+            }
+
+            if (clicks >= args.MaxClicks)
+            {
+                throw new InvalidOperationException(
+                    $"step '{action}' reached max_clicks={args.MaxClicks} while advancing until menu closed; " +
+                    $"last observed {FormatMenuState(lastObserved)}");
+            }
+
+            var clickParams = ProtocolJson.ToElement(new InputClickMenuAdvanceRequest
+            {
+                Button = args.Button,
+            });
+            var clickResp = await _session.InvokeAsync("input.click_menu_advance", clickParams, ct);
+            if (clickResp.Error is { } clickError)
+                throw new InvalidOperationException($"step '{action}' failed during input.click_menu_advance: {clickError.Message}");
+
+            clicks++;
+            if (args.IntervalMs > 0)
+                await Task.Delay(args.IntervalMs, ct);
+        }
+
+        throw new TimeoutException(
+            $"{action} timed out after {args.TimeoutMs}ms advancing until menu closed; " +
+            $"clicks={clicks}; last observed {FormatMenuState(lastObserved)}");
+    }
+
+    private static bool ShouldWaitForMenuReady(MenuState state, MenuAdvanceStepArgs args)
+    {
+        if (!args.WaitReady)
+            return false;
+
+        return state.Extra.TryGetValue("dialogue_ready", out var readyText)
+            && bool.TryParse(readyText, out var ready)
+            && !ready;
     }
 
     private async Task InvokeWaitMenuAsync(ScenarioStep step, CancellationToken ct)
@@ -2232,6 +2328,8 @@ public sealed class ScenarioRunner
             throw new InvalidOperationException($"{step.Action} requires args.repeat >= 1");
         if (args.IntervalMs < 0)
             throw new InvalidOperationException($"{step.Action} requires args.interval_ms >= 0");
+        if (args.MaxClicks < 1)
+            throw new InvalidOperationException($"{step.Action} requires args.max_clicks >= 1");
 
         var button = string.IsNullOrWhiteSpace(args.Button) ? "left" : args.Button.Trim().ToLowerInvariant();
         if (button != "left" && button != "right")
@@ -2783,6 +2881,9 @@ public sealed class ScenarioRunner
         public int PollMs { get; set; } = 50;
         public int Repeat { get; set; } = 1;
         public int IntervalMs { get; set; } = 100;
+        public bool UntilClosed { get; set; }
+        public int MaxClicks { get; set; } = 10;
+        public bool WaitReady { get; set; } = true;
     }
 
     private sealed class WaitMenuStepArgs
@@ -3036,6 +3137,8 @@ public sealed class ScenarioRunner
         public bool AllowEventInput { get; set; } = true;
         public int? ScreenOffsetX { get; set; }
         public int? ScreenOffsetY { get; set; }
+        public int TimeoutMs { get; set; } = 10000;
+        public int PollMs { get; set; } = 100;
     }
 
     /// <summary>

@@ -192,6 +192,27 @@ waiting for the actor to exist in the active event:
 { "action": "wait.menu", "args": { "text": "festival", "ready": true } }
 ```
 
+Stardew Fair judging scenarios can keep the player-like entry and prompt click,
+then use neutral Fair helpers for deterministic setup and completion:
+
+```json
+{ "action": "time.set", "args": { "time": 900, "day": 16, "season": "fall", "year": 1 } },
+{ "action": "festival.start", "args": { "location": "Town" } },
+{ "action": "wait.event_active", "args": { "location": "Town", "is_festival": true, "actor_name": "Lewis" } },
+{ "action": "input.click_event_actor", "args": { "actor_name": "Lewis", "button": "right", "timeout_ms": 45000 } },
+{ "action": "wait.menu", "args": { "text_matches": "grange|judge|judging|display", "ready": true, "timeout_ms": 45000 } },
+{ "action": "event.advance", "args": { "until_closed": true, "max_clicks": 4, "interval_ms": 100 } },
+{ "action": "festival.set_grange_display", "args": {
+  "items": [{ "slot": 0, "id": "(O)254", "quality": 2 }]
+} },
+{ "action": "festival.continue", "args": {} },
+{ "action": "festival.finish_grange_judging", "args": {} }
+```
+
+Use `festival.finish_grange_judging` only for the active Stardew Fair event. It
+is a deterministic fallback around the Fair result calculation, not a generic
+festival progression shortcut.
+
 For Stardew-native dialogue choices, use `wait.menu` and choice-targeted
 `event.advance` instead of coordinates:
 

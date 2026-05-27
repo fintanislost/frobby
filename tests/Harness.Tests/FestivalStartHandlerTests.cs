@@ -62,18 +62,84 @@ public sealed class FestivalStartHandlerTests
     }
 
     [Fact]
-    public void SelectFestivalSetupScript_UsesClosestYearVariant()
+    public void SelectFestivalSetupScript_CyclesYearVariantsLikeStardew()
     {
         var data = new Dictionary<string, string>
         {
             ["set-up"] = "base",
             ["set-up_y2"] = "year two",
-            ["set-up_y4"] = "year four",
+            ["set-up_y3"] = "year three",
         };
 
         Assert.Equal("base", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 1));
-        Assert.Equal("year two", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 3));
-        Assert.Equal("year four", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 4));
+        Assert.Equal("year two", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 2));
+        Assert.Equal("year three", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 3));
+        Assert.Equal("base", SdvFestivalStartWorld.SelectFestivalSetupScript(data, 4));
+    }
+
+    [Fact]
+    public void SelectFestivalSetupScript_DoesNotMutateAdditionalActorDataIntoLoadActors()
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["set-up"] = "fallFest/loadActors Set-Up/playerControl fair",
+            ["Set-Up_additionalCharacters"] = "Sophia 47 60 down/Andy 49 70 down",
+        };
+
+        Assert.Equal(
+            "fallFest/loadActors Set-Up/playerControl fair",
+            SdvFestivalStartWorld.SelectFestivalSetupScript(data, 1));
+    }
+
+    [Fact]
+    public void ParseFestivalAdditionalActors_ParsesSlashDelimitedActors()
+    {
+        var actors = SdvFestivalStartWorld.ParseFestivalAdditionalActors(
+            "Sophia 47 60 down/Andy 49 70 right/Susan 49 65 0");
+
+        Assert.Collection(
+            actors,
+            actor =>
+            {
+                Assert.Equal("Sophia", actor.Name);
+                Assert.Equal(47, actor.X);
+                Assert.Equal(60, actor.Y);
+                Assert.Equal(2, actor.FacingDirection);
+            },
+            actor =>
+            {
+                Assert.Equal("Andy", actor.Name);
+                Assert.Equal(49, actor.X);
+                Assert.Equal(70, actor.Y);
+                Assert.Equal(1, actor.FacingDirection);
+            },
+            actor =>
+            {
+                Assert.Equal("Susan", actor.Name);
+                Assert.Equal(49, actor.X);
+                Assert.Equal(65, actor.Y);
+                Assert.Equal(0, actor.FacingDirection);
+            });
+    }
+
+    [Fact]
+    public void SelectFestivalAdditionalActorData_CyclesYearVariantsLikeStardew()
+    {
+        var data = new Dictionary<string, string>
+        {
+            ["Set-Up_additionalCharacters"] = "Sophia 47 60 down",
+            ["Set-Up_additionalCharacters_y2"] = "Sophia 47 60 down/Susan 49 71 down",
+        };
+
+        Assert.Equal(
+            "Sophia 47 60 down",
+            SdvFestivalStartWorld.SelectFestivalAdditionalActorData(data, 1));
+        Assert.Equal(
+            "Sophia 47 60 down/Susan 49 71 down",
+            SdvFestivalStartWorld.SelectFestivalAdditionalActorData(data, 2));
+        Assert.Equal(
+            "Sophia 47 60 down",
+            SdvFestivalStartWorld.SelectFestivalAdditionalActorData(data, 3));
     }
 
     private sealed class FakeFestivalStartWorld : IFestivalStartWorld

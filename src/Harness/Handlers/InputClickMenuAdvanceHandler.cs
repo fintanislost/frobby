@@ -37,6 +37,12 @@ public static class InputClickMenuAdvanceHandler
             ?? throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 $"{Method} requires an active menu");
 
+        if (menu is DialogueBox)
+        {
+            menu.receiveLeftClick(0, 0);
+            return ProtocolJson.ToElement(new MutatorOk { Tick = getTick() });
+        }
+
         var foundAdvanceButton = FindAdvanceBounds(menu);
         var target = foundAdvanceButton ?? MenuAdvanceFallback(menu);
         var x = target.X + target.Width / 2;
