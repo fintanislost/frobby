@@ -1299,11 +1299,14 @@ Response (missing `params` or blank `id` — InvalidParams):
 
 `tick` is `Game1.ticks` at the moment the event flag was added. The handler
 normalizes numeric string ids and rejects ids that cannot be parsed as Stardew
-event ids.
+event ids. If the supplied id uses leading zeroes, Frobby preserves the raw
+trimmed id and also adds the normalized numeric id. Some mod event keys are
+stored as zero-padded strings, while vanilla event checks usually compare the
+normalized numeric form.
 
 **Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
-**Side effects:** trims/parses `params.id` and adds it to both
-`Game1.MasterPlayer.eventsSeen` and `Game1.player.eventsSeen`.
+**Side effects:** trims/parses `params.id` and adds the raw/normalized event
+id values to both `Game1.MasterPlayer.eventsSeen` and `Game1.player.eventsSeen`.
 **Implemented in:** `src/Harness/Handlers/PlayerAddEventSeenHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerAddEventSeenHandlerTests.cs`.
 
@@ -1369,6 +1372,41 @@ friendship values or remain at Stardew defaults for a new entry.
 **Implemented in:** `src/Harness/Handlers/PlayerSetFriendshipHandler.cs`
 **Tested in:** `tests/Harness.Tests/PlayerSetFriendshipHandlerTests.cs` and `tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
 
+### player.set_spouse
+
+Sets the master farmer and local farmer spouse fields, and ensures the spouse
+NPC has a married friendship entry. This is a neutral relationship setup
+mutator for scenarios that need deterministic spouse-only dialogue, rooms,
+schedules, or Content Patcher conditions without hand-editing a save.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 14, "method": "player.set_spouse",
+     "params": { "npc": "Claire", "points": 2500, "wedding_year": 1, "wedding_season": "spring", "wedding_day": 1 } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 14, "result": { "ok": true, "tick": 84205, "spouse": "Claire", "points": 2500, "status": "married" } }
+```
+
+Response (missing NPC or invalid points — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 14, "error": { "code": -32602, "message": "params.npc must be non-empty" } }
+```
+
+`points` defaults to `2500` and must be between `0` and `2500`. Optional
+`roommate`, `wedding_year`, `wedding_season`, and `wedding_day` fields set the
+corresponding Stardew friendship/spouse state when supplied; omitted wedding
+fields default to the current in-game date.
+
+**Preconditions:** world loaded (`Game1.gameMode == playingGameMode`).
+**Side effects:** sets `Game1.MasterPlayer.spouse`, `Game1.player.spouse`, and
+`Game1.MasterPlayer.friendshipData[npc]` to a married friendship state.
+**Implemented in:** `src/Harness/Handlers/PlayerSetSpouseHandler.cs`
+**Tested in:** `tests/Protocol.Tests/SetSpouseSerializationTests.cs` and
+`tests/Harness.Tests/PlayerSetSpouseHandlerTests.cs`.
+
 ### world.warp_npc
 
 Places a loaded vanilla or custom NPC at a named location/tile. This is a neutral
@@ -1397,6 +1435,43 @@ Response (missing NPC name — InvalidParams):
 character-warp API.
 **Implemented in:** `src/Harness/Handlers/WorldWarpNpcHandler.cs`
 **Tested in:** `tests/Protocol.Tests/WarpNpcRequestSerializationTests.cs` and `tests/Harness.Tests/WorldWarpNpcHandlerTests.cs`.
+
+### world.refresh_npc_schedule
+
+Reloads a named NPC's active Stardew schedule and deterministically places them
+at the latest schedule route segment for the current in-game time. This is a
+neutral setup mutator for scenarios that changed relationship flags, mail,
+events seen, date, or time after save load and need the loaded NPC to reflect
+the schedule that Stardew or a mod would choose for that state.
+
+Request:
+```json
+→ { "jsonrpc": "2.0", "id": 15, "method": "world.refresh_npc_schedule",
+     "params": { "name": "Claire", "schedule_key": "marriage_Thu" } }
+```
+
+Response (success):
+```json
+← { "jsonrpc": "2.0", "id": 15, "result": { "ok": true, "tick": 84206, "location": "MovieTheater", "tile": { "x": 7, "y": 5 } } }
+```
+
+Response (missing NPC name — InvalidParams):
+```json
+← { "jsonrpc": "2.0", "id": 15, "error": { "code": -32602, "message": "params.name must be non-empty" } }
+```
+
+`schedule_key` is optional. When supplied, Frobby asks the NPC to load that
+specific schedule key; when omitted, it resets the NPC for the current day and
+uses the schedule selected by Stardew and installed content patches.
+
+**Preconditions:** world loaded; the named NPC must exist, and the resolved
+schedule must point to existing locations.
+**Side effects:** refreshes the NPC's schedule, warps the NPC to the resolved
+schedule location/tile, applies schedule end behavior/message, and applies the
+route dialogue Stardew exposes for the active segment.
+**Implemented in:** `src/Harness/Handlers/WorldRefreshNpcScheduleHandler.cs`
+**Tested in:** `tests/Protocol.Tests/RefreshNpcScheduleSerializationTests.cs`
+and `tests/Harness.Tests/WorldRefreshNpcScheduleHandlerTests.cs`.
 
 ### time.advance
 
@@ -2085,6 +2160,8 @@ Response:
   "tile": { "x": 9, "y": 9 },
   "screen": { "x": 576, "y": 576 },
   "world": { "x": 608, "y": 608 },
+  "target_npc_name": null,
+  "npc_fallback_used": false,
   "selected_item": {
     "slot": 1,
     "id": "(O)287",
@@ -2107,6 +2184,12 @@ inside a player-controlled event or festival map. This flag does not bypass
 active-menu, warp, fade, location, bounds, or button validation.
 Selected-object placement often requires `button: "right"` and a player state
 where `state.player.can_move == true` and `state.player.is_busy == false`.
+When a right-click targets a tile occupied by an NPC, Frobby reports
+`target_npc_name`. If Stardew's native location click handling consumes the
+click but leaves no usable dialogue/menu, Frobby retries through the same NPC's
+normal `checkAction` path and reports `npc_fallback_used: true`. This keeps
+scenario steps click-based while covering special locations whose map click
+hooks can otherwise swallow NPC interactions.
 
 **Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InputClickTileSerializationTests.cs`,

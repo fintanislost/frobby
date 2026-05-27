@@ -37,4 +37,6 @@ public sealed class InputClickTileResult : MutatorOk
     public PixelPoint World { get; set; } = new();
     public PlayerItemSummary? SelectedItem { get; set; }
     public bool Handled { get; set; }
+    public string? TargetNpcName { get; set; }
+    public bool NpcFallbackUsed { get; set; }
 }

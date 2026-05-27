@@ -163,9 +163,12 @@ Frobby tests should exercise the UI like a player whenever possible:
   flag ids in the mod repo scenario, then prove the side effect with runtime
   state such as `wait.player`, `state.location`, or inventory assertions.
 - Use `state.npcs`, parameterized `state.npc` assertions, `player.set_friendship`,
-  `world.warp_npc`, and runner-side `wait.npc_location` for custom NPC
-  relationship, schedule, and dialogue flows. These helpers are mod-neutral and
-  work for vanilla or Content Patcher-added NPCs.
+  `player.set_spouse`, `world.warp_npc`, `world.refresh_npc_schedule`, and
+  runner-side `wait.npc_location` for custom NPC relationship, schedule, spouse,
+  and dialogue flows. These helpers are mod-neutral and work for vanilla or
+  Content Patcher-added NPCs. Prefer `input.click_tile` over `world.interact_npc`
+  when the scenario needs to prove a visible NPC tile click works in a special
+  location.
 - Use `shop.open`, `shop.purchase`, `state.shop`, and `state.player.items` for
   custom shop and inventory flows. Prefer `qualified_id` when asserting Stardew
   1.6 custom items, and use raw `item_id` only when the scenario intentionally

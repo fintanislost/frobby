@@ -61,6 +61,8 @@ public class InputClickTileSerializationTests
                 RuntimeType = "Object",
             },
             Handled = true,
+            TargetNpcName = "Claire",
+            NpcFallbackUsed = true,
         };
 
         var json = JsonSerializer.Serialize(result, ProtocolJson.Options);
@@ -71,6 +73,8 @@ public class InputClickTileSerializationTests
         Assert.Contains("\"world\":{\"x\":608,\"y\":544}", json);
         Assert.Contains("\"selected_item\":", json);
         Assert.Contains("\"handled\":true", json);
+        Assert.Contains("\"target_npc_name\":\"Claire\"", json);
+        Assert.Contains("\"npc_fallback_used\":true", json);
         Assert.DoesNotContain("SelectedItem", json);
     }
 }

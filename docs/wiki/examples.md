@@ -77,6 +77,8 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/32-sve-spirit-eve-actor-dialogue.test.json`
 - SVE Flower Dance festival shop flow:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/33-sve-flower-dance-shop-flow.test.json`
+- SVE movie theater NPC tile click:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/36-sve-movie-theater-npc-click.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
 festival maps, or festival shops. For active event or festival actors, wait with
@@ -90,7 +92,11 @@ player-like event input matters. Use `shop.click_purchase` after a `ShopMenu`
 is open when the test needs to validate the visible shop row click path instead
 of only the semantic `shop.purchase` helper. For ordinary item buys, Frobby
 finishes Stardew's native held-item step through the menu inventory grid so the
-scenario can assert the purchased item in `state.player.items`.
+scenario can assert the purchased item in `state.player.items`. Use
+`player.set_spouse` and `world.refresh_npc_schedule` when a scenario needs a
+loaded NPC to reflect relationship-gated schedule content after save setup, and
+use `input.click_tile` when the coverage goal is player-like NPC tile
+interaction rather than direct semantic interaction.
 
 ## Shops, Inventory, Combat, Fishing, And World Content
 

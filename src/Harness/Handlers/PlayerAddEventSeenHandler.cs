@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.Text.Json;
 using SdvTestFramework.Harness.Rpc;
@@ -28,14 +29,25 @@ public static class PlayerAddEventSeenHandler
 
         RpcPreconditions.RequireWorldReady();
 
-        var normalizedId = eventId.ToString(CultureInfo.InvariantCulture);
-        Game1.MasterPlayer.eventsSeen.Add(normalizedId);
-        if (!ReferenceEquals(Game1.player, Game1.MasterPlayer))
-            Game1.player.eventsSeen.Add(normalizedId);
+        foreach (var eventSeenId in EventSeenIds(req.Id.Trim()))
+        {
+            Game1.MasterPlayer.eventsSeen.Add(eventSeenId);
+            if (!ReferenceEquals(Game1.player, Game1.MasterPlayer))
+                Game1.player.eventsSeen.Add(eventSeenId);
+        }
 
         return ProtocolJson.ToElement(new MutatorOk
         {
             Tick = Game1.ticks,
         });
+    }
+
+    internal static string[] EventSeenIds(string id)
+    {
+        var normalizedId = int.Parse(id, NumberStyles.Integer, CultureInfo.InvariantCulture)
+            .ToString(CultureInfo.InvariantCulture);
+        return string.Equals(id, normalizedId, StringComparison.Ordinal)
+            ? new[] { normalizedId }
+            : new[] { id, normalizedId };
     }
 }

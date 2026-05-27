@@ -31,4 +31,12 @@ public class PlayerAddEventSeenHandlerTests
 
     [Fact(Skip = "Requires live SDV (Game1.MasterPlayer.eventsSeen read/write).")]
     public void Handle_ValidId_AddsEventSeenFlag() { /* integration */ }
+
+    [Fact]
+    public void EventSeenIds_PreservesZeroPaddedModEventId()
+    {
+        var ids = PlayerAddEventSeenHandler.EventSeenIds("015305930");
+
+        Assert.Equal(new[] { "015305930", "15305930" }, ids);
+    }
 }

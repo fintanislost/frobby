@@ -227,10 +227,13 @@ Status key:
   - Done: `shop.click_purchase` targets a live `ShopMenu` row by item id/display name, scrolls/reveals the row, clicks it through Stardew's visible menu path, deposits any resulting `ShopMenu.heldItem` into the first empty menu inventory slot, and reports row/currency/deposit metadata.
   - Verified: headless SVE scenario 35 buys SVE decorative tulips from the Flower Dance shop through the visible row click path and asserts gold plus inventory.
 
-- [ ] Planning: Slice 28, movie theater NPC tile-click interaction.
+- [x] Done: Slice 28, movie theater NPC tile-click interaction.
   - SVE pressure: SVE patches `MovieTheater` so worker NPCs such as Claire and Martin can be interacted with inside a special Stardew location that normally has theater-specific click behavior.
   - Frobby goal: prove tests can set theater-ready progression, observe a modded NPC scheduled into `MovieTheater`, click the NPC through `input.click_tile`, and assert the resulting dialogue without using the direct `world.interact_npc` shortcut.
   - Design spec: `docs/superpowers/specs/2026-05-26-sve-slice-28-movie-theater-npc-interaction-design.md`.
+  - Done: `player.set_spouse`, `world.refresh_npc_schedule`, zero-padded event-id preservation in `player.add_event_seen`, and NPC-occupied `input.click_tile` fallback diagnostics.
+  - Verified: headless SVE scenario 36 opens Claire's movie theater dialogue through `input.click_tile` under the `core` mod set.
+  - Follow-up candidates: full movie ticket/invite flow, Martin theater worker coverage, and theater concession/shop purchase coverage.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 

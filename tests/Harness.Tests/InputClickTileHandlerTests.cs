@@ -87,6 +87,46 @@ public class InputClickTileHandlerTests
     }
 
     [Fact]
+    public void Handle_RightClickOnNpcWithBlankDialogueMenu_UsesNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasBlankDialogueMenuAfterClick = true,
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.Equal(7, world.NpcFallbackTileX);
+        Assert.Equal(5, world.NpcFallbackTileY);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithNoMenuAfterHandledClick_UsesNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasActiveMenu = false,
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
     public void Handle_NotWorldReady_ThrowsGameStateInvalid()
     {
         var p = JsonDocument.Parse("{\"x\":9,\"y\":8}").RootElement;
@@ -235,6 +275,11 @@ public class InputClickTileHandlerTests
         public int? ClickedScreenX { get; private set; }
         public int? ClickedScreenY { get; private set; }
         public string? ClickedButton { get; private set; }
+        public string? TargetNpcName { get; set; }
+        public bool HasBlankDialogueMenuAfterClick { get; set; }
+        public bool NpcFallbackInvoked { get; private set; }
+        public int? NpcFallbackTileX { get; private set; }
+        public int? NpcFallbackTileY { get; private set; }
 
         public ISelectableInventoryItem? SelectedItem { get; set; }
             = new SelectableInventoryItem(1, "(O)287", "287", "Bomb", 1, -95, 0, "Object");
@@ -259,6 +304,18 @@ public class InputClickTileHandlerTests
             ClickedWorldY = worldY;
             ClickedScreenX = screenX;
             ClickedScreenY = screenY;
+        }
+
+        public string? FindNpcAtTile(int tileX, int tileY) => TargetNpcName;
+
+        public bool HasBlankDialogueMenu => HasBlankDialogueMenuAfterClick;
+
+        public bool InteractNpcAtTile(int tileX, int tileY)
+        {
+            NpcFallbackInvoked = true;
+            NpcFallbackTileX = tileX;
+            NpcFallbackTileY = tileY;
+            return TargetNpcName is not null;
         }
     }
 }

@@ -8,6 +8,7 @@ using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Json;
 using SdvTestFramework.Protocol.Models;
 using StardewValley;
+using StardewValley.Menus;
 
 namespace SdvTestFramework.Harness.Handlers;
 
@@ -64,9 +65,18 @@ public static class InputClickTileHandler
         var worldY = tileY * TileSize + req.ScreenOffsetY;
         var screenX = worldX - world.ViewportX;
         var screenY = worldY - world.ViewportY;
+        var targetNpcName = button == "right" ? world.FindNpcAtTile(tileX, tileY) : null;
         var handled = button == "right"
             ? world.ClickRightTile(worldX, worldY, screenX, screenY)
             : world.ClickLeftTile(worldX, worldY, screenX, screenY);
+        var npcFallbackUsed = false;
+        if (button == "right"
+            && targetNpcName is not null
+            && (!handled || !world.HasActiveMenu || world.HasBlankDialogueMenu))
+        {
+            npcFallbackUsed = world.InteractNpcAtTile(tileX, tileY);
+            handled = handled || npcFallbackUsed;
+        }
 
         return ProtocolJson.ToElement(new InputClickTileResult
         {
@@ -80,6 +90,8 @@ public static class InputClickTileHandler
                 ? PlayerSelectItemHandler.ToSummary(selected)
                 : null,
             Handled = handled,
+            TargetNpcName = targetNpcName,
+            NpcFallbackUsed = npcFallbackUsed,
         });
     }
 
@@ -126,6 +138,9 @@ internal interface IInputTileClickWorld
     ISelectableInventoryItem? SelectedItem { get; }
     bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY);
     bool ClickRightTile(int worldX, int worldY, int screenX, int screenY);
+    string? FindNpcAtTile(int tileX, int tileY);
+    bool HasBlankDialogueMenu { get; }
+    bool InteractNpcAtTile(int tileX, int tileY);
 }
 
 internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
@@ -143,6 +158,17 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
     public int? MapHeight => CurrentLocation.Map?.DisplayHeight / TileSize;
     public int ViewportX => Game1.viewport.X;
     public int ViewportY => Game1.viewport.Y;
+    public bool HasBlankDialogueMenu
+    {
+        get
+        {
+            if (Game1.activeClickableMenu is not DialogueBox dialog)
+                return false;
+
+            var projected = StateMenuHandler.TryProjectDialogue(dialog);
+            return projected is null || string.IsNullOrWhiteSpace(projected.Text);
+        }
+    }
 
     public ISelectableInventoryItem? SelectedItem
     {
@@ -179,6 +205,51 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
     {
         PrimeCursor(worldX, worldY, screenX, screenY);
         return Game1.pressActionButton(new KeyboardState(), new MouseState(), new GamePadState());
+    }
+
+    public string? FindNpcAtTile(int tileX, int tileY)
+        => FindNpc(tileX, tileY)?.Name;
+
+    public bool InteractNpcAtTile(int tileX, int tileY)
+    {
+        var npc = FindNpc(tileX, tileY);
+        if (npc is null)
+            return false;
+
+        if (HasBlankDialogueMenu)
+            Game1.activeClickableMenu = null;
+
+        var handled = npc.checkAction(Game1.player, CurrentLocation);
+        if (Game1.activeClickableMenu is null || HasBlankDialogueMenu)
+        {
+            if (HasBlankDialogueMenu)
+                Game1.activeClickableMenu = null;
+
+            if (npc.CurrentDialogue.Count > 0)
+                Game1.DrawDialogue(npc.CurrentDialogue.Peek());
+            else
+                Game1.drawDialogue(npc);
+        }
+
+        return handled || Game1.activeClickableMenu is not null;
+    }
+
+    private static NPC? FindNpc(int tileX, int tileY)
+    {
+        var tileRect = new Rectangle(tileX * TileSize, tileY * TileSize, TileSize, TileSize);
+        foreach (var npc in CurrentLocation.characters)
+        {
+            if (npc is null)
+                continue;
+
+            if ((npc.TilePoint.X == tileX && npc.TilePoint.Y == tileY)
+                || npc.GetBoundingBox().Intersects(tileRect))
+            {
+                return npc;
+            }
+        }
+
+        return null;
     }
 
     private static void PrimeCursor(int worldX, int worldY, int screenX, int screenY)
