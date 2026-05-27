@@ -235,6 +235,12 @@ Status key:
   - Verified: headless SVE scenario 36 opens Claire's movie theater dialogue through `input.click_tile` under the `core` mod set.
   - Follow-up candidates: full movie ticket/invite flow, Martin theater worker coverage, and theater concession/shop purchase coverage.
 
+- [ ] Planning: Slice 29, Stardew Fair grange judging progression.
+  - SVE pressure: SVE replaces Stardew's live grange judging flow with custom advanced moves and SVE actor dialogue before and after judging.
+  - Frobby goal: prove tests can start the Fair, trigger judging through a player-like Lewis interaction when possible, wait for the live festival progression, and assert SVE judging dialogue side effects.
+  - Design spec: `docs/superpowers/specs/2026-05-27-sve-slice-29-grange-judging-design.md`.
+  - Fallback: if Lewis's player-facing route cannot be driven reliably headlessly, add a neutral active-event command/phase trigger without SVE-specific production code.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
