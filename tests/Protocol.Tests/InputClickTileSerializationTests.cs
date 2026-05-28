@@ -67,6 +67,11 @@ public class InputClickTileSerializationTests
             Handled = true,
             TargetNpcName = "Claire",
             NpcFallbackUsed = true,
+            ResolvedActionValue = "Theater_Doors",
+            ResolvedActionLayer = "Buildings",
+            ResolvedActionProperty = "Action",
+            ResolvedActionTile = new TilePoint { X = 14, Y = 16 },
+            ScreenVisible = true,
         };
 
         var json = JsonSerializer.Serialize(result, ProtocolJson.Options);
@@ -79,6 +84,11 @@ public class InputClickTileSerializationTests
         Assert.Contains("\"handled\":true", json);
         Assert.Contains("\"target_npc_name\":\"Claire\"", json);
         Assert.Contains("\"npc_fallback_used\":true", json);
+        Assert.Contains("\"resolved_action_value\":\"Theater_Doors\"", json);
+        Assert.Contains("\"resolved_action_layer\":\"Buildings\"", json);
+        Assert.Contains("\"resolved_action_property\":\"Action\"", json);
+        Assert.Contains("\"resolved_action_tile\":{\"x\":14,\"y\":16}", json);
+        Assert.Contains("\"screen_visible\":true", json);
         Assert.DoesNotContain("SelectedItem", json);
     }
 }

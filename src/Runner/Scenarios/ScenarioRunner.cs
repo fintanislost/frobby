@@ -2653,6 +2653,27 @@ public sealed class ScenarioRunner
         var parts = new List<string>();
         if (TryReadBool(root, "handled", out var handled))
             parts.Add($"handled={handled.ToString().ToLowerInvariant()}");
+        if (TryReadString(root, "resolved_action_value", out var resolvedActionValue))
+        {
+            var actionDetail = $"resolved_action={resolvedActionValue}";
+            if (root.TryGetProperty("resolved_action_tile", out var resolvedTile)
+                && resolvedTile.ValueKind == JsonValueKind.Object
+                && TryReadInt(resolvedTile, "x", out var actionX)
+                && TryReadInt(resolvedTile, "y", out var actionY))
+            {
+                actionDetail += $"@{actionX},{actionY}";
+            }
+
+            if (TryReadString(root, "resolved_action_layer", out var resolvedLayer)
+                && TryReadString(root, "resolved_action_property", out var resolvedProperty))
+            {
+                actionDetail += $" {resolvedLayer}/{resolvedProperty}";
+            }
+
+            parts.Add(actionDetail);
+        }
+        if (TryReadBool(root, "screen_visible", out var screenVisible))
+            parts.Add($"screen_visible={screenVisible.ToString().ToLowerInvariant()}");
         if (TryReadString(root, "target_npc_name", out var targetNpcName))
             parts.Add($"target_npc={targetNpcName}");
         if (TryReadBool(root, "npc_fallback_used", out var npcFallbackUsed))
@@ -2694,6 +2715,13 @@ public sealed class ScenarioRunner
 
         value = element.GetBoolean();
         return true;
+    }
+
+    private static bool TryReadInt(JsonElement root, string property, out int value)
+    {
+        value = 0;
+        return root.TryGetProperty(property, out var element)
+            && element.TryGetInt32(out value);
     }
 
     private async Task CaptureExplicitScreenshotAsync(

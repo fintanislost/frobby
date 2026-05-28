@@ -292,6 +292,13 @@ public class InputClickTileHandlerTests
         Assert.Equal(480, world.ClickedScreenX);
         Assert.Equal(160, world.ClickedScreenY);
         Assert.True(result.Handled);
+        Assert.Equal("Concessions", result.ResolvedActionValue);
+        Assert.Equal("Buildings", result.ResolvedActionLayer);
+        Assert.Equal("Action", result.ResolvedActionProperty);
+        Assert.NotNull(result.ResolvedActionTile);
+        Assert.Equal(8, result.ResolvedActionTile!.X);
+        Assert.Equal(4, result.ResolvedActionTile.Y);
+        Assert.True(result.ScreenVisible);
     }
 
     [Fact]
@@ -320,6 +327,38 @@ public class InputClickTileHandlerTests
 
         Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
         Assert.Contains("radius", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_ActionValueOffscreen_ReportsScreenVisibleFalse()
+    {
+        var world = new FakeTileClickWorld
+        {
+            CurrentLocationName = "MovieTheater",
+            ViewportX = 0,
+            ViewportY = 0,
+            ViewportWidth = 1280,
+            ViewportHeight = 720,
+            MapWidth = 80,
+            MapHeight = 80,
+        };
+        world.SetTileProperty(30, 30, "Buildings", "Action", "Theater_Doors");
+        var p = JsonDocument.Parse(
+                "{\"location\":\"MovieTheater\",\"x\":25,\"y\":25,\"button\":\"right\",\"action_value\":\"Theater_Doors\",\"radius\":10}")
+            .RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.Equal("Theater_Doors", result.ResolvedActionValue);
+        Assert.Equal("Buildings", result.ResolvedActionLayer);
+        Assert.Equal("Action", result.ResolvedActionProperty);
+        Assert.NotNull(result.ResolvedActionTile);
+        Assert.Equal(30, result.ResolvedActionTile!.X);
+        Assert.Equal(30, result.ResolvedActionTile.Y);
+        Assert.Equal(1952, result.Screen.X);
+        Assert.Equal(1952, result.Screen.Y);
+        Assert.False(result.ScreenVisible);
     }
 
     [Fact]
@@ -471,6 +510,8 @@ public class InputClickTileHandlerTests
         public int? MapHeight { get; set; } = 14;
         public int ViewportX { get; set; }
         public int ViewportY { get; set; }
+        public int ViewportWidth { get; set; } = 1280;
+        public int ViewportHeight { get; set; } = 720;
         public IReadOnlyList<string> LayerNames { get; } = new[] { "Back", "Buildings" };
         public bool ClickInvoked { get; private set; }
         public int? ClickedWorldX { get; private set; }

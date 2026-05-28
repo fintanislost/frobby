@@ -678,6 +678,69 @@ public class ScenarioRunnerTests
     }
 
     [Fact]
+    public async Task InputClickTile_ReportsResolvedActionDiagnostics()
+    {
+        var socket = SocketPath();
+        var tmp = Path.Combine(Path.GetTempPath(), $"click-action-details-{Guid.NewGuid():N}");
+        var rd = RunDirectory.Create(tmp);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":5,\"location\":\"MovieTheater\",\"tile\":{\"x\":4,\"y\":13},\"screen\":{\"x\":288,\"y\":544},\"world\":{\"x\":288,\"y\":864},\"handled\":false,\"resolved_action_value\":\"Theater_Doors\",\"resolved_action_layer\":\"Buildings\",\"resolved_action_property\":\"Action\",\"resolved_action_tile\":{\"x\":4,\"y\":13},\"screen_visible\":false}").RootElement,
+                        "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-action-details.png\",\"width\":1280,\"height\":720}").RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client, updateBaselines: false, reportDir: rd);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "click_action_details",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "input.click_tile",
+                        Args = JsonDocument.Parse("{\"location\":\"MovieTheater\",\"x\":5,\"y\":14,\"button\":\"right\",\"action_value\":\"Theater_Doors\",\"radius\":8}").RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            Assert.True(report.Passed, string.Join("\n", report.Failures));
+            Assert.Contains("resolved_action=Theater_Doors@4,13 Buildings/Action", report.Steps[0].Detail);
+            Assert.Contains("screen_visible=false", report.Steps[0].Detail);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+            Directory.Delete(rd.Root, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InputClickEventActor_ResolvesActorTileThenClicksTile()
     {
         var socket = SocketPath();

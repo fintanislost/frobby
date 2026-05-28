@@ -59,7 +59,9 @@ public static class InputClickTileHandler
                 $"input.click_tile location guard expected {req.Location}, current location is {world.CurrentLocationName}");
         }
 
-        (tileX, tileY) = ResolveTargetTile(req, world);
+        var target = ResolveTargetTile(req, world);
+        tileX = target.X;
+        tileY = target.Y;
 
         if ((world.MapWidth is { } width && tileX >= width)
             || (world.MapHeight is { } height && tileY >= height))
@@ -72,6 +74,10 @@ public static class InputClickTileHandler
         var worldY = tileY * TileSize + req.ScreenOffsetY;
         var screenX = worldX - world.ViewportX;
         var screenY = worldY - world.ViewportY;
+        var screenVisible = screenX >= 0
+            && screenY >= 0
+            && screenX < world.ViewportWidth
+            && screenY < world.ViewportHeight;
         var targetNpcName = button == "right" ? world.FindNpcAtTile(tileX, tileY) : null;
         var selectedItem = world.SelectedItem;
         var handled = button == "right"
@@ -101,15 +107,22 @@ public static class InputClickTileHandler
             Handled = handled,
             TargetNpcName = targetNpcName,
             NpcFallbackUsed = npcFallbackUsed,
+            ResolvedActionValue = target.Action?.Value,
+            ResolvedActionLayer = target.Action?.Layer,
+            ResolvedActionProperty = target.Action?.Property,
+            ResolvedActionTile = target.Action is null
+                ? null
+                : new TilePoint { X = target.Action.Tile.X, Y = target.Action.Tile.Y },
+            ScreenVisible = screenVisible,
         });
     }
 
-    private static (int X, int Y) ResolveTargetTile(InputClickTileRequest req, IInputTileClickWorld world)
+    private static ResolvedTileTarget ResolveTargetTile(InputClickTileRequest req, IInputTileClickWorld world)
     {
         var centerX = req.X!.Value;
         var centerY = req.Y!.Value;
         if (string.IsNullOrWhiteSpace(req.ActionValue))
-            return (centerX, centerY);
+            return new ResolvedTileTarget(centerX, centerY, null);
 
         if (req.Radius < 0 || req.Radius > MaxActionSearchRadius)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
@@ -158,8 +171,10 @@ public static class InputClickTileHandler
                 $"input.click_tile could not find action_value '{req.ActionValue}' within radius {req.Radius} of tile {centerX},{centerY}");
         }
 
-        return (match.Tile.X, match.Tile.Y);
+        return new ResolvedTileTarget(match.Tile.X, match.Tile.Y, match);
     }
+
+    private sealed record ResolvedTileTarget(int X, int Y, TileActionCandidate? Action);
 
     private static bool ShouldUseNpcFallback(
         string button,
@@ -240,6 +255,8 @@ internal interface IInputTileClickWorld
     int? MapHeight { get; }
     int ViewportX { get; }
     int ViewportY { get; }
+    int ViewportWidth { get; }
+    int ViewportHeight { get; }
     IReadOnlyList<string> LayerNames { get; }
     ISelectableInventoryItem? SelectedItem { get; }
     bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY);
@@ -268,6 +285,8 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
     public int? MapHeight => CurrentLocation.Map?.DisplayHeight / TileSize;
     public int ViewportX => Game1.viewport.X;
     public int ViewportY => Game1.viewport.Y;
+    public int ViewportWidth => Game1.viewport.Width;
+    public int ViewportHeight => Game1.viewport.Height;
     public IReadOnlyList<string> LayerNames
         => CurrentLocation.Map?.Layers.Select(layer => layer.Id).ToList() ?? new List<string>();
     public bool HasBlankDialogueMenu

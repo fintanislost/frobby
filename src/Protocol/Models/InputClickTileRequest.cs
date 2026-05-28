@@ -57,4 +57,9 @@ public sealed class InputClickTileResult : MutatorOk
     public bool Handled { get; set; }
     public string? TargetNpcName { get; set; }
     public bool NpcFallbackUsed { get; set; }
+    public string? ResolvedActionValue { get; set; }
+    public string? ResolvedActionLayer { get; set; }
+    public string? ResolvedActionProperty { get; set; }
+    public TilePoint? ResolvedActionTile { get; set; }
+    public bool ScreenVisible { get; set; }
 }
