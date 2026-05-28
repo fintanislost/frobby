@@ -157,7 +157,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   map-defined `Action` / `TouchAction` behavior. These waits also hold through
   Stardew warp/fade transitions, so scenarios do not assert against a black
   transition frame. These are neutral map introspection and interaction tools and
-  should be preferred over hard-coded mod-specific helper scripts.
+  should be preferred over hard-coded mod-specific helper scripts. Use
+  `input.click_tile.action_value` with a bounded `radius` when the player-like
+  click must target a stable nearby map action without baking in the exact tile.
 - Use `world.use_tool` for player-like map interactions that depend on Stardew
   tool behavior, such as hoe digs. Keep the tile coordinates and expected item or
   flag ids in the mod repo scenario, then prove the side effect with runtime
@@ -171,10 +173,12 @@ Frobby tests should exercise the UI like a player whenever possible:
   location. If a special location opens unrelated dialogue before the NPC can
   respond, `input.click_tile` can recover through the targeted NPC fallback and
   the runner report will show `target_npc` / `npc_fallback` detail.
-- Use `shop.open`, `shop.purchase`, `state.shop`, and `state.player.items` for
-  custom shop and inventory flows. Prefer `qualified_id` when asserting Stardew
-  1.6 custom items, and use raw `item_id` only when the scenario intentionally
-  works from unqualified mod data.
+- Use `shop.open`, `shop.purchase`, `shop.click_purchase`, `state.shop`, and
+  `state.player.items` for custom shop and inventory flows. Prefer
+  `qualified_id` when asserting Stardew 1.6 custom items, and use raw `item_id`
+  only when the scenario intentionally works from unqualified mod data. Use
+  `shop.click_purchase.item_index` for dynamic shops where the scenario should
+  buy a visible row without hard-coding a randomized item id or display name.
 - Use `state.location.resource_clumps`, `state.location.monsters`,
   `state.location.debris`, and
   runner-side `wait.location_content` when testing spawned world content such as

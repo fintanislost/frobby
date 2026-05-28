@@ -271,6 +271,7 @@ when the scenario needs to prove the visible `ShopMenu` row can be clicked:
 
 ```json
 { "action": "shop.click_purchase", "args": { "item_id": "(O)ExampleMod.CustomItem" } }
+{ "action": "shop.click_purchase", "args": { "item_index": 0 } }
 ```
 
 Native shop-row clicks create Stardew's `ShopMenu.heldItem` for ordinary item
@@ -278,7 +279,9 @@ buys. Frobby completes that visible purchase path by depositing the held item
 through the first empty menu inventory slot, so click-purchase scenarios should
 normally assert `state.player.items contains qualified_id ...`. The
 `shop.click_purchase` response includes `held_item_deposited` when this extra
-native menu step was needed and completed.
+native menu step was needed and completed. Use `item_index` when the active shop
+contains dynamic entries where the scenario should buy a visible option without
+depending on a specific generated id or display name.
 
 Use `State.Shop()` in C# DSL tests when a test needs to inspect the active shop
 snapshot directly after a click flow or setup helper. The C# DSL also exposes
@@ -459,7 +462,9 @@ If the test needs to prove a map action such as a festival shop tile without
 depending on player distance or pathing, discover it with `state.tile_actions`.
 Use `world.interact_tile_action` for ordinary map actions, or `shop.open` for a
 data-backed shop ID discovered from a `Shop ...` action when the event click
-path does not leave a menu open.
+path does not leave a menu open. Use `input.click_tile` with `action_value` and
+a bounded `radius` when the coverage goal is a player-like click on the map
+action itself.
 
 In C# DSL tests, call:
 
@@ -488,6 +493,20 @@ var festivalClick = await Input.ClickTile(
     button: "right",
     allowEventInput: true);
 Assert.True(festivalClick.Handled);
+```
+
+For a nearby map-action click in C# DSL tests, pass `actionValue` and a bounded
+search radius:
+
+```csharp
+var concessionClick = await Input.ClickTile(
+    7,
+    7,
+    location: "MovieTheater",
+    button: "right",
+    actionValue: "Concessions",
+    radius: 10);
+Assert.Equal("MovieTheater", concessionClick.Location);
 ```
 
 Transient debris and combat drops are exposed through the same wait:

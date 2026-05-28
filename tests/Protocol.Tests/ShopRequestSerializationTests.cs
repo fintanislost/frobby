@@ -92,11 +92,12 @@ public class ShopRequestSerializationTests
     [Fact]
     public void ShopClickPurchaseRequest_DeserializesDisplayNameTarget()
     {
-        var json = "{\"display_name\":\"Decorative Tulips\",\"count\":1,\"scroll_attempts\":4}";
+        var json = "{\"display_name\":\"Decorative Tulips\",\"item_index\":3,\"count\":1,\"scroll_attempts\":4}";
         var req = JsonSerializer.Deserialize<ShopClickPurchaseRequest>(json, ProtocolJson.Options)!;
 
         Assert.Equal(string.Empty, req.ItemId);
         Assert.Equal("Decorative Tulips", req.DisplayName);
+        Assert.Equal(3, req.ItemIndex);
         Assert.Equal(1, req.Count);
         Assert.Equal(4, req.ScrollAttempts);
     }

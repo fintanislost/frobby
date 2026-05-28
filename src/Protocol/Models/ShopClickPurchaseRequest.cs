@@ -9,6 +9,12 @@ public sealed class ShopClickPurchaseRequest
     /// <summary>Exact display-name target used when <see cref="ItemId"/> is empty.</summary>
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Zero-based item index in the active shop. Useful for dynamic shops where
+    /// the test needs to buy a visible option without hard-coding the randomized ID.
+    /// </summary>
+    public int? ItemIndex { get; set; }
+
     /// <summary>Stack count to buy. Slice 27 supports one visible click.</summary>
     public int Count { get; set; } = 1;
 

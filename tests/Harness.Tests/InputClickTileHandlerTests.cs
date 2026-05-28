@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text.Json;
 using SdvTestFramework.Harness.Handlers;
 using SdvTestFramework.Protocol;
@@ -266,6 +267,62 @@ public class InputClickTileHandlerTests
     }
 
     [Fact]
+    public void Handle_ActionValue_ClicksNearestMatchingTileWithinRadius()
+    {
+        var world = new FakeTileClickWorld
+        {
+            CurrentLocationName = "MovieTheater",
+            ViewportX = 64,
+            ViewportY = 128,
+        };
+        world.SetTileProperty(8, 4, "Buildings", "Action", "Concessions");
+        world.SetTileProperty(12, 9, "Buildings", "Action", "Concessions");
+        var p = JsonDocument.Parse(
+                "{\"location\":\"MovieTheater\",\"x\":7,\"y\":7,\"button\":\"right\",\"action_value\":\"Concessions\",\"radius\":8}")
+            .RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.Equal("right", world.ClickedButton);
+        Assert.Equal(8, result.Tile.X);
+        Assert.Equal(4, result.Tile.Y);
+        Assert.Equal(544, world.ClickedWorldX);
+        Assert.Equal(288, world.ClickedWorldY);
+        Assert.Equal(480, world.ClickedScreenX);
+        Assert.Equal(160, world.ClickedScreenY);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
+    public void Handle_ActionValueNoMatch_ThrowsGameStateInvalid()
+    {
+        var p = JsonDocument.Parse(
+                "{\"x\":7,\"y\":7,\"button\":\"right\",\"action_value\":\"Concessions\",\"radius\":3}")
+            .RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            InputClickTileHandler.Handle(p, new FakeTileClickWorld()));
+
+        Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
+        Assert.Contains("Concessions", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_ActionValueNegativeRadius_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse(
+                "{\"x\":7,\"y\":7,\"button\":\"right\",\"action_value\":\"Concessions\",\"radius\":-1}")
+            .RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            InputClickTileHandler.Handle(p, new FakeTileClickWorld()));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("radius", ex.Message);
+    }
+
+    [Fact]
     public void Handle_NotWorldReady_ThrowsGameStateInvalid()
     {
         var p = JsonDocument.Parse("{\"x\":9,\"y\":8}").RootElement;
@@ -397,6 +454,8 @@ public class InputClickTileHandlerTests
 
     private sealed class FakeTileClickWorld : IInputTileClickWorld
     {
+        private readonly Dictionary<(int X, int Y, string Layer, string Property), string> _tileProperties = new();
+
         public bool IsWorldReady { get; set; } = true;
         public bool HasActiveMenuBeforeClick { get; set; }
         public bool HasActiveMenuAfterClick { get; set; } = true;
@@ -412,6 +471,7 @@ public class InputClickTileHandlerTests
         public int? MapHeight { get; set; } = 14;
         public int ViewportX { get; set; }
         public int ViewportY { get; set; }
+        public IReadOnlyList<string> LayerNames { get; } = new[] { "Back", "Buildings" };
         public bool ClickInvoked { get; private set; }
         public int? ClickedWorldX { get; private set; }
         public int? ClickedWorldY { get; private set; }
@@ -452,6 +512,12 @@ public class InputClickTileHandlerTests
         }
 
         public string? FindNpcAtTile(int tileX, int tileY) => TargetNpcName;
+
+        public void SetTileProperty(int x, int y, string layer, string property, string value)
+            => _tileProperties[(x, y, layer, property)] = value;
+
+        public string? GetTileProperty(int x, int y, string layer, string property)
+            => _tileProperties.TryGetValue((x, y, layer, property), out var value) ? value : null;
 
         public bool HasBlankDialogueMenu => HasBlankDialogueMenuAfterClick;
 

@@ -840,7 +840,7 @@ public class ScenarioRunnerTests
         var tmp = Path.Combine(Path.GetTempPath(), $"shop-click-purchase-report-{Guid.NewGuid():N}");
         var rd = RunDirectory.Create(tmp);
         var calls = new List<string>();
-        var clickParams = default(JsonElement);
+        var clickParams = new List<JsonElement>();
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
         var serverTask = Task.Run(async () =>
@@ -851,7 +851,7 @@ public class ScenarioRunnerTests
                 {
                     calls.Add(req.Method);
                     if (req.Method == "shop.click_purchase")
-                        clickParams = req.Params!.Value.Clone();
+                        clickParams.Add(req.Params!.Value.Clone());
 
                     JsonElement r = req.Method switch
                     {
@@ -888,13 +888,21 @@ public class ScenarioRunnerTests
                         Action = "shop.click_purchase",
                         Args = JsonDocument.Parse("{\"item_id\":\"(F)terminal\"}").RootElement,
                     },
+                    new ScenarioStep
+                    {
+                        Action = "shop.click_purchase",
+                        Args = JsonDocument.Parse("{\"item_index\":0}").RootElement,
+                    },
                 },
             }, cts.Token);
 
             Assert.True(report.Passed, string.Join("\n", report.Failures));
             Assert.Contains("shop.click_purchase", calls);
-            Assert.Equal("(F)terminal", clickParams.GetProperty("item_id").GetString());
+            Assert.Equal(2, clickParams.Count);
+            Assert.Equal("(F)terminal", clickParams[0].GetProperty("item_id").GetString());
+            Assert.Equal(0, clickParams[1].GetProperty("item_index").GetInt32());
             Assert.Equal("Click purchase shop item \"(F)terminal\"", report.Steps[0].Detail);
+            Assert.Equal("Click purchase shop item \"item_index 0\"", report.Steps[1].Detail);
             Assert.Contains("bitmap.capture", calls);
         }
         finally

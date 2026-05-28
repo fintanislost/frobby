@@ -2260,6 +2260,25 @@ Request:
 }
 ```
 
+Dynamic map-action request:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 45,
+  "method": "input.click_tile",
+  "params": {
+    "location": "MovieTheater",
+    "x": 7,
+    "y": 7,
+    "button": "right",
+    "action_value": "Concessions",
+    "radius": 10,
+    "layers": ["Buildings"],
+    "properties": ["Action"]
+  }
+}
+```
+
 Response:
 ```json
 {
@@ -2286,6 +2305,11 @@ Response:
 
 Supported buttons are `"left"` and `"right"`. Use `screen_offset_x` and
 `screen_offset_y` when the click must target a non-center pixel within the tile.
+When `action_value` is supplied, Frobby scans map `Action` / `TouchAction`
+properties around the supplied `x,y` center and clicks the nearest exact match
+within `radius` instead of the center tile. Optional `layers` and `properties`
+limit that scan. This is useful for player-like map-action clicks in custom maps
+where the action text is stable but the exact tile is awkward to maintain.
 By default, `input.click_tile` rejects active events and festivals
 (`Game1.eventUp`) to catch accidental gameplay clicks while a cutscene owns the
 world. Set `allow_event_input: true` only when the scenario intentionally clicks
@@ -2701,6 +2725,7 @@ stable semantic shop-data purchase.
 Request:
 ```json
 → { "jsonrpc": "2.0", "id": 20, "method": "shop.click_purchase", "params": { "item_id": "(F)example_terminal", "count": 1, "scroll_attempts": 16 } }
+→ { "jsonrpc": "2.0", "id": 21, "method": "shop.click_purchase", "params": { "item_index": 0, "count": 1 } }
 ```
 
 Response:
@@ -2728,10 +2753,12 @@ Response:
 ```
 
 `item_id` matches either raw or qualified item id. `display_name` may be used
-instead when a caller does not know the item id. Slice 27 supports `count: 1`;
-larger stack-click behavior should use a future explicit repeat/right-click
-feature. `screen` is the actual clicked point and `bounds` is the visible row
-region used for reports. Native shop-row clicks can create
+instead when a caller does not know the item id. `item_index` may be used when
+the test needs to buy a visible option from a dynamic shop without hard-coding a
+randomized item id or display name. Slice 27 supports `count: 1`; larger
+stack-click behavior should use a future explicit repeat/right-click feature.
+`screen` is the actual clicked point and `bounds` is the visible row region used
+for reports. Native shop-row clicks can create
 `ShopMenu.heldItem`; when that happens, Frobby deposits it into the first empty
 menu inventory slot and reports `held_item_deposited: true`.
 

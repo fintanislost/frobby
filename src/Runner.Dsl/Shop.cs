@@ -51,6 +51,7 @@ public static class Shop
     public static async Task<ShopClickPurchaseResult> ClickPurchase(
         string itemId = "",
         string displayName = "",
+        int? itemIndex = null,
         int count = 1,
         int scrollAttempts = 16,
         CancellationToken ct = default)
@@ -60,6 +61,7 @@ public static class Shop
         {
             ItemId = itemId,
             DisplayName = displayName,
+            ItemIndex = itemIndex,
             Count = count,
             ScrollAttempts = scrollAttempts,
         }, ProtocolJson.Options);

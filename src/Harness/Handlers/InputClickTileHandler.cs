@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
@@ -20,6 +22,7 @@ public static class InputClickTileHandler
     public const string Method = "input.click_tile";
 
     private const int TileSize = 64;
+    private const int MaxActionSearchRadius = 25;
     private static readonly IInputTileClickWorld ProductionWorld = new SdvInputTileClickWorld();
 
     public static JsonElement Handle(JsonElement? paramsElement)
@@ -55,6 +58,8 @@ public static class InputClickTileHandler
             throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
                 $"input.click_tile location guard expected {req.Location}, current location is {world.CurrentLocationName}");
         }
+
+        (tileX, tileY) = ResolveTargetTile(req, world);
 
         if ((world.MapWidth is { } width && tileX >= width)
             || (world.MapHeight is { } height && tileY >= height))
@@ -99,6 +104,63 @@ public static class InputClickTileHandler
         });
     }
 
+    private static (int X, int Y) ResolveTargetTile(InputClickTileRequest req, IInputTileClickWorld world)
+    {
+        var centerX = req.X!.Value;
+        var centerY = req.Y!.Value;
+        if (string.IsNullOrWhiteSpace(req.ActionValue))
+            return (centerX, centerY);
+
+        if (req.Radius < 0 || req.Radius > MaxActionSearchRadius)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                $"params.radius must be between 0 and {MaxActionSearchRadius}");
+
+        var layers = WorldInteractTileActionHandler.ResolveLayers(req.Layers, world.LayerNames);
+        var properties = TileActionPropertyNames.Resolve(req.Properties, "properties");
+        var matches = new List<TileActionCandidate>();
+        for (var y = centerY - req.Radius; y <= centerY + req.Radius; y++)
+        {
+            if (y < 0)
+                continue;
+
+            for (var x = centerX - req.Radius; x <= centerX + req.Radius; x++)
+            {
+                if (x < 0)
+                    continue;
+
+                foreach (var property in properties)
+                foreach (var layer in layers)
+                {
+                    var value = world.GetTileProperty(x, y, layer, property);
+                    if (value is null || !string.Equals(value, req.ActionValue, StringComparison.Ordinal))
+                        continue;
+
+                    matches.Add(new TileActionCandidate
+                    {
+                        Tile = new TilePoint { X = x, Y = y },
+                        Layer = layer,
+                        Property = property,
+                        Value = value,
+                        Distance = Math.Abs(x - centerX) + Math.Abs(y - centerY),
+                    });
+                }
+            }
+        }
+
+        var match = matches
+            .OrderBy(candidate => candidate.Distance)
+            .ThenBy(candidate => candidate.Tile.Y)
+            .ThenBy(candidate => candidate.Tile.X)
+            .FirstOrDefault();
+        if (match is null)
+        {
+            throw new JsonRpcException(JsonRpcErrorCode.GameStateInvalid,
+                $"input.click_tile could not find action_value '{req.ActionValue}' within radius {req.Radius} of tile {centerX},{centerY}");
+        }
+
+        return (match.Tile.X, match.Tile.Y);
+    }
+
     private static bool ShouldUseNpcFallback(
         string button,
         string? targetNpcName,
@@ -141,6 +203,12 @@ public static class InputClickTileHandler
         if (req.X.Value < 0 || req.Y.Value < 0)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 "params.x and params.y must be non-negative");
+        if (!string.IsNullOrWhiteSpace(req.ActionValue)
+            && (req.Radius < 0 || req.Radius > MaxActionSearchRadius))
+        {
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                $"params.radius must be between 0 and {MaxActionSearchRadius}");
+        }
         if (req.ScreenOffsetX is < 0 or >= TileSize)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
                 "params.screen_offset_x must be between 0 and 63");
@@ -172,9 +240,11 @@ internal interface IInputTileClickWorld
     int? MapHeight { get; }
     int ViewportX { get; }
     int ViewportY { get; }
+    IReadOnlyList<string> LayerNames { get; }
     ISelectableInventoryItem? SelectedItem { get; }
     bool ClickLeftTile(int worldX, int worldY, int screenX, int screenY);
     bool ClickRightTile(int worldX, int worldY, int screenX, int screenY);
+    string? GetTileProperty(int x, int y, string layer, string property);
     string? FindNpcAtTile(int tileX, int tileY);
     bool HasBlankDialogueMenu { get; }
     bool HasDialogueMenu { get; }
@@ -198,6 +268,8 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
     public int? MapHeight => CurrentLocation.Map?.DisplayHeight / TileSize;
     public int ViewportX => Game1.viewport.X;
     public int ViewportY => Game1.viewport.Y;
+    public IReadOnlyList<string> LayerNames
+        => CurrentLocation.Map?.Layers.Select(layer => layer.Id).ToList() ?? new List<string>();
     public bool HasBlankDialogueMenu
     {
         get
@@ -264,6 +336,9 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
 
     public string? FindNpcAtTile(int tileX, int tileY)
         => FindNpc(tileX, tileY)?.Name;
+
+    public string? GetTileProperty(int x, int y, string layer, string property)
+        => CurrentLocation.doesTileHaveProperty(x, y, property, layer, ignoreTileSheetProperties: false);
 
     public bool InteractNpcAtTile(int tileX, int tileY)
     {

@@ -421,7 +421,11 @@ public class PlayerWorldTimeTests
                 9,
                 location: "Frobby_CombatLab",
                 button: "right",
-                allowEventInput: true);
+                allowEventInput: true,
+                actionValue: "Concessions",
+                radius: 10,
+                layers: new[] { "Buildings" },
+                properties: new[] { "Action" });
         }
         finally { SdvTestSession.ResetForTests(); }
 
@@ -432,6 +436,10 @@ public class PlayerWorldTimeTests
         Assert.Contains("\"y\":9", inv.Calls[0].ParamsJson);
         Assert.Contains("\"button\":\"right\"", inv.Calls[0].ParamsJson);
         Assert.Contains("\"allow_event_input\":true", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"action_value\":\"Concessions\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"radius\":10", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"layers\":[\"Buildings\"]", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"properties\":[\"Action\"]", inv.Calls[0].ParamsJson);
         Assert.True(result.Handled);
         Assert.Equal(608, result.World.X);
     }

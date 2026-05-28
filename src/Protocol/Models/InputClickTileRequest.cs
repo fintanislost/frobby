@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace SdvTestFramework.Protocol.Models;
 
 /// <summary>Request shape for <c>input.click_tile</c>.</summary>
@@ -20,6 +22,22 @@ public sealed class InputClickTileRequest
 
     /// <summary>Allow gameplay click delivery during active events or festivals. Defaults to false.</summary>
     public bool AllowEventInput { get; set; }
+
+    /// <summary>
+    /// Optional exact map action value to discover near <see cref="X"/> and <see cref="Y"/>
+    /// before clicking. This keeps scenarios away from brittle coordinates when a
+    /// stable Stardew map action is available.
+    /// </summary>
+    public string? ActionValue { get; set; }
+
+    /// <summary>Search radius used with <see cref="ActionValue"/>. Defaults to the supplied tile only.</summary>
+    public int Radius { get; set; }
+
+    /// <summary>Optional map layers to scan when <see cref="ActionValue"/> is set.</summary>
+    public List<string>? Layers { get; set; }
+
+    /// <summary>Optional tile properties to scan when <see cref="ActionValue"/> is set.</summary>
+    public List<string>? Properties { get; set; }
 
     /// <summary>Pixel offset within the tile. Defaults to the tile center.</summary>
     public int ScreenOffsetX { get; set; } = 32;

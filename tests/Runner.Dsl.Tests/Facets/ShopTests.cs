@@ -71,11 +71,12 @@ public class ShopTests
         SdvTestSession.InitializeForTests(inv);
 
         ShopClickPurchaseResult result;
-        try { result = await Shop.ClickPurchase("(F)terminal", scrollAttempts: 4); }
+        try { result = await Shop.ClickPurchase("(F)terminal", itemIndex: 2, scrollAttempts: 4); }
         finally { SdvTestSession.ResetForTests(); }
 
         Assert.Equal("shop.click_purchase", inv.Calls[0].Method);
         Assert.Contains("\"item_id\":\"(F)terminal\"", inv.Calls[0].ParamsJson);
+        Assert.Contains("\"item_index\":2", inv.Calls[0].ParamsJson);
         Assert.Contains("\"scroll_attempts\":4", inv.Calls[0].ParamsJson);
         Assert.Equal("(F)terminal", result.ItemId);
         Assert.Equal(860, result.Screen.X);

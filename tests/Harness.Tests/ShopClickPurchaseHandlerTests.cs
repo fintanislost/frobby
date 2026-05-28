@@ -111,6 +111,45 @@ public class ShopClickPurchaseHandlerTests
     }
 
     [Fact]
+    public void Handle_ClicksItemIndexTarget()
+    {
+        var world = new FakeWorld();
+        var p = JsonDocument.Parse("{\"item_index\":1,\"count\":1}").RootElement;
+
+        var result = ShopClickPurchaseHandler.Handle(p, world);
+        var purchase = JsonSerializer.Deserialize<ShopClickPurchaseResult>(result, ProtocolJson.Options)!;
+
+        Assert.Equal("(O)388", purchase.ItemId);
+        Assert.Equal("Wood", purchase.DisplayName);
+        Assert.Equal(1, purchase.ItemIndex);
+        Assert.Equal("(O)388", world.Shop!.RevealedItemId);
+    }
+
+    [Fact]
+    public void Handle_NegativeItemIndex_ThrowsInvalidParams()
+    {
+        var p = JsonDocument.Parse("{\"item_index\":-1}").RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ShopClickPurchaseHandler.Handle(p, new FakeWorld()));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("item_index", ex.Message);
+    }
+
+    [Fact]
+    public void Handle_ItemIndexOutOfRange_ThrowsGameStateInvalid()
+    {
+        var p = JsonDocument.Parse("{\"item_index\":99}").RootElement;
+
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ShopClickPurchaseHandler.Handle(p, new FakeWorld()));
+
+        Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
+        Assert.Contains("item_index 99", ex.Message);
+    }
+
+    [Fact]
     public void Handle_ClicksMatchingItemAndReturnsCurrencyAndBounds()
     {
         var world = new FakeWorld();

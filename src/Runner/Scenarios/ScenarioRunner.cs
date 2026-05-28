@@ -2636,7 +2636,7 @@ public sealed class ScenarioRunner
             "combat_lab.spawn_monster" => $"Spawn {GetStringArg(step.Args, "kind") ?? "monster"} in Combat Lab",
             "combat_lab.relocate_monster" => $"Relocate monster from {GetStringArg(step.Args, "from_location") ?? "unknown"} to Combat Lab",
             "combat.attack" => DescribeCombatAttack(step.Args),
-            "shop.click_purchase" => $"Click purchase shop item \"{GetStringArg(step.Args, "item_id") ?? GetStringArg(step.Args, "display_name") ?? "unknown"}\"",
+            "shop.click_purchase" => $"Click purchase shop item \"{GetShopClickPurchaseLabel(step.Args)}\"",
             "time.next_day" => "Advance to next day",
             "screenshot.capture" => $"Capture screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
@@ -2838,6 +2838,20 @@ public sealed class ScenarioRunner
         }
 
         return "active";
+    }
+
+    private static string GetShopClickPurchaseLabel(JsonElement? args)
+    {
+        var itemId = GetStringArg(args, "item_id");
+        if (!string.IsNullOrWhiteSpace(itemId))
+            return itemId;
+
+        var displayName = GetStringArg(args, "display_name");
+        if (!string.IsNullOrWhiteSpace(displayName))
+            return displayName;
+
+        var itemIndex = GetIntArg(args, "item_index");
+        return itemIndex is null ? "unknown" : $"item_index {itemIndex.Value}";
     }
 
     private static string GetMenuButtonLabel(JsonElement? args)

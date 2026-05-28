@@ -27,8 +27,15 @@ public static class ShopClickPurchaseHandler
     internal static JsonElement Handle(JsonElement? paramsElement, IShopClickPurchaseWorld world)
     {
         var req = RpcParams.Required<ShopClickPurchaseRequest>(paramsElement);
-        if (string.IsNullOrWhiteSpace(req.ItemId) && string.IsNullOrWhiteSpace(req.DisplayName))
-            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.item_id or params.display_name required");
+        if (string.IsNullOrWhiteSpace(req.ItemId)
+            && string.IsNullOrWhiteSpace(req.DisplayName)
+            && req.ItemIndex is null)
+        {
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams,
+                "params.item_id, params.display_name, or params.item_index required");
+        }
+        if (req.ItemIndex is < 0)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.item_index must be >= 0");
         if (req.Count != 1)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "params.count must be 1 for shop.click_purchase");
         if (req.ScrollAttempts < 0)
@@ -90,12 +97,26 @@ public static class ShopClickPurchaseHandler
         if (!string.IsNullOrWhiteSpace(req.ItemId))
             return shop.Items.FirstOrDefault(i => ShopStateProjector.MatchesRequestedItem(i, req.ItemId));
 
-        return shop.Items.FirstOrDefault(i =>
-            string.Equals(i.DisplayName, req.DisplayName, StringComparison.Ordinal));
+        if (!string.IsNullOrWhiteSpace(req.DisplayName))
+        {
+            return shop.Items.FirstOrDefault(i =>
+                string.Equals(i.DisplayName, req.DisplayName, StringComparison.Ordinal));
+        }
+
+        if (req.ItemIndex is int index)
+            return index < shop.Items.Count ? shop.Items[index] : null;
+
+        return null;
     }
 
     private static string TargetLabel(ShopClickPurchaseRequest req)
-        => string.IsNullOrWhiteSpace(req.ItemId) ? req.DisplayName : req.ItemId;
+    {
+        if (!string.IsNullOrWhiteSpace(req.ItemId))
+            return req.ItemId;
+        if (!string.IsNullOrWhiteSpace(req.DisplayName))
+            return req.DisplayName;
+        return req.ItemIndex is int index ? $"item_index {index}" : string.Empty;
+    }
 }
 
 internal interface IShopClickPurchaseWorld

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -45,6 +47,10 @@ public static class Input
         string button = "left",
         bool requireCurrentLocation = true,
         bool allowEventInput = false,
+        string? actionValue = null,
+        int radius = 0,
+        IEnumerable<string>? layers = null,
+        IEnumerable<string>? properties = null,
         int screenOffsetX = 32,
         int screenOffsetY = 32,
         CancellationToken ct = default)
@@ -58,6 +64,10 @@ public static class Input
             Button = button,
             RequireCurrentLocation = requireCurrentLocation,
             AllowEventInput = allowEventInput,
+            ActionValue = actionValue,
+            Radius = radius,
+            Layers = layers?.ToList(),
+            Properties = properties?.ToList(),
             ScreenOffsetX = screenOffsetX,
             ScreenOffsetY = screenOffsetY,
         }, ProtocolJson.Options);

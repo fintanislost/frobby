@@ -252,6 +252,14 @@ Status key:
   - Verified: adjacent SVE scenarios 36 and 31 still pass headless, proving theater NPC fallback and selected bomb tile-click behavior remained stable.
   - Follow-up candidates: concession purchase/taste validation, full movie screening reactions, and Claire/Martin worker invite edge cases.
 
+- [x] Done: Slice 31, movie concession purchase through visible shop UI.
+  - SVE pressure: movie theater concessions are dynamic Stardew `MovieConcession` salables reached through a map action and confirmation prompt after a custom NPC invite.
+  - Frobby goal: add neutral map-action discovery for player-like tile clicks and visible shop purchase by zero-based item index so tests can buy dynamic shop entries without SVE-specific framework code.
+  - Design spec: `docs/superpowers/specs/2026-05-28-sve-slice-31-movie-concession-purchase-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-28-sve-slice-31-movie-concession-purchase.md`.
+  - Done: `input.click_tile.action_value`, `shop.click_purchase.item_index`, C# DSL coverage, docs, and SVE scenario 39.
+  - Verified: headless SVE scenario 39 clicks the theater `Concessions` map action, confirms the native prompt, buys a dynamic `MovieConcession` by visible item index, and waits for Stardew's purchased-concession dialogue for Sophia. Adjacent movie scenarios 38 and 36 also pass headless.
+
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
 ### Current Frobby Surface
