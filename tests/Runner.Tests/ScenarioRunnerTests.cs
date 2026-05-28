@@ -20,6 +20,65 @@ public class ScenarioRunnerTests
 {
     private static string SocketPath() => Path.Combine(Path.GetTempPath(), $"sdv-test-{Guid.NewGuid():N}.sock");
 
+    private static async Task<(ScenarioReport Report, int EventPolls)> RunWaitEventActiveScenarioAsync(
+        string argsJson,
+        params string[] eventResponses)
+    {
+        var socket = SocketPath();
+        var eventPolls = 0;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+
+        var serverTask = Task.Run(async () =>
+        {
+            await UnixSocketRpc.RunServerAsync(socket, async (session, tok) =>
+            {
+                session.RequestReceived += async req =>
+                {
+                    JsonElement r = req.Method switch
+                    {
+                        "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
+                        "state.event" => JsonDocument.Parse(eventResponses[Math.Min(eventPolls++, eventResponses.Length - 1)]).RootElement,
+                        "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
+                        _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
+                    };
+                    await session.SendResponseAsync(JsonRpcResponse.Ok(req.Id, r), tok);
+                };
+                await session.SendNotificationAsync("ready", JsonDocument.Parse("{\"version\":\"0\"}").RootElement, tok);
+                await session.RunAsync(tok);
+            }, cts.Token);
+        }, cts.Token);
+
+        try
+        {
+            for (int i = 0; i < 40 && !File.Exists(socket); i++)
+                await Task.Delay(50, cts.Token);
+
+            using var client = await UnixSocketRpc.ConnectAsync(socket, cts.Token);
+            _ = client.RunAsync(cts.Token);
+
+            var runner = new ScenarioRunner(client);
+            var report = await runner.RunAsync(new ScenarioSpec
+            {
+                Name = "wait_event_active_root_dialogue",
+                Steps = new()
+                {
+                    new ScenarioStep
+                    {
+                        Action = "wait.event_active",
+                        Args = JsonDocument.Parse(argsJson).RootElement,
+                    },
+                },
+            }, cts.Token);
+
+            return (report, eventPolls);
+        }
+        finally
+        {
+            cts.Cancel();
+            try { await serverTask; } catch (OperationCanceledException) { }
+        }
+    }
+
     private static async Task<ScenarioReport> RunSingleAssertionAsync(
         ScenarioAssertion assertion,
         Func<JsonRpcRequest, JsonRpcResponse?> respond,
@@ -3784,6 +3843,110 @@ public class ScenarioRunnerTests
 
         cts.Cancel();
         try { await serverTask; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
+    public async Task WaitEventActive_FiltersByRootDialogueTextAndSpeaker()
+    {
+        var (report, eventPolls) = await RunWaitEventActiveScenarioAsync(
+            "{\"id\":\"movie\",\"dialogue_speaker\":\"Sophia\",\"dialogue_text\":\"so so great\",\"timeout_ms\":1000,\"poll_ms\":1}",
+            """
+            {
+              "active": true,
+              "event_up": true,
+              "id": "movie",
+              "location": "MovieTheater",
+              "is_festival": false,
+              "dialogue": { "speaker": "Lewis", "text": "Welcome to the theater." },
+              "actors": [],
+              "viewport": { "x": 0, "y": 0, "width": 1280, "height": 720 }
+            }
+            """,
+            """
+            {
+              "active": true,
+              "event_up": true,
+              "id": "movie",
+              "location": "MovieTheater",
+              "is_festival": false,
+              "dialogue": { "speaker": "Sophia", "text": "The movie was so so great! Thanks for taking me!" },
+              "actors": [],
+              "viewport": { "x": 0, "y": 0, "width": 1280, "height": 720 }
+            }
+            """);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+        Assert.Equal(2, eventPolls);
+    }
+
+    [Fact]
+    public async Task WaitEventActive_FiltersByRootDialogueTextMatches()
+    {
+        var (report, _) = await RunWaitEventActiveScenarioAsync(
+            "{\"dialogue_speaker\":\"Sophia\",\"dialogue_text_matches\":\"movie\\\\s+was\\\\s+so\\\\s+so\\\\s+great\",\"timeout_ms\":1000,\"poll_ms\":1}",
+            """
+            {
+              "active": true,
+              "event_up": true,
+              "id": "movie",
+              "location": "MovieTheater",
+              "is_festival": false,
+              "dialogue": { "speaker": "Sophia", "text": "The movie was so so great! Thanks for taking me!" },
+              "actors": [],
+              "viewport": { "x": 0, "y": 0, "width": 1280, "height": 720 }
+            }
+            """);
+
+        Assert.True(report.Passed, string.Join("\n", report.Failures));
+    }
+
+    [Fact]
+    public async Task WaitEventActive_RootDialogueTimeoutIncludesObservedDialogue()
+    {
+        var (report, _) = await RunWaitEventActiveScenarioAsync(
+            "{\"dialogue_speaker\":\"Sophia\",\"dialogue_text\":\"missing text\",\"timeout_ms\":20,\"poll_ms\":1}",
+            """
+            {
+              "active": true,
+              "event_up": true,
+              "id": "movie",
+              "location": "MovieTheater",
+              "is_festival": false,
+              "dialogue": { "speaker": "Sophia", "text": "The movie was so so great! Thanks for taking me!" },
+              "actors": [],
+              "viewport": { "x": 0, "y": 0, "width": 1280, "height": 720 }
+            }
+            """);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("dialogue_text contains missing text", failure);
+        Assert.Contains("dialogue=Sophia", failure);
+        Assert.Contains("movie was so so great", failure);
+    }
+
+    [Fact]
+    public async Task WaitEventActive_RootDialogueTimeoutHandlesNullObservedDialogueText()
+    {
+        var (report, _) = await RunWaitEventActiveScenarioAsync(
+            "{\"dialogue_speaker\":\"Sophia\",\"dialogue_text\":\"missing text\",\"timeout_ms\":20,\"poll_ms\":1}",
+            """
+            {
+              "active": true,
+              "event_up": true,
+              "id": "movie",
+              "location": "MovieTheater",
+              "is_festival": false,
+              "dialogue": { "speaker": "Sophia", "text": null },
+              "actors": [],
+              "viewport": { "x": 0, "y": 0, "width": 1280, "height": 720 }
+            }
+            """);
+
+        Assert.False(report.Passed);
+        var failure = Assert.Single(report.Failures);
+        Assert.Contains("dialogue_text contains missing text", failure);
+        Assert.Contains("dialogue=Sophia", failure);
     }
 
     [Fact]

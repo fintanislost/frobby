@@ -1486,7 +1486,8 @@ public sealed class ScenarioRunner
                 && (string.IsNullOrWhiteSpace(args.Id) || string.Equals(lastObserved.Id, args.Id, StringComparison.Ordinal))
                 && (string.IsNullOrWhiteSpace(args.Location) || string.Equals(lastObserved.Location, args.Location, StringComparison.Ordinal))
                 && (args.IsFestival is null || lastObserved.IsFestival == args.IsFestival.Value)
-                && EventActorMatches(lastObserved, args))
+                && EventActorMatches(lastObserved, args)
+                && EventDialogueMatches(lastObserved, args))
             {
                 return;
             }
@@ -1599,6 +1600,44 @@ public sealed class ScenarioRunner
         return false;
     }
 
+    private static bool EventDialogueMatches(EventState state, WaitEventStepArgs args)
+    {
+        var hasDialogueFilter = !string.IsNullOrWhiteSpace(args.DialogueSpeaker)
+            || !string.IsNullOrWhiteSpace(args.DialogueText)
+            || !string.IsNullOrWhiteSpace(args.DialogueTextMatches);
+        if (!hasDialogueFilter)
+            return true;
+
+        var dialogue = state.Dialogue;
+        if (dialogue is null)
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(args.DialogueSpeaker)
+            && !string.Equals(dialogue.Speaker, args.DialogueSpeaker, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(args.DialogueText)
+            && (string.IsNullOrEmpty(dialogue.Text)
+                || dialogue.Text.IndexOf(args.DialogueText, StringComparison.OrdinalIgnoreCase) < 0))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(args.DialogueTextMatches)
+            && (string.IsNullOrEmpty(dialogue.Text)
+                || !System.Text.RegularExpressions.Regex.IsMatch(
+                    dialogue.Text,
+                    args.DialogueTextMatches,
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     private static string FormatWaitEventFilters(WaitEventStepArgs args)
     {
         var filters = new List<string>();
@@ -1610,6 +1649,9 @@ public sealed class ScenarioRunner
         if (!string.IsNullOrWhiteSpace(args.ActorDialogueText)) filters.Add($"actor_dialogue_text contains {args.ActorDialogueText}");
         if (!string.IsNullOrWhiteSpace(args.ActorDialogueTextMatches)) filters.Add($"actor_dialogue_text_matches={args.ActorDialogueTextMatches}");
         if (!string.IsNullOrWhiteSpace(args.ActorDialogueKey)) filters.Add($"actor_dialogue_key={args.ActorDialogueKey}");
+        if (!string.IsNullOrWhiteSpace(args.DialogueSpeaker)) filters.Add($"dialogue_speaker={args.DialogueSpeaker}");
+        if (!string.IsNullOrWhiteSpace(args.DialogueText)) filters.Add($"dialogue_text contains {args.DialogueText}");
+        if (!string.IsNullOrWhiteSpace(args.DialogueTextMatches)) filters.Add($"dialogue_text_matches={args.DialogueTextMatches}");
         return filters.Count == 0 ? "any active event" : string.Join(", ", filters);
     }
 
@@ -1638,9 +1680,15 @@ public sealed class ScenarioRunner
             : value[..Math.Max(0, maxLength - 3)] + "...";
 
     private static string FormatEventState(EventState? state)
-        => state is null
-            ? "nothing"
-            : $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}, actors={FormatEventActors(state.Actors)}";
+    {
+        if (state is null)
+            return "nothing";
+
+        var dialogue = state.Dialogue is null
+            ? string.Empty
+            : $", dialogue={state.Dialogue.Speaker} \"{Shorten(state.Dialogue.Text ?? string.Empty, 120)}\"";
+        return $"active={state.Active}, event_up={state.EventUp}, id='{state.Id}', location='{state.Location}', is_festival={state.IsFestival}, actors={FormatEventActors(state.Actors)}{dialogue}";
+    }
 
     private async Task<string> InvokeInputClickEventActorAsync(ScenarioStep step, CancellationToken ct)
     {
@@ -3221,6 +3269,9 @@ public sealed class ScenarioRunner
         public string? ActorDialogueText { get; set; }
         public string? ActorDialogueTextMatches { get; set; }
         public string? ActorDialogueKey { get; set; }
+        public string? DialogueText { get; set; }
+        public string? DialogueTextMatches { get; set; }
+        public string? DialogueSpeaker { get; set; }
         public int TimeoutMs { get; set; } = 10000;
         public int PollMs { get; set; } = 100;
     }
