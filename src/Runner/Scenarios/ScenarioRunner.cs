@@ -302,6 +302,8 @@ public sealed class ScenarioRunner
                         var resp = await InvokeStepRpcAsync(step, ct);
                         if (resp.Error is { } ex)
                             throw new InvalidOperationException($"step '{step.Action}' failed: {ex.Message}");
+                        if (step.Action == "input.click_tile")
+                            stepDetail = DescribeInputClickTileResult(step, resp.Result);
                     }
 
                     if (step.Action != "screenshot.capture" && step.Action != "screenshot.capture_next_frame")
@@ -2640,6 +2642,58 @@ public sealed class ScenarioRunner
             "screenshot.capture_next_frame" => $"Capture next-frame screenshot \"{GetStringArg(step.Args, "name") ?? "explicit"}\"",
             _ => step.Args is null ? step.Action : $"{step.Action} {step.Args.Value.GetRawText()}",
         };
+    }
+
+    private static string DescribeInputClickTileResult(ScenarioStep step, JsonElement? result)
+    {
+        var detail = DescribeStep(step) ?? "input.click_tile";
+        if (result is not { ValueKind: JsonValueKind.Object } root)
+            return detail;
+
+        var parts = new List<string>();
+        if (TryReadBool(root, "handled", out var handled))
+            parts.Add($"handled={handled.ToString().ToLowerInvariant()}");
+        if (TryReadString(root, "target_npc_name", out var targetNpcName))
+            parts.Add($"target_npc={targetNpcName}");
+        if (TryReadBool(root, "npc_fallback_used", out var npcFallbackUsed))
+            parts.Add($"npc_fallback={npcFallbackUsed.ToString().ToLowerInvariant()}");
+        if (root.TryGetProperty("selected_item", out var selectedItem)
+            && selectedItem.ValueKind == JsonValueKind.Object
+            && TryReadString(selectedItem, "qualified_id", out var qualifiedId))
+        {
+            var selectedLabel = qualifiedId;
+            if (TryReadString(selectedItem, "name", out var name))
+                selectedLabel += $" {name}";
+            parts.Add($"selected_item={selectedLabel}");
+        }
+
+        return parts.Count == 0 ? detail : $"{detail} {string.Join(" ", parts)}";
+    }
+
+    private static bool TryReadString(JsonElement root, string property, out string value)
+    {
+        value = string.Empty;
+        if (!root.TryGetProperty(property, out var element)
+            || element.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = element.GetString() ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static bool TryReadBool(JsonElement root, string property, out bool value)
+    {
+        value = false;
+        if (!root.TryGetProperty(property, out var element)
+            || element.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+        {
+            return false;
+        }
+
+        value = element.GetBoolean();
+        return true;
     }
 
     private async Task CaptureExplicitScreenshotAsync(

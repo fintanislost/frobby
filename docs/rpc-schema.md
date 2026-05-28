@@ -2295,15 +2295,18 @@ Selected-object placement often requires `button: "right"` and a player state
 where `state.player.can_move == true` and `state.player.is_busy == false`.
 When a right-click targets a tile occupied by an NPC, Frobby reports
 `target_npc_name`. If Stardew's native location click handling consumes the
-click but leaves no usable dialogue/menu, Frobby retries through the same NPC's
-normal `checkAction` path and reports `npc_fallback_used: true`. This keeps
-scenario steps click-based while covering special locations whose map click
-hooks can otherwise swallow NPC interactions.
+click but leaves no usable dialogue/menu or opens a non-target `DialogueBox`,
+Frobby clears that non-target dialogue, retries through the same NPC's normal
+`checkAction` path, and reports `npc_fallback_used: true`. This keeps scenario
+steps click-based while covering special locations whose map click hooks can
+otherwise swallow NPC interactions. Selected inventory objects are preserved for
+native object-on-NPC flows; target-speaker dialogue is not replaced by fallback.
 
 **Implemented in:** `src/Harness/Handlers/InputClickTileHandler.cs`
 **Tested in:** `tests/Protocol.Tests/InputClickTileSerializationTests.cs`,
 `tests/Harness.Tests/InputClickTileHandlerTests.cs`, and
-`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`.
+`tests/Runner.Dsl.Tests/Facets/PlayerWorldTimeTests.cs`, plus
+`tests/Runner.Tests/ScenarioRunnerTests.cs` for click-result report detail.
 
 ### input.hover
 
@@ -3282,14 +3285,17 @@ not parse content-pack files as source of truth.
   or a mod-owned texture path.
 - `asset_type` — optional hint: `map`, `texture`, `data`, `string`, or `unknown`.
   Omit it to let the harness probe common runtime types.
-- `include_keys` — for data dictionaries, include a bounded key list.
+- `include_keys` — for keyed data dictionaries or keyed list-style data assets,
+  include a bounded key list.
 - `keys_limit` — max key count when `include_keys` is true. Valid range: 1-500.
-- `entry_keys` — selected data dictionary entries to summarize by exact key.
+- `entry_keys` — selected keyed data entries to summarize by exact key.
 - `hash_texture` — for textures, include a bounded content hash when possible.
 
 Selected data entries include public scalar fields/properties and bounded nested
 runtime data objects, with names converted to snake_case. Collections are
 summarized by runtime type and count instead of expanded.
+Keyed list-style data assets are projected by stable entry identity where
+Stardew exposes one, such as movie reaction NPC names or concession taste names.
 
 **Response (map):**
 ```json

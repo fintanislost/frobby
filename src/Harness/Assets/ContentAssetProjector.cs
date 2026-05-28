@@ -8,6 +8,7 @@ using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
 using StardewValley.GameData;
 using StardewValley.GameData.Locations;
+using StardewValley.GameData.Movies;
 using xTile;
 
 namespace SdvTestFramework.Harness.Assets;
@@ -92,8 +93,43 @@ public static class ContentAssetProjector
         if (loader.TryLoad<Dictionary<string, ModFarmType>>(req.Name, out var modFarmDict) && modFarmDict is not null)
             return Found(req.Name, "data", modFarmDict.GetType(), SummarizeDictionary(modFarmDict, req));
 
+        if (loader.TryLoad<List<MovieCharacterReaction>>(req.Name, out var movieReactionList) && movieReactionList is not null)
+            return Found(req.Name, "data", movieReactionList.GetType(), SummarizeKeyedList(
+                movieReactionList,
+                reaction => FirstNonEmpty(reaction.Id, reaction.NPCName),
+                req));
+
+        if (loader.TryLoad<List<ConcessionTaste>>(req.Name, out var concessionTasteList) && concessionTasteList is not null)
+            return Found(req.Name, "data", concessionTasteList.GetType(), SummarizeKeyedList(
+                concessionTasteList,
+                taste => FirstNonEmpty(taste.Id, taste.Name),
+                req));
+
+        if (loader.TryLoad<Dictionary<string, MovieCharacterReaction>>(req.Name, out var movieReactionDict) && movieReactionDict is not null)
+            return Found(req.Name, "data", movieReactionDict.GetType(), SummarizeDictionary(movieReactionDict, req));
+
+        if (loader.TryLoad<Dictionary<string, ConcessionTaste>>(req.Name, out var concessionTasteDict) && concessionTasteDict is not null)
+            return Found(req.Name, "data", concessionTasteDict.GetType(), SummarizeDictionary(concessionTasteDict, req));
+
         return null;
     }
+
+    private static JsonObject SummarizeKeyedList<T>(
+        IReadOnlyCollection<T> data,
+        Func<T, string?> keySelector,
+        ContentAssetRequest req)
+    {
+        var keyed = data
+            .Select(item => (Key: keySelector(item), Item: item))
+            .Where(entry => !string.IsNullOrWhiteSpace(entry.Key))
+            .GroupBy(entry => entry.Key!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Item, StringComparer.Ordinal);
+
+        return SummarizeDictionary(keyed, req);
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static JsonObject SummarizeMap(Map map)
     {

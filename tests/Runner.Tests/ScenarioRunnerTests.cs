@@ -626,7 +626,7 @@ public class ScenarioRunnerTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":9},\"screen\":{\"x\":576,\"y\":576},\"world\":{\"x\":608,\"y\":608},\"selected_item\":{\"slot\":1,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"},\"handled\":true}").RootElement,
+                        "input.click_tile" => JsonDocument.Parse("{\"ok\":true,\"tick\":123,\"location\":\"Frobby_CombatLab\",\"tile\":{\"x\":9,\"y\":9},\"screen\":{\"x\":576,\"y\":576},\"world\":{\"x\":608,\"y\":608},\"selected_item\":{\"slot\":1,\"id\":\"(O)287\",\"item_id\":\"287\",\"qualified_id\":\"(O)287\",\"name\":\"Bomb\",\"stack\":1,\"runtime_type\":\"Object\"},\"handled\":true,\"target_npc_name\":\"Claire\",\"npc_fallback_used\":true}").RootElement,
                         "bitmap.capture" => JsonDocument.Parse("{\"path\":\"/tmp/click-tile.png\",\"width\":1280,\"height\":720}").RootElement,
                         "scenario.end" => JsonDocument.Parse("{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
@@ -666,7 +666,7 @@ public class ScenarioRunnerTests
             Assert.Equal("Frobby_CombatLab", clickParams.GetProperty("location").GetString());
             Assert.Equal(9, clickParams.GetProperty("x").GetInt32());
             Assert.Equal(9, clickParams.GetProperty("y").GetInt32());
-            Assert.Equal("Click left tile Frobby_CombatLab (9,9)", report.Steps[0].Detail);
+            Assert.Equal("Click left tile Frobby_CombatLab (9,9) handled=true target_npc=Claire npc_fallback=true selected_item=(O)287 Bomb", report.Steps[0].Detail);
             Assert.Contains("bitmap.capture", calls);
         }
         finally

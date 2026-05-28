@@ -73,8 +73,11 @@ public static class InputClickTileHandler
             ? world.ClickRightTile(worldX, worldY, screenX, screenY)
             : world.ClickLeftTile(worldX, worldY, screenX, screenY);
         var npcFallbackUsed = false;
+        var hasNonTargetDialogue = HasNonTargetDialogue(button, targetNpcName, world);
         if (ShouldUseNpcFallback(button, targetNpcName, handled, world, selectedItem))
         {
+            if (hasNonTargetDialogue)
+                world.ClearActiveMenu();
             npcFallbackUsed = world.InteractNpcAtTile(tileX, tileY);
             handled = handled || npcFallbackUsed;
         }
@@ -106,11 +109,19 @@ public static class InputClickTileHandler
         if (button != "right" || targetNpcName is null)
             return false;
 
-        if (IsSelectedInventoryObject(selectedItem))
-            return false;
+        var hasNonTargetDialogue = HasNonTargetDialogue(button, targetNpcName, world);
 
-        return !handled || !world.HasActiveMenu || world.HasBlankDialogueMenu;
+        if (IsSelectedInventoryObject(selectedItem))
+            return hasNonTargetDialogue;
+
+        return !handled || !world.HasActiveMenu || world.HasBlankDialogueMenu || hasNonTargetDialogue;
     }
+
+    private static bool HasNonTargetDialogue(string button, string? targetNpcName, IInputTileClickWorld world)
+        => button == "right"
+            && targetNpcName is not null
+            && world.HasDialogueMenu
+            && !string.Equals(world.ActiveDialogueCharacterName, targetNpcName, StringComparison.Ordinal);
 
     private static bool IsSelectedInventoryObject(ISelectableInventoryItem? selectedItem)
     {
@@ -166,6 +177,9 @@ internal interface IInputTileClickWorld
     bool ClickRightTile(int worldX, int worldY, int screenX, int screenY);
     string? FindNpcAtTile(int tileX, int tileY);
     bool HasBlankDialogueMenu { get; }
+    bool HasDialogueMenu { get; }
+    string? ActiveDialogueCharacterName { get; }
+    void ClearActiveMenu();
     bool InteractNpcAtTile(int tileX, int tileY);
 }
 
@@ -195,6 +209,21 @@ internal sealed class SdvInputTileClickWorld : IInputTileClickWorld
             return projected is null || string.IsNullOrWhiteSpace(projected.Text);
         }
     }
+    public bool HasDialogueMenu => Game1.activeClickableMenu is DialogueBox;
+
+    public string? ActiveDialogueCharacterName
+    {
+        get
+        {
+            if (Game1.activeClickableMenu is not DialogueBox dialog)
+                return null;
+
+            return dialog.characterDialogue?.speaker?.Name ?? string.Empty;
+        }
+    }
+
+    public void ClearActiveMenu()
+        => Game1.activeClickableMenu = null;
 
     public ISelectableInventoryItem? SelectedItem
     {

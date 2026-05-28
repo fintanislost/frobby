@@ -168,7 +168,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   and dialogue flows. These helpers are mod-neutral and work for vanilla or
   Content Patcher-added NPCs. Prefer `input.click_tile` over `world.interact_npc`
   when the scenario needs to prove a visible NPC tile click works in a special
-  location.
+  location. If a special location opens unrelated dialogue before the NPC can
+  respond, `input.click_tile` can recover through the targeted NPC fallback and
+  the runner report will show `target_npc` / `npc_fallback` detail.
 - Use `shop.open`, `shop.purchase`, `state.shop`, and `state.player.items` for
   custom shop and inventory flows. Prefer `qualified_id` when asserting Stardew
   1.6 custom items, and use raw `item_id` only when the scenario intentionally
@@ -198,8 +200,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   This is runner-side polling over `state.visual_effects`; final rendering should
   still use draw, screenshot, or bitmap tools.
 - Use `content.asset` assertions when the test needs runtime truth for a named
-  Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, or
-  a texture that should exist before it is rendered.
+  Stardew asset, such as a Content Patcher-added map, a nested `Data/*` entry, a
+  keyed list-style `Data/*` asset, or a texture that should exist before it is
+  rendered.
 - Use `event.start`, `event.skip`, `state.event`, `wait.event_active`, and
   `wait.event_complete` for cutscenes or other Stardew events. Use
   `wait.menu` plus `event.advance` for click-based dialogue acknowledgement and
@@ -261,9 +264,9 @@ Stardew Valley renders through `SpriteBatch.Draw` calls with structured argument
 
 - Deterministic scenario sessions with fixture loading and freeze controls.
 - Semantic draw-call and text capture through SMAPI/Harmony instrumentation.
-- Runtime content-asset inspection for maps, textures, strings, and bounded
-  `Data/*` dictionaries, including selected nested data objects, after Content
-  Patcher and game conditions apply.
+- Runtime content-asset inspection for maps, textures, strings, bounded
+  `Data/*` dictionaries, and keyed list-style data assets, including selected
+  nested data objects, after Content Patcher and game conditions apply.
 - Fishing diagnostics for fishable tile context, effective fishing candidates,
   and bounded runtime catch sampling through `state.fishing_context`,
   `state.fishing_table`, and `fishing.sample_catch`.

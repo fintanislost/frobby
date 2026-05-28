@@ -5,6 +5,7 @@ using SdvTestFramework.Protocol;
 using SdvTestFramework.Protocol.Models;
 using StardewValley.GameData;
 using StardewValley.GameData.Locations;
+using StardewValley.GameData.Movies;
 using Xunit;
 
 namespace SdvTestFramework.Harness.Tests;
@@ -147,6 +148,46 @@ public class ContentAssetProjectorTests
         var entry = entries["Example.Mod/ExampleFarm"]!;
         Assert.True(entry["exists"]!.GetValue<bool>());
         Assert.NotNull(entry["value"]);
+    }
+
+    [Fact]
+    public void Project_DataList_SummarizesMovieTheaterDataKeys()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/MoviesReactions", new List<MovieCharacterReaction>
+        {
+            new() { NPCName = "Sophia" },
+        });
+        loader.Add("Data/ConcessionTastes", new List<ConcessionTaste>
+        {
+            new() { Name = "Sophia" },
+        });
+
+        var reactions = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/MoviesReactions",
+            AssetType = "data",
+            IncludeKeys = true,
+            EntryKeys = new[] { "Sophia" },
+        });
+        var concessions = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/ConcessionTastes",
+            AssetType = "data",
+            IncludeKeys = true,
+            EntryKeys = new[] { "Sophia" },
+        });
+
+        Assert.True(reactions.Exists);
+        Assert.Equal("data", reactions.Kind);
+        var reactionKeys = Assert.IsType<System.Text.Json.Nodes.JsonArray>(reactions.Summary["keys"]);
+        Assert.Contains(reactionKeys, node => node?.GetValue<string>() == "Sophia");
+        Assert.True(reactions.Summary["entries"]!["Sophia"]!["exists"]!.GetValue<bool>());
+        Assert.True(concessions.Exists);
+        Assert.Equal("data", concessions.Kind);
+        var concessionKeys = Assert.IsType<System.Text.Json.Nodes.JsonArray>(concessions.Summary["keys"]);
+        Assert.Contains(concessionKeys, node => node?.GetValue<string>() == "Sophia");
+        Assert.True(concessions.Summary["entries"]!["Sophia"]!["exists"]!.GetValue<bool>());
     }
 
     [Fact]

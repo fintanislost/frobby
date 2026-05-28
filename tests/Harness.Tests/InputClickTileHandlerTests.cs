@@ -114,7 +114,7 @@ public class InputClickTileHandlerTests
         var world = new FakeTileClickWorld
         {
             TargetNpcName = "Claire",
-            HasActiveMenu = false,
+            HasActiveMenuAfterClick = false,
             SelectedItem = null,
         };
         var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
@@ -129,12 +129,82 @@ public class InputClickTileHandlerTests
     }
 
     [Fact]
+    public void Handle_RightClickOnNpcWithGenericDialogueAfterHandledClick_UsesNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasActiveMenuAfterClick = true,
+            HasDialogueMenuAfterClick = true,
+            ActiveDialogueCharacterName = string.Empty,
+            SelectedItem = new SelectableInventoryItem(0, "(T)Hoe", "Hoe", "Hoe", 1, null, null, "Hoe"),
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.True(world.ActiveMenuCleared);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithSpeakerlessDialogueAfterHandledClick_UsesNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasActiveMenuAfterClick = true,
+            HasDialogueMenuAfterClick = true,
+            ActiveDialogueCharacterName = null,
+            SelectedItem = new SelectableInventoryItem(0, "(T)Hoe", "Hoe", "Hoe", 1, null, null, "Hoe"),
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.True(world.ActiveMenuCleared);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithTargetDialogueAfterHandledClick_DoesNotUseNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasActiveMenuAfterClick = true,
+            HasDialogueMenuAfterClick = true,
+            ActiveDialogueCharacterName = "Claire",
+            SelectedItem = new SelectableInventoryItem(0, "(T)Hoe", "Hoe", "Hoe", 1, null, null, "Hoe"),
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.False(world.NpcFallbackInvoked);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.False(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+    }
+
+    [Fact]
     public void Handle_RightClickOnNpcWithSelectedObject_DoesNotUseNpcFallback()
     {
         var world = new FakeTileClickWorld
         {
             TargetNpcName = "Sophia",
-            HasBlankDialogueMenuAfterClick = true,
+            HasActiveMenuAfterClick = true,
+            HasDialogueMenuAfterClick = true,
+            ActiveDialogueCharacterName = "Sophia",
             SelectedItem = new SelectableInventoryItem(2, "(O)809", "809", "Movie Ticket", 1, 0, 0, "Object"),
         };
         var p = JsonDocument.Parse("{\"x\":18,\"y\":10,\"button\":\"right\"}").RootElement;
@@ -146,6 +216,30 @@ public class InputClickTileHandlerTests
         Assert.False(world.NpcFallbackInvoked);
         Assert.Equal("Sophia", result.TargetNpcName);
         Assert.False(result.NpcFallbackUsed);
+        Assert.True(result.Handled);
+        Assert.Equal("(O)809", result.SelectedItem!.QualifiedId);
+    }
+
+    [Fact]
+    public void Handle_RightClickOnNpcWithSelectedObjectAndNonTargetDialogue_UsesNpcFallback()
+    {
+        var world = new FakeTileClickWorld
+        {
+            TargetNpcName = "Claire",
+            HasActiveMenuAfterClick = true,
+            HasDialogueMenuAfterClick = true,
+            ActiveDialogueCharacterName = string.Empty,
+            SelectedItem = new SelectableInventoryItem(2, "(O)809", "809", "Movie Ticket", 1, 0, 0, "Object"),
+        };
+        var p = JsonDocument.Parse("{\"x\":7,\"y\":5,\"button\":\"right\"}").RootElement;
+
+        var json = InputClickTileHandler.Handle(p, world);
+        var result = JsonSerializer.Deserialize<InputClickTileResult>(json, ProtocolJson.Options)!;
+
+        Assert.True(world.NpcFallbackInvoked);
+        Assert.True(world.ActiveMenuCleared);
+        Assert.Equal("Claire", result.TargetNpcName);
+        Assert.True(result.NpcFallbackUsed);
         Assert.True(result.Handled);
         Assert.Equal("(O)809", result.SelectedItem!.QualifiedId);
     }
@@ -188,7 +282,7 @@ public class InputClickTileHandlerTests
         var p = JsonDocument.Parse("{\"x\":9,\"y\":8}").RootElement;
 
         var ex = Assert.Throws<JsonRpcException>(() =>
-            InputClickTileHandler.Handle(p, new FakeTileClickWorld { HasActiveMenu = true }));
+            InputClickTileHandler.Handle(p, new FakeTileClickWorld { HasActiveMenuBeforeClick = true }));
 
         Assert.Equal(JsonRpcErrorCode.GameStateInvalid, ex.Code);
         Assert.Contains("active menu", ex.Message);
@@ -304,7 +398,11 @@ public class InputClickTileHandlerTests
     private sealed class FakeTileClickWorld : IInputTileClickWorld
     {
         public bool IsWorldReady { get; set; } = true;
-        public bool HasActiveMenu { get; set; }
+        public bool HasActiveMenuBeforeClick { get; set; }
+        public bool HasActiveMenuAfterClick { get; set; } = true;
+        public bool HasActiveMenu => ClickInvoked ? HasActiveMenuAfterClick : HasActiveMenuBeforeClick;
+        public bool HasDialogueMenuAfterClick { get; set; }
+        public bool HasDialogueMenu => ClickInvoked && HasDialogueMenuAfterClick;
         public bool IsWarping { get; set; }
         public bool IsFading { get; set; }
         public bool EventUp { get; set; }
@@ -322,6 +420,8 @@ public class InputClickTileHandlerTests
         public string? ClickedButton { get; private set; }
         public string? TargetNpcName { get; set; }
         public bool HasBlankDialogueMenuAfterClick { get; set; }
+        public string? ActiveDialogueCharacterName { get; set; }
+        public bool ActiveMenuCleared { get; private set; }
         public bool NpcFallbackInvoked { get; private set; }
         public int? NpcFallbackTileX { get; private set; }
         public int? NpcFallbackTileY { get; private set; }
@@ -354,6 +454,14 @@ public class InputClickTileHandlerTests
         public string? FindNpcAtTile(int tileX, int tileY) => TargetNpcName;
 
         public bool HasBlankDialogueMenu => HasBlankDialogueMenuAfterClick;
+
+        public void ClearActiveMenu()
+        {
+            ActiveMenuCleared = true;
+            HasActiveMenuAfterClick = false;
+            HasDialogueMenuAfterClick = false;
+            ActiveDialogueCharacterName = null;
+        }
 
         public bool InteractNpcAtTile(int tileX, int tileY)
         {
