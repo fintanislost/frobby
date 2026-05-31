@@ -108,6 +108,25 @@ Content assertions:
   add a generic Frobby content projection enhancement via TDD before using it in
   the SVE assertion.
 
+## Stress-Test Decisions
+
+- Tuesday is the primary test date. Saturday is only a fallback if live probing
+  shows Tuesday conflicts with fixture state.
+- Ticket preservation is the hard behavioral assertion for rejection. Visible
+  rejection text is still required, but should be matched broadly because the
+  final string may come from SVE localization, vanilla movie reaction handling,
+  or a dialogue wrapper.
+- If Martin has queued introduction or unrelated fixture dialogue, clear it with
+  real `input.click_tile`, `wait.menu`, and `ui.acknowledge` steps before the
+  ticket rejection proof. Do not add a framework shortcut for clearing dialogue.
+- Deeper `Data/MoviesReactions` list-item projection is not required unless the
+  live run needs it for diagnosis. The player-visible rejection plus inventory
+  preservation is the main proof.
+- `world.refresh_npc_schedule` is acceptable here because this slice validates
+  worker interaction and ticket rejection, not natural day-start scheduling.
+- A silent no-op ticket click is a failure even if the ticket remains in
+  inventory. The test must prove the player sees a rejection/dialogue state.
+
 ## Components
 
 ### SVE Scenario
