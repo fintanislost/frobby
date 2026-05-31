@@ -250,7 +250,7 @@ Status key:
   - Done: selected-object `input.click_tile` fallback preservation, non-target dialogue clearing for NPC tile-click fallback, click-result detail in runner reports, `content.asset` support for keyed list data such as `Data/MoviesReactions` and `Data/ConcessionTastes`, and SVE scenario 38.
   - Verified: headless SVE scenario 38 selects a real movie ticket, right-clicks Sophia through Stardew's selected-item path, captures her acceptance dialogue, and verifies the ticket is consumed plus SVE movie reaction/concession data exists.
   - Verified: adjacent SVE scenarios 36 and 31 still pass headless, proving theater NPC fallback and selected bomb tile-click behavior remained stable.
-  - Follow-up candidates: concession purchase/taste validation, full movie screening reactions, and Claire/Martin worker invite edge cases.
+  - Follow-up candidates: Claire/Martin worker invite edge cases.
 
 - [x] Done: Slice 31, movie concession purchase through visible shop UI.
   - SVE pressure: movie theater concessions are dynamic Stardew `MovieConcession` salables reached through a map action and confirmation prompt after a custom NPC invite.
@@ -259,6 +259,15 @@ Status key:
   - Implementation plan: `docs/superpowers/plans/2026-05-28-sve-slice-31-movie-concession-purchase.md`.
   - Done: `input.click_tile.action_value`, `shop.click_purchase.item_index`, C# DSL coverage, docs, and SVE scenario 39.
   - Verified: headless SVE scenario 39 clicks the theater `Concessions` map action, confirms the native prompt, buys a dynamic `MovieConcession` by visible item index, and waits for Stardew's purchased-concession dialogue for Sophia. Adjacent movie scenarios 38 and 36 also pass headless.
+
+- [x] Done: Slice 32, movie screening reaction flow.
+  - SVE pressure: full theater screening reaction flow combines queued NPC dialogue, selected ticket invite state, theater door map actions, and Stardew movie response menus.
+  - Frobby goal: expose action-value click diagnostics and root event dialogue filters while validating whether visible movie reaction text should be observed through event state or menu state.
+  - Design spec: `docs/superpowers/specs/2026-05-28-sve-slice-32-movie-screening-reactions-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-28-sve-slice-32-movie-screening-reactions.md`.
+  - Done: `input.click_tile` action resolution diagnostics, `wait.event_active` root dialogue filters, docs, and SVE scenario 40.
+  - Verified: headless SVE scenario 40 clears Sophia's queued introduction dialogue with real tile clicks, invites her with a real movie ticket, clicks the `Theater_Doors` map action, and waits for visible summer movie reaction text.
+  - Note: movie reaction text surfaced through the active menu/message path, so scenario 40 uses `wait.menu`; root dialogue filters remain available for cutscenes where Stardew stores active dialogue on event state.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 

@@ -85,6 +85,8 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/38-sve-movie-ticket-invite-flow.test.json`
 - SVE movie concession purchase flow:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/39-sve-movie-concession-purchase-flow.test.json`
+- SVE movie screening reaction flow:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/40-sve-movie-screening-reaction-flow.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
 festival maps, or festival shops. For active event or festival actors, wait with
@@ -101,7 +103,10 @@ of only the semantic `shop.purchase` helper. Use `player.select_item` plus
 movie-ticket invites, and pair it with `content.asset` checks for runtime data
 assets that define reactions or tastes. Use `input.click_tile.action_value`
 when the test needs a player-like click on a nearby map action such as a theater
-concession counter. For ordinary item buys, Frobby
+concession counter or screening door. For movie screening/reaction flows, clear
+queued introduction dialogue with real NPC clicks when using an early-day fixture,
+then observe the movie response through `wait.menu` because Stardew surfaces that
+reaction as visible message/dialogue UI. For ordinary item buys, Frobby
 finishes Stardew's native held-item step through the menu inventory grid so the
 scenario can assert the purchased item in `state.player.items`; for dynamic
 shops such as movie concessions, use `shop.click_purchase.item_index` to click a

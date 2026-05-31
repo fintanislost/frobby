@@ -259,6 +259,10 @@ public static class ContentAssetProjector
             {
                 obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
             }
+            else if (propValue is IEnumerable and not string)
+            {
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
+            }
             else if (ShouldSummarizeNestedObject(propValue, depth))
             {
                 obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, depth + 1);
@@ -272,6 +276,10 @@ public static class ContentAssetProjector
             catch { continue; }
 
             if (IsScalar(fieldValue))
+            {
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
+            }
+            else if (fieldValue is IEnumerable and not string)
             {
                 obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
             }

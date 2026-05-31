@@ -24,6 +24,12 @@ public class ContentAssetProjectorTests
         public string MapPath { get; init; } = string.Empty;
     }
 
+    private sealed class RuntimeCollectionEntry
+    {
+        public string Name { get; init; } = string.Empty;
+        public List<string> Tags { get; init; } = new();
+    }
+
     private sealed class FakeLoader : IContentAssetLoader
     {
         private readonly Dictionary<(Type Type, string Name), object> _assets = new();
@@ -220,6 +226,33 @@ public class ContentAssetProjectorTests
         Assert.Equal("Enchanted Grove", value["display_name"]!.GetValue<string>());
         Assert.False(value["create_on_load"]!["always_active"]!.GetValue<bool>());
         Assert.Equal("Maps\\Custom_EnchantedGrove", value["create_on_load"]!["map_path"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesNestedCollectionCounts()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/Example", new Dictionary<string, object>
+        {
+            ["ExampleEntry"] = new RuntimeCollectionEntry
+            {
+                Name = "Example",
+                Tags = new List<string> { "alpha", "beta" },
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Example",
+            AssetType = "data",
+            EntryKeys = new[] { "ExampleEntry" },
+        });
+
+        Assert.True(result.Exists);
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var value = entries["ExampleEntry"]!["value"]!;
+        Assert.Equal("Example", value["name"]!.GetValue<string>());
+        Assert.Equal(2, value["tags"]!["count"]!.GetValue<int>());
     }
 
     [Fact]

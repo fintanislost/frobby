@@ -1051,18 +1051,18 @@ unreachable code in JA ItemMigrator
 
 If the content assertion fails because `asset.entries.Sophia.value` does not expose the raw string shape, replace that expression with the stricter supported shape shown by the failed report. Keep these three facts asserted: the Sophia entry exists, it references `summer_movie_0`, and it references `Sophia.Movies.03`.
 
-- [ ] **Step 3: Update SVE Frobby docs**
+- [x] **Step 3: Update SVE Frobby docs**
 
 In `/home/fintan/stardewRepos/StardewValleyExpanded/docs/FROBBY.md`, add scenario 40 after scenario 39 in the scenario list:
 
 ```markdown
-- `tests/sdv/40-sve-movie-screening-reaction-flow.test.json` validates the Sophia movie-screening path end to end: movie-ticket invite, click-based theater-door entry, SVE movie reaction content, and runtime event dialogue.
+- `tests/sdv/40-sve-movie-screening-reaction-flow.test.json` validates the Sophia movie-screening path end to end: queued introduction clearing, movie-ticket invite, click-based theater-door entry, SVE movie reaction content, and visible movie reaction menu text.
 ```
 
 Add this capability note near the movie-theater section:
 
 ```markdown
-Scenario 40 uses Frobby's generic `input.click_tile` action diagnostics and `wait.event_active` root dialogue filters. Those checks make the test resilient to viewport placement while still proving that the real Stardew event dialogue appears.
+Scenario 40 uses Frobby's generic `input.click_tile` action diagnostics and `wait.menu` for the final visible movie reaction. Root dialogue filters remain available for cutscenes where Stardew stores dialogue directly on active event state, but the movie reaction surfaces through normal dialogue/message UI.
 ```
 
 - [ ] **Step 4: Commit the SVE scenario**
@@ -1086,7 +1086,7 @@ Expected: commit created on `feature/frobby-sve-slice-32-movie-screening`. Do no
 - Modify: `/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-32-movie-screening/docs/wiki/examples.md`
 - Modify: `/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-32-movie-screening/SVE_FROBBY_CAPABILITY_TODO.md`
 
-- [ ] **Step 1: Document `input.click_tile` diagnostics**
+- [x] **Step 1: Document `input.click_tile` diagnostics**
 
 In `README.md`, find the `input.click_tile` scenario guidance and add:
 
@@ -1104,7 +1104,7 @@ In `docs/rpc-schema.md`, add these result fields to `input.click_tile`:
 - `screen_visible` (boolean): whether the click's computed screen coordinate is inside the current viewport.
 ```
 
-- [ ] **Step 2: Document root dialogue waits**
+- [x] **Step 2: Document root dialogue waits**
 
 In `README.md`, find the `wait.event_active` guidance and add:
 
@@ -1120,17 +1120,17 @@ In `docs/rpc-schema.md`, add these wait arguments:
 - `dialogue_text_matches` (string, optional): case-insensitive regex required in the active root event dialogue text.
 ```
 
-- [ ] **Step 3: Add scenario 40 to examples**
+- [x] **Step 3: Add scenario 40 to examples**
 
 In `docs/wiki/examples.md`, add:
 
 ```markdown
 ### SVE Scenario 40: Movie Screening Reaction
 
-`tests/sdv/40-sve-movie-screening-reaction-flow.test.json` demonstrates a full click-driven theater screening flow. It combines content asset assertions, action-value tile click diagnostics, and root event dialogue waits to prove that modded movie reaction content appears during runtime.
+`tests/sdv/40-sve-movie-screening-reaction-flow.test.json` demonstrates a full click-driven theater screening flow. It combines content asset assertions, action-value tile click diagnostics, queued dialogue cleanup through real NPC clicks, and a visible movie reaction wait through `wait.menu`.
 ```
 
-- [ ] **Step 4: Mark Slice 32 complete in the capability tracker**
+- [x] **Step 4: Mark Slice 32 complete in the capability tracker**
 
 In `SVE_FROBBY_CAPABILITY_TODO.md`, move or update the Slice 32 entry so it reads:
 

@@ -160,6 +160,9 @@ Frobby tests should exercise the UI like a player whenever possible:
   should be preferred over hard-coded mod-specific helper scripts. Use
   `input.click_tile.action_value` with a bounded `radius` when the player-like
   click must target a stable nearby map action without baking in the exact tile.
+  When `action_value` is used, report details include the matched action
+  value, layer, property, tile, and whether the resolved screen coordinate was
+  visible in the current viewport.
 - Use `world.use_tool` for player-like map interactions that depend on Stardew
   tool behavior, such as hoe digs. Keep the tile coordinates and expected item or
   flag ids in the mod repo scenario, then prove the side effect with runtime
@@ -210,8 +213,12 @@ Frobby tests should exercise the UI like a player whenever possible:
 - Use `event.start`, `event.skip`, `state.event`, `wait.event_active`, and
   `wait.event_complete` for cutscenes or other Stardew events. Use
   `wait.menu` plus `event.advance` for click-based dialogue acknowledgement and
-  question choices inside events. Active-event screenshots should use
-  `screenshot.capture_next_frame`; `freeze.begin` still rejects cutscenes.
+  question choices inside events. `wait.event_active` can filter root event
+  dialogue with `dialogue_speaker`, `dialogue_text`, and
+  `dialogue_text_matches`; some visible event text is surfaced as a normal
+  menu/message instead, so use `wait.menu` for dialogue boxes such as movie
+  reactions. Active-event screenshots should use `screenshot.capture_next_frame`;
+  `freeze.begin` still rejects cutscenes.
 - Use `festival.start`, `wait.event_active` with `is_festival`, and
   `wait.location_content` contained-item filters when testing active festival
   maps, festival chests, or other runtime containers. Keep festival-specific

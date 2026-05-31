@@ -2290,6 +2290,11 @@ Response:
   "world": { "x": 608, "y": 608 },
   "target_npc_name": null,
   "npc_fallback_used": false,
+  "resolved_action_value": null,
+  "resolved_action_layer": null,
+  "resolved_action_property": null,
+  "resolved_action_tile": null,
+  "screen_visible": true,
   "selected_item": {
     "slot": 1,
     "id": "(O)287",
@@ -2310,6 +2315,10 @@ properties around the supplied `x,y` center and clicks the nearest exact match
 within `radius` instead of the center tile. Optional `layers` and `properties`
 limit that scan. This is useful for player-like map-action clicks in custom maps
 where the action text is stable but the exact tile is awkward to maintain.
+When a candidate is found, result details include `resolved_action_value`,
+`resolved_action_layer`, `resolved_action_property`, and
+`resolved_action_tile`; `screen_visible` reports whether the computed
+screen-space click point was inside the current viewport.
 By default, `input.click_tile` rejects active events and festivals
 (`Game1.eventUp`) to catch accidental gameplay clicks while a cutscene owns the
 world. Set `allow_event_input: true` only when the scenario intentionally clicks
@@ -2598,7 +2607,7 @@ Runner scenario convenience:
   matching content. On timeout, it reports the last matched and total counts for
   the selected collection.
 - `{ "action": "wait.visual_effects", "args": { "location": "Example.VisualLocation", "temporary_sprites": { "texture_asset": "ExampleMod/Visuals/Effects", "source_rect": [0, 32, 16, 16], "min_count": 1 } } }` is runner-only. It polls `state.visual_effects` until temporary sprite, light source, ambient light, or weather debris criteria match. Supported temporary sprite filters include `texture_asset`, `source_rect`, `color`, `runtime_type`, `min_count`, and `max_count`; light source filters include `id`, `id_contains`, `color`, `min_count`, and `max_count`. It also accepts `ambient_light`, `weather_debris_min_count`, `timeout_ms`, and `poll_ms`, and reports the last observed match counts on timeout. This is state-level evidence; use draw, bitmap, or screenshot actions for final rendered proof.
-- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false, "actor_name": "Krobus" } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, `is_festival`, `actor_name`, paired `actor_x`/`actor_y`, `actor_dialogue_text`, `actor_dialogue_text_matches`, or `actor_dialogue_key` filters.
+- `{ "action": "wait.event_active", "args": { "id": "520702", "location": "BusStop", "is_festival": false, "actor_name": "Krobus" } }` is runner-only. It polls `state.event` until an active event matches the optional `id`, `location`, `is_festival`, `actor_name`, paired `actor_x`/`actor_y`, actor dialogue filters (`actor_dialogue_text`, `actor_dialogue_text_matches`, or `actor_dialogue_key`), or root event dialogue filters (`dialogue_speaker`, `dialogue_text`, or `dialogue_text_matches`). Actor dialogue filters inspect active event actors; root dialogue filters inspect dialogue stored on the active event itself. If the visible text is rendered by a normal menu or message box, use `wait.menu`.
 - `{ "action": "input.click_event_actor", "args": { "actor_name": "Lewis", "button": "right", "location": "Town" } }` is runner-only. It polls `state.event` for the named active event or festival actor, waits for warp/fade transitions to settle, then calls the neutral `input.click_tile` RPC on that actor's current tile. It accepts `actor_name`, optional `location`, `button`, `timeout_ms`, and `poll_ms`.
 - `{ "action": "wait.event_complete", "args": { "id": "520702" } }` is runner-only. It polls `state.event` until the event has completed; when `id` is supplied it must first observe that active id before accepting completion.
 - `{ "action": "wait.menu", "args": { "choice_text": "Pet Dusty" } }` is runner-only. It polls `state.menu` until an active menu matches optional `present`, `type`, text, choice key/text, or `ready` filters. Text filters inspect readable menu extras such as `dialogue_text`, `message_text`, and `question_text`; choice filters inspect `state.menu.choices`.
@@ -2652,10 +2661,14 @@ The three `ui.*_text` convenience steps accept `text`, `text_equals`,
 `bounds_intersects_rect`. `ui.click_text` also accepts `button`.
 
 `wait.event_active` accepts `id`, `location`, `is_festival`, `actor_name`, paired
-`actor_x`/`actor_y`, `timeout_ms`, and `poll_ms`. `wait.event_complete` accepts
-`id`, `location`, `timeout_ms`, and `poll_ms`. Active-event screenshots should
-use live or next-frame capture because `freeze.begin` rejects cutscenes while
-`Game1.eventUp` is true.
+`actor_x`/`actor_y`, actor dialogue filters (`actor_dialogue_text`,
+`actor_dialogue_text_matches`, or `actor_dialogue_key`), root event dialogue
+filters (`dialogue_speaker`, `dialogue_text`, or `dialogue_text_matches`),
+`timeout_ms`, and `poll_ms`. `wait.event_complete` accepts `id`, `location`,
+`timeout_ms`, and `poll_ms`. Active-event screenshots should use live or
+next-frame capture because `freeze.begin` rejects cutscenes while `Game1.eventUp`
+is true. If dialogue-like text is rendered by a normal menu/message instead of
+root event state, wait through `wait.menu`.
 
 `wait.menu` accepts `present`, `type`, `text`, `text_equals`, `text_matches`,
 `choice_key`, `choice_text`, `choice_text_contains`, `choice_text_matches`,
