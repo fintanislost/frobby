@@ -252,6 +252,7 @@ public sealed class ScenarioAssertionEvaluator
             AssetType = assertion.AssetType,
             IncludeKeys = assertion.IncludeKeys ?? false,
             KeysLimit = assertion.KeysLimit,
+            NestedItemsLimit = assertion.NestedItemsLimit,
             EntryKeys = assertion.EntryKeys,
             HashTexture = assertion.HashTexture ?? false,
         });

@@ -7,6 +7,7 @@ public sealed class ContentAssetRequest
     public string? AssetType { get; set; }
     public bool IncludeKeys { get; set; }
     public int? KeysLimit { get; set; }
+    public int? NestedItemsLimit { get; set; }
     public string[]? EntryKeys { get; set; }
     public bool HashTexture { get; set; }
 }

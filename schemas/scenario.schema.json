@@ -90,6 +90,7 @@
           },
           "include_keys": { "type": "boolean" },
           "keys_limit": { "type": "integer", "minimum": 1, "maximum": 500 },
+          "nested_items_limit": { "type": "integer", "minimum": 1, "maximum": 100 },
           "entry_keys": {
             "type": "array",
             "items": { "type": "string", "minLength": 1 }

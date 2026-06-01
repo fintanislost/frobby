@@ -19,6 +19,7 @@ public class ContentAssetSerializationTests
             KeysLimit = 25,
             EntryKeys = new[] { "Custom_TownEast" },
             HashTexture = true,
+            NestedItemsLimit = 10,
         };
 
         var json = JsonSerializer.Serialize(req, ProtocolJson.Options);
@@ -27,6 +28,7 @@ public class ContentAssetSerializationTests
         Assert.Contains("\"asset_type\":\"data\"", json);
         Assert.Contains("\"include_keys\":true", json);
         Assert.Contains("\"keys_limit\":25", json);
+        Assert.Contains("\"nested_items_limit\":10", json);
         Assert.Contains("\"entry_keys\":[\"Custom_TownEast\"]", json);
         Assert.Contains("\"hash_texture\":true", json);
     }
@@ -73,6 +75,7 @@ public class ContentAssetSerializationTests
             KeysLimit = 10,
             EntryKeys = new[] { "Custom_TownEast" },
             HashTexture = false,
+            NestedItemsLimit = 10,
         };
 
         var json = JsonSerializer.Serialize(assertion, ProtocolJson.Options);
@@ -82,6 +85,7 @@ public class ContentAssetSerializationTests
         Assert.Contains("\"asset_type\":\"map\"", json);
         Assert.Contains("\"include_keys\":true", json);
         Assert.Contains("\"keys_limit\":10", json);
+        Assert.Contains("\"nested_items_limit\":10", json);
         Assert.Contains("\"entry_keys\":[\"Custom_TownEast\"]", json);
         Assert.Contains("\"hash_texture\":false", json);
     }

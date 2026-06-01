@@ -31,6 +31,9 @@ public sealed class ScenarioAssertion
     /// <summary>For <c>content.asset</c> data assertions: maximum key count to include.</summary>
     public int? KeysLimit { get; set; }
 
+    /// <summary>For <c>content.asset</c> data assertions: max nested collection items to include per summarized collection.</summary>
+    public int? NestedItemsLimit { get; set; }
+
     /// <summary>For <c>content.asset</c> data assertions: selected data entries to summarize.</summary>
     public string[]? EntryKeys { get; set; }
 
