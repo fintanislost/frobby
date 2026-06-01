@@ -107,6 +107,76 @@ public class ScenarioRunnerContentAssetTests
     }
 
     [Fact]
+    public async Task ContentAssetAssertion_EvaluatesNestedCollectionItemExpression()
+    {
+        var (cts, server, client, calls) = await StartFakeHarness(SocketPath(), req =>
+        {
+            if (req.Method == "content.asset")
+            {
+                Assert.NotNull(req.Params);
+                Assert.True(req.Params.Value.TryGetProperty("nested_items_limit", out var limit));
+                Assert.Equal(10, limit.GetInt32());
+            }
+
+            return """
+            {
+              "name": "Data/MoviesReactions",
+              "exists": true,
+              "kind": "data",
+              "runtime_type": "Dictionary\u00602",
+              "summary": {
+                "entries": {
+                  "Martin": {
+                    "exists": true,
+                    "value": {
+                      "npc_name": "Martin",
+                      "reactions": {
+                        "runtime_type": "System.Collections.Generic.List\u00601",
+                        "count": 1,
+                        "items_limit": 10,
+                        "items_truncated": false,
+                        "items": [
+                          { "tag": "*", "response": "reject", "i_d": "reaction_0" }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
+        });
+        using var _ = cts;
+        using var __ = client;
+
+        var runner = new ScenarioRunner(client);
+        var spec = new ScenarioSpec
+        {
+            Name = "content_asset_nested_collection_item",
+            Assertions = new()
+            {
+                new ScenarioAssertion
+                {
+                    Type = "content.asset",
+                    Asset = "Data/MoviesReactions",
+                    AssetType = "data",
+                    EntryKeys = new[] { "Martin" },
+                    NestedItemsLimit = 10,
+                    Expr = "asset.entries.Martin.value.reactions.items contains response 'reject'",
+                },
+            },
+        };
+
+        var report = await runner.RunAsync(spec, cts.Token);
+
+        Assert.True(report.Passed, string.Join(Environment.NewLine, report.Failures));
+        Assert.Equal(1, report.AssertionsPassed);
+        Assert.Contains("content.asset", calls);
+        cts.Cancel();
+        try { await server; } catch (OperationCanceledException) { }
+    }
+
+    [Fact]
     public async Task ContentAssetAssertion_MissingAsset_FailsWithAssetName()
     {
         var (cts, server, client, _) = await StartFakeHarness(SocketPath(), """
@@ -145,9 +215,14 @@ public class ScenarioRunnerContentAssetTests
         try { await server; } catch (OperationCanceledException) { }
     }
 
-    private static async Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client, List<string> Calls)> StartFakeHarness(
+    private static Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client, List<string> Calls)> StartFakeHarness(
         string socket,
         string contentAssetJson)
+        => StartFakeHarness(socket, _ => contentAssetJson);
+
+    private static Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client, List<string> Calls)> StartFakeHarness(
+        string socket,
+        Func<JsonRpcRequest, string> contentAssetJsonFactory)
     {
         var calls = new List<string>();
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -161,7 +236,7 @@ public class ScenarioRunnerContentAssetTests
                     JsonElement r = req.Method switch
                     {
                         "scenario.begin" => JsonDocument.Parse("{\"session_id\":\"t\",\"tick\":0}").RootElement,
-                        "content.asset" => JsonDocument.Parse(contentAssetJson).RootElement,
+                        "content.asset" => JsonDocument.Parse(contentAssetJsonFactory(req)).RootElement,
                         "scenario.end" => JsonDocument.Parse(
                             "{\"duration_ms\":10,\"assertions_run\":0,\"assertions_passed\":0}").RootElement,
                         _ => JsonDocument.Parse("{\"ok\":true}").RootElement,
@@ -174,6 +249,15 @@ public class ScenarioRunnerContentAssetTests
             }, cts.Token);
         }, cts.Token);
 
+        return ConnectFakeHarnessAsync(socket, cts, serverTask, calls);
+    }
+
+    private static async Task<(CancellationTokenSource Cts, Task Server, JsonRpcSession Client, List<string> Calls)> ConnectFakeHarnessAsync(
+        string socket,
+        CancellationTokenSource cts,
+        Task serverTask,
+        List<string> calls)
+    {
         for (var i = 0; i < 40 && !File.Exists(socket); i++)
             await Task.Delay(50, cts.Token);
 
