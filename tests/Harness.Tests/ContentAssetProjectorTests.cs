@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using SdvTestFramework.Harness.Assets;
 using SdvTestFramework.Protocol;
@@ -42,6 +43,33 @@ public class ContentAssetProjectorTests
         public string Response { get; init; } = string.Empty;
         public string ID { get; init; } = string.Empty;
         public List<string> Whitelist { get; init; } = new();
+    }
+
+    private sealed class RuntimeDictionaryEntry
+    {
+        public IReadOnlyDictionary<string, string> Metadata { get; init; } = new Dictionary<string, string>();
+    }
+
+    private sealed class RuntimeNestedCollectionEntry
+    {
+        public List<object> Children { get; init; } = new();
+    }
+
+    private sealed class RuntimeReadOnlyDictionaryOnly : IReadOnlyDictionary<string, string>
+    {
+        private readonly Dictionary<string, string> _inner;
+
+        public RuntimeReadOnlyDictionaryOnly(Dictionary<string, string> inner)
+            => _inner = inner;
+
+        public string this[string key] => _inner[key];
+        public IEnumerable<string> Keys => _inner.Keys;
+        public IEnumerable<string> Values => _inner.Values;
+        public int Count => _inner.Count;
+        public bool ContainsKey(string key) => _inner.ContainsKey(key);
+        public bool TryGetValue(string key, out string value) => _inner.TryGetValue(key, out value!);
+        public IEnumerator<KeyValuePair<string, string>> GetEnumerator() => _inner.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private sealed class FakeLoader : IContentAssetLoader
@@ -321,6 +349,76 @@ public class ContentAssetProjectorTests
         Assert.Equal(2, items.Count);
         Assert.Equal("alpha", items[0]!.GetValue<string>());
         Assert.Equal("beta", items[1]!.GetValue<string>());
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesNestedGenericDictionaryCountsOnly()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/Example", new Dictionary<string, object>
+        {
+            ["ExampleEntry"] = new RuntimeDictionaryEntry
+            {
+                Metadata = new RuntimeReadOnlyDictionaryOnly(new Dictionary<string, string>
+                {
+                    ["alpha"] = "one",
+                    ["beta"] = "two",
+                }),
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Example",
+            AssetType = "data",
+            EntryKeys = new[] { "ExampleEntry" },
+            NestedItemsLimit = 10,
+        });
+
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var metadata = entries["ExampleEntry"]!["value"]!["metadata"]!;
+        Assert.Equal(2, metadata["count"]!.GetValue<int>());
+        Assert.Null(metadata["items"]);
+    }
+
+    [Fact]
+    public void Project_DataDictionary_OmitsNestedCollectionItemsAtMaxDepth()
+    {
+        var deepest = new RuntimeNestedCollectionEntry
+        {
+            Children = new List<object> { "leaf" },
+        };
+        var level3 = new RuntimeNestedCollectionEntry { Children = new List<object> { deepest } };
+        var level2 = new RuntimeNestedCollectionEntry { Children = new List<object> { level3 } };
+        var level1 = new RuntimeNestedCollectionEntry { Children = new List<object> { level2 } };
+
+        var loader = new FakeLoader();
+        loader.Add("Data/Example", new Dictionary<string, object>
+        {
+            ["ExampleEntry"] = level1,
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Example",
+            AssetType = "data",
+            EntryKeys = new[] { "ExampleEntry" },
+            NestedItemsLimit = 10,
+        });
+
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var level1Children = entries["ExampleEntry"]!["value"]!["children"]!;
+        Assert.NotNull(level1Children["items"]);
+
+        var level2Children = level1Children["items"]![0]!["children"]!;
+        Assert.NotNull(level2Children["items"]);
+
+        var level3Children = level2Children["items"]![0]!["children"]!;
+        Assert.NotNull(level3Children["items"]);
+
+        var deepestChildren = level3Children["items"]![0]!["children"]!;
+        Assert.Equal(1, deepestChildren["count"]!.GetValue<int>());
+        Assert.Null(deepestChildren["items"]);
     }
 
     [Theory]

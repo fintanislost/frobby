@@ -233,7 +233,7 @@ public static class ContentAssetProjector
         {
             var count = 0;
             var items = new JsonArray();
-            var includeItems = ShouldSummarizeEnumerableItems(value);
+            var includeItems = ShouldSummarizeEnumerableItems(value, depth);
             foreach (var item in enumerable)
             {
                 if (includeItems && count < nestedItemsLimit)
@@ -313,16 +313,33 @@ public static class ContentAssetProjector
         return obj;
     }
 
-    private static bool ShouldSummarizeEnumerableItems(object value)
+    private static bool ShouldSummarizeEnumerableItems(object value, int depth)
     {
-        if (value is IDictionary)
+        if (depth >= MaxObjectDepth)
             return false;
 
-        var type = value.GetType();
-        if (type == typeof(string))
+        return !IsDictionaryLike(value.GetType());
+    }
+
+    private static bool IsDictionaryLike(Type type)
+    {
+        if (typeof(IDictionary).IsAssignableFrom(type))
+            return true;
+
+        if (IsGenericDictionaryType(type))
+            return true;
+
+        return type.GetInterfaces().Any(IsGenericDictionaryType);
+    }
+
+    private static bool IsGenericDictionaryType(Type type)
+    {
+        if (!type.IsGenericType)
             return false;
 
-        return true;
+        var definition = type.GetGenericTypeDefinition();
+        return definition == typeof(IDictionary<,>)
+            || definition == typeof(IReadOnlyDictionary<,>);
     }
 
     private static bool ShouldSummarizeNestedObject(object? value, int depth)
