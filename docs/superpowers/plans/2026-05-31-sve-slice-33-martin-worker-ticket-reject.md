@@ -402,7 +402,7 @@ dotnet test /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-s
 - [ ] Run the new scenario with a fresh report:
 
 ```bash
-env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-probe-41 /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
+env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-probe-41 /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
 ```
 
 - [ ] Inspect the generated HTML report and step screenshots if the run fails:
@@ -495,13 +495,13 @@ dotnet build /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-
 - [ ] Run the focused SVE scenario:
 
 ```bash
-env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-final-41 /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
+env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-final-41 /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
 ```
 
 - [ ] Run adjacent SVE movie scenarios to catch regressions:
 
 ```bash
-env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-final-movie-adjacent /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/36-sve-movie-theater-npc-click.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/38-sve-movie-ticket-invite-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/39-sve-movie-concession-purchase-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/40-sve-movie-screening-reaction-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
+env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/StardewValleyExpanded --headless --mod-set core --report-dir /tmp/stardew-valley-expanded-frobby-results-0.1.0/slice-33-final-movie-adjacent /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/36-sve-movie-theater-npc-click.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/38-sve-movie-ticket-invite-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/39-sve-movie-concession-purchase-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/40-sve-movie-screening-reaction-flow.test.json /home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json
 ```
 
 - [ ] Run Frobby tests:
@@ -513,7 +513,7 @@ dotnet test /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-s
 - [ ] If Frobby production code changed, run the Starberg smoke set with the same Frobby branch before committing:
 
 ```bash
-env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/stonks --headless --mod-set core --report-dir /tmp/starberg-frobby-results-0.1.0/slice-33-frobby-smoke /home/fintan/stardewRepos/stonks/tests/sdv/01-terminal-opens.test.json /home/fintan/stardewRepos/stonks/tests/sdv/38-chart-panel-live-spacing.test.json /home/fintan/stardewRepos/stonks/tests/sdv/67-news-document-view.test.json
+env SDV_TEST_MOD_CACHE=/home/fintan/stardewRepos/frobby/sdv-test-framework/.cache/deps dotnet /home/fintan/stardewRepos/frobby/sdv-test-framework/.worktrees/sve-slice-33-martin-worker-ticket-reject/src/Runner/bin/Debug/net10.0/sdv-test.dll repo run --repo-root /home/fintan/stardewRepos/stonks --headless --mod-set core --report-dir /tmp/starberg-frobby-results-0.1.0/slice-33-frobby-smoke /home/fintan/stardewRepos/stonks/tests/sdv/01-terminal-opens.test.json /home/fintan/stardewRepos/stonks/tests/sdv/38-chart-panel-live-spacing.test.json /home/fintan/stardewRepos/stonks/tests/sdv/67-news-document-view.test.json
 ```
 
 ---

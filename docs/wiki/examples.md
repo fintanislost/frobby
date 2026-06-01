@@ -87,6 +87,8 @@ tile effects, and runtime location metadata.
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/39-sve-movie-concession-purchase-flow.test.json`
 - SVE movie screening reaction flow:
   `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/40-sve-movie-screening-reaction-flow.test.json`
+- SVE Martin movie worker ticket rejection:
+  `/home/fintan/stardewRepos/StardewValleyExpanded/tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json`
 
 Use these when testing events, dialogue choice menus, relationship state, or
 festival maps, or festival shops. For active event or festival actors, wait with
@@ -114,7 +116,12 @@ visible row without assuming the generated item id. Use
 `player.set_spouse` and `world.refresh_npc_schedule` when a scenario needs a
 loaded NPC to reflect relationship-gated schedule content after save setup, and
 use `input.click_tile` when the coverage goal is player-like NPC tile
-interaction rather than direct semantic interaction.
+interaction rather than direct semantic interaction. For Content Patcher
+schedule conditions that depend on newly seeded mail or event state, advance to
+the next day before refreshing the NPC schedule so runtime content is reloaded.
+For worker movie-ticket rejection paths, keep the visible rejection matcher
+narrow to rejection-specific language and assert the ticket remains in
+`state.player.items`.
 For Stardew Fair grange judging flows, start with player-like festival entry and
 Lewis interaction, then use `festival.set_grange_display` for deterministic item
 setup and `festival.finish_grange_judging` only as the Fair-scoped fallback when

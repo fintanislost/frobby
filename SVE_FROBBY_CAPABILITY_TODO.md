@@ -250,7 +250,7 @@ Status key:
   - Done: selected-object `input.click_tile` fallback preservation, non-target dialogue clearing for NPC tile-click fallback, click-result detail in runner reports, `content.asset` support for keyed list data such as `Data/MoviesReactions` and `Data/ConcessionTastes`, and SVE scenario 38.
   - Verified: headless SVE scenario 38 selects a real movie ticket, right-clicks Sophia through Stardew's selected-item path, captures her acceptance dialogue, and verifies the ticket is consumed plus SVE movie reaction/concession data exists.
   - Verified: adjacent SVE scenarios 36 and 31 still pass headless, proving theater NPC fallback and selected bomb tile-click behavior remained stable.
-  - Follow-up candidates: Claire/Martin worker invite edge cases.
+  - Follow-up candidates: Claire worker invite edge cases. Martin worker ticket rejection is covered in Slice 33.
 
 - [x] Done: Slice 31, movie concession purchase through visible shop UI.
   - SVE pressure: movie theater concessions are dynamic Stardew `MovieConcession` salables reached through a map action and confirmation prompt after a custom NPC invite.
@@ -268,6 +268,14 @@ Status key:
   - Done: `input.click_tile` action resolution diagnostics, `wait.event_active` root dialogue filters, docs, and SVE scenario 40.
   - Verified: headless SVE scenario 40 clears Sophia's queued introduction dialogue with real tile clicks, invites her with a real movie ticket, clicks the `Theater_Doors` map action, and waits for visible summer movie reaction text.
   - Note: movie reaction text surfaced through the active menu/message path, so scenario 40 uses `wait.menu`; root dialogue filters remain available for cutscenes where Stardew stores active dialogue on event state.
+
+- [x] Done: Slice 33, Martin movie worker ticket rejection.
+  - SVE pressure: Martin works the movie-theater counter on some theater-unlocked days and should visibly reject a selected movie ticket while working instead of silently accepting or consuming it.
+  - Frobby goal: prove existing click, wait, inventory, screenshot, and content assertions cover another movie worker edge case without mod-specific helpers.
+  - Design spec: `docs/superpowers/specs/2026-05-31-sve-slice-33-martin-worker-ticket-reject-design.md`.
+  - Implementation plan: `docs/superpowers/plans/2026-05-31-sve-slice-33-martin-worker-ticket-reject.md`.
+  - Done: SVE scenario `tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json` seeds theater state, advances one day so Content Patcher schedule conditions reload, right-clicks Martin as the counter worker, selects a real `(O)809` ticket, verifies visible rejection feedback, and asserts the ticket remains in inventory.
+  - Verified: focused headless scenario 41 passed with the existing neutral Frobby tools. No Frobby production capability was required.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
