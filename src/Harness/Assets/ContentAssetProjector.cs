@@ -18,6 +18,7 @@ public static class ContentAssetProjector
     private const int MaxObjectDepth = 3;
     private const int DefaultNestedItemsLimit = 25;
     private const int MaxNestedItemsLimit = 100;
+    private const int MaxNestedProjectedItems = 500;
 
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal)
     {
@@ -202,10 +203,11 @@ public static class ContentAssetProjector
             {
                 if (data.TryGetValue(key, out var value))
                 {
+                    var budget = new ProjectionBudget(MaxNestedProjectedItems);
                     entries[key] = new JsonObject
                     {
                         ["exists"] = true,
-                        ["value"] = SummarizeValue(value, nestedItemsLimit),
+                        ["value"] = SummarizeValue(value, nestedItemsLimit, budget),
                     };
                 }
                 else
@@ -219,7 +221,11 @@ public static class ContentAssetProjector
         return summary;
     }
 
-    private static JsonNode? SummarizeValue(object? value, int nestedItemsLimit, int depth = 0)
+    private static JsonNode? SummarizeValue(
+        object? value,
+        int nestedItemsLimit,
+        ProjectionBudget budget,
+        int depth = 0)
     {
         if (value is null) return null;
         if (value is string s) return s;
@@ -236,8 +242,8 @@ public static class ContentAssetProjector
             var includeItems = ShouldSummarizeEnumerableItems(value, depth);
             foreach (var item in enumerable)
             {
-                if (includeItems && count < nestedItemsLimit)
-                    items.Add(SummarizeValue(item, nestedItemsLimit, depth + 1));
+                if (includeItems && count < nestedItemsLimit && budget.TryConsume())
+                    items.Add(SummarizeValue(item, nestedItemsLimit, budget, depth + 1));
                 count++;
             }
 
@@ -250,7 +256,7 @@ public static class ContentAssetProjector
             if (includeItems)
             {
                 collection["items_limit"] = nestedItemsLimit;
-                collection["items_truncated"] = count > nestedItemsLimit;
+                collection["items_truncated"] = count > items.Count;
                 collection["items"] = items;
             }
 
@@ -278,15 +284,15 @@ public static class ContentAssetProjector
 
             if (IsScalar(propValue))
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, budget);
             }
             else if (propValue is IEnumerable and not string)
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, depth);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, budget, depth);
             }
             else if (ShouldSummarizeNestedObject(propValue, depth))
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, depth + 1);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, budget, depth + 1);
             }
         }
 
@@ -298,15 +304,15 @@ public static class ContentAssetProjector
 
             if (IsScalar(fieldValue))
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, budget);
             }
             else if (fieldValue is IEnumerable and not string)
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, depth);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, budget, depth);
             }
             else if (ShouldSummarizeNestedObject(fieldValue, depth))
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, depth + 1);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, budget, depth + 1);
             }
         }
 
@@ -360,6 +366,23 @@ public static class ContentAssetProjector
 
     private static bool IsScalar(object? value)
         => value is null or string or bool or int or long or float or double or decimal;
+
+    private sealed class ProjectionBudget
+    {
+        private int _remaining;
+
+        public ProjectionBudget(int remaining)
+            => _remaining = remaining;
+
+        public bool TryConsume()
+        {
+            if (_remaining <= 0)
+                return false;
+
+            _remaining--;
+            return true;
+        }
+    }
 
     private static string ToSnakeCase(string value)
     {

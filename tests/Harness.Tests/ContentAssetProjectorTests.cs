@@ -352,6 +352,41 @@ public class ContentAssetProjectorTests
     }
 
     [Fact]
+    public void Project_DataDictionary_UsesDefaultNestedItemsLimit()
+    {
+        var tags = new List<string>();
+        for (var i = 0; i < 30; i++)
+            tags.Add($"tag-{i}");
+
+        var loader = new FakeLoader();
+        loader.Add("Data/Example", new Dictionary<string, object>
+        {
+            ["ExampleEntry"] = new RuntimeCollectionEntry
+            {
+                Name = "Example",
+                Tags = tags,
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Example",
+            AssetType = "data",
+            EntryKeys = new[] { "ExampleEntry" },
+        });
+
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var projectedTags = entries["ExampleEntry"]!["value"]!["tags"]!;
+        Assert.Equal(30, projectedTags["count"]!.GetValue<int>());
+        Assert.Equal(25, projectedTags["items_limit"]!.GetValue<int>());
+        Assert.True(projectedTags["items_truncated"]!.GetValue<bool>());
+        var items = Assert.IsType<System.Text.Json.Nodes.JsonArray>(projectedTags["items"]);
+        Assert.Equal(25, items.Count);
+        Assert.Equal("tag-0", items[0]!.GetValue<string>());
+        Assert.Equal("tag-24", items[24]!.GetValue<string>());
+    }
+
+    [Fact]
     public void Project_DataDictionary_SummarizesNestedGenericDictionaryCountsOnly()
     {
         var loader = new FakeLoader();
@@ -419,6 +454,44 @@ public class ContentAssetProjectorTests
         var deepestChildren = level3Children["items"]![0]!["children"]!;
         Assert.Equal(1, deepestChildren["count"]!.GetValue<int>());
         Assert.Null(deepestChildren["items"]);
+    }
+
+    [Fact]
+    public void Project_DataDictionary_BoundsNestedCollectionFanout()
+    {
+        var children = new List<object>();
+        for (var i = 0; i < 100; i++)
+        {
+            var nestedChildren = new List<object>();
+            for (var j = 0; j < 100; j++)
+                nestedChildren.Add($"leaf-{i}-{j}");
+            children.Add(new RuntimeNestedCollectionEntry { Children = nestedChildren });
+        }
+
+        var loader = new FakeLoader();
+        loader.Add("Data/Example", new Dictionary<string, object>
+        {
+            ["ExampleEntry"] = new RuntimeNestedCollectionEntry
+            {
+                Children = children,
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/Example",
+            AssetType = "data",
+            EntryKeys = new[] { "ExampleEntry" },
+            NestedItemsLimit = 100,
+        });
+
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var projectedChildren = entries["ExampleEntry"]!["value"]!["children"]!;
+        Assert.Equal(100, projectedChildren["count"]!.GetValue<int>());
+        Assert.Equal(100, projectedChildren["items_limit"]!.GetValue<int>());
+        Assert.True(projectedChildren["items_truncated"]!.GetValue<bool>());
+        var items = Assert.IsType<System.Text.Json.Nodes.JsonArray>(projectedChildren["items"]);
+        Assert.InRange(items.Count, 1, 99);
     }
 
     [Theory]
