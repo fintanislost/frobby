@@ -16,6 +16,8 @@ namespace SdvTestFramework.Harness.Assets;
 public static class ContentAssetProjector
 {
     private const int MaxObjectDepth = 3;
+    private const int DefaultNestedItemsLimit = 25;
+    private const int MaxNestedItemsLimit = 100;
 
     private static readonly HashSet<string> AllowedTypes = new(StringComparer.Ordinal)
     {
@@ -66,6 +68,8 @@ public static class ContentAssetProjector
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, $"unsupported asset_type: {type}");
         if (req.KeysLimit is < 1 or > 500)
             throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "keys_limit must be between 1 and 500");
+        if (req.NestedItemsLimit is < 1 or > MaxNestedItemsLimit)
+            throw new JsonRpcException(JsonRpcErrorCode.InvalidParams, "nested_items_limit must be between 1 and 100");
     }
 
     private static ContentAssetResult? TryProjectAuto(IContentAssetLoader loader, ContentAssetRequest req)
@@ -182,6 +186,7 @@ public static class ContentAssetProjector
     private static JsonObject SummarizeDictionary<T>(IDictionary<string, T> data, ContentAssetRequest req)
     {
         var limit = req.KeysLimit ?? 50;
+        var nestedItemsLimit = req.NestedItemsLimit ?? DefaultNestedItemsLimit;
         var summary = new JsonObject
         {
             ["count"] = data.Count,
@@ -200,7 +205,7 @@ public static class ContentAssetProjector
                     entries[key] = new JsonObject
                     {
                         ["exists"] = true,
-                        ["value"] = SummarizeValue(value),
+                        ["value"] = SummarizeValue(value, nestedItemsLimit),
                     };
                 }
                 else
@@ -214,7 +219,7 @@ public static class ContentAssetProjector
         return summary;
     }
 
-    private static JsonNode? SummarizeValue(object? value, int depth = 0)
+    private static JsonNode? SummarizeValue(object? value, int nestedItemsLimit, int depth = 0)
     {
         if (value is null) return null;
         if (value is string s) return s;
@@ -227,13 +232,29 @@ public static class ContentAssetProjector
         if (value is IEnumerable enumerable and not string)
         {
             var count = 0;
-            foreach (var _ in enumerable)
+            var items = new JsonArray();
+            var includeItems = ShouldSummarizeEnumerableItems(value);
+            foreach (var item in enumerable)
+            {
+                if (includeItems && count < nestedItemsLimit)
+                    items.Add(SummarizeValue(item, nestedItemsLimit, depth + 1));
                 count++;
-            return new JsonObject
+            }
+
+            var collection = new JsonObject
             {
                 ["runtime_type"] = value.GetType().FullName ?? value.GetType().Name,
                 ["count"] = count,
             };
+
+            if (includeItems)
+            {
+                collection["items_limit"] = nestedItemsLimit;
+                collection["items_truncated"] = count > nestedItemsLimit;
+                collection["items"] = items;
+            }
+
+            return collection;
         }
 
         var text = value.ToString();
@@ -257,15 +278,15 @@ public static class ContentAssetProjector
 
             if (IsScalar(propValue))
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit);
             }
             else if (propValue is IEnumerable and not string)
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, depth);
             }
             else if (ShouldSummarizeNestedObject(propValue, depth))
             {
-                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, depth + 1);
+                obj[ToSnakeCase(prop.Name)] = SummarizeValue(propValue, nestedItemsLimit, depth + 1);
             }
         }
 
@@ -277,19 +298,31 @@ public static class ContentAssetProjector
 
             if (IsScalar(fieldValue))
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit);
             }
             else if (fieldValue is IEnumerable and not string)
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, depth);
             }
             else if (ShouldSummarizeNestedObject(fieldValue, depth))
             {
-                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, depth + 1);
+                obj[ToSnakeCase(field.Name)] = SummarizeValue(fieldValue, nestedItemsLimit, depth + 1);
             }
         }
 
         return obj;
+    }
+
+    private static bool ShouldSummarizeEnumerableItems(object value)
+    {
+        if (value is IDictionary)
+            return false;
+
+        var type = value.GetType();
+        if (type == typeof(string))
+            return false;
+
+        return true;
     }
 
     private static bool ShouldSummarizeNestedObject(object? value, int depth)

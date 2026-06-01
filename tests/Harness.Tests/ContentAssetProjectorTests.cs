@@ -30,6 +30,20 @@ public class ContentAssetProjectorTests
         public List<string> Tags { get; init; } = new();
     }
 
+    private sealed class RuntimeMovieReactionLike
+    {
+        public string NPCName { get; init; } = string.Empty;
+        public List<RuntimeMovieReactionEntry> Reactions { get; init; } = new();
+    }
+
+    private sealed class RuntimeMovieReactionEntry
+    {
+        public string Tag { get; init; } = string.Empty;
+        public string Response { get; init; } = string.Empty;
+        public string ID { get; init; } = string.Empty;
+        public List<string> Whitelist { get; init; } = new();
+    }
+
     private sealed class FakeLoader : IContentAssetLoader
     {
         private readonly Dictionary<(Type Type, string Name), object> _assets = new();
@@ -229,7 +243,53 @@ public class ContentAssetProjectorTests
     }
 
     [Fact]
-    public void Project_DataDictionary_SummarizesNestedCollectionCounts()
+    public void Project_DataDictionary_SummarizesNestedCollectionItems()
+    {
+        var loader = new FakeLoader();
+        loader.Add("Data/MoviesReactions", new Dictionary<string, object>
+        {
+            ["Martin"] = new RuntimeMovieReactionLike
+            {
+                NPCName = "Martin",
+                Reactions = new List<RuntimeMovieReactionEntry>
+                {
+                    new()
+                    {
+                        Tag = "*",
+                        Response = "reject",
+                        ID = "reaction_0",
+                        Whitelist = new List<string>(),
+                    },
+                },
+            },
+        });
+
+        var result = ContentAssetProjector.Project(loader, new ContentAssetRequest
+        {
+            Name = "Data/MoviesReactions",
+            AssetType = "data",
+            EntryKeys = new[] { "Martin" },
+            NestedItemsLimit = 10,
+        });
+
+        Assert.True(result.Exists);
+        var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
+        var reactions = entries["Martin"]!["value"]!["reactions"]!;
+        Assert.Equal(1, reactions["count"]!.GetValue<int>());
+        Assert.Equal(10, reactions["items_limit"]!.GetValue<int>());
+        Assert.False(reactions["items_truncated"]!.GetValue<bool>());
+        var items = Assert.IsType<System.Text.Json.Nodes.JsonArray>(reactions["items"]);
+        Assert.Single(items);
+        Assert.Equal("*", items[0]!["tag"]!.GetValue<string>());
+        Assert.Equal("reject", items[0]!["response"]!.GetValue<string>());
+        Assert.Equal("reaction_0", items[0]!["i_d"]!.GetValue<string>());
+        Assert.Equal(0, items[0]!["whitelist"]!["count"]!.GetValue<int>());
+        var whitelistItems = Assert.IsType<System.Text.Json.Nodes.JsonArray>(items[0]!["whitelist"]!["items"]);
+        Assert.Empty(whitelistItems);
+    }
+
+    [Fact]
+    public void Project_DataDictionary_SummarizesNestedCollectionCountsAndScalarItems()
     {
         var loader = new FakeLoader();
         loader.Add("Data/Example", new Dictionary<string, object>
@@ -237,7 +297,7 @@ public class ContentAssetProjectorTests
             ["ExampleEntry"] = new RuntimeCollectionEntry
             {
                 Name = "Example",
-                Tags = new List<string> { "alpha", "beta" },
+                Tags = new List<string> { "alpha", "beta", "gamma" },
             },
         });
 
@@ -246,13 +306,38 @@ public class ContentAssetProjectorTests
             Name = "Data/Example",
             AssetType = "data",
             EntryKeys = new[] { "ExampleEntry" },
+            NestedItemsLimit = 2,
         });
 
         Assert.True(result.Exists);
         var entries = Assert.IsType<System.Text.Json.Nodes.JsonObject>(result.Summary["entries"]);
         var value = entries["ExampleEntry"]!["value"]!;
         Assert.Equal("Example", value["name"]!.GetValue<string>());
-        Assert.Equal(2, value["tags"]!["count"]!.GetValue<int>());
+        var tags = value["tags"]!;
+        Assert.Equal(3, tags["count"]!.GetValue<int>());
+        Assert.Equal(2, tags["items_limit"]!.GetValue<int>());
+        Assert.True(tags["items_truncated"]!.GetValue<bool>());
+        var items = Assert.IsType<System.Text.Json.Nodes.JsonArray>(tags["items"]);
+        Assert.Equal(2, items.Count);
+        Assert.Equal("alpha", items[0]!.GetValue<string>());
+        Assert.Equal("beta", items[1]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    public void Project_RejectsInvalidNestedItemsLimit(int limit)
+    {
+        var ex = Assert.Throws<JsonRpcException>(() =>
+            ContentAssetProjector.Project(new FakeLoader(), new ContentAssetRequest
+            {
+                Name = "Data/Example",
+                AssetType = "data",
+                NestedItemsLimit = limit,
+            }));
+
+        Assert.Equal(JsonRpcErrorCode.InvalidParams, ex.Code);
+        Assert.Contains("nested_items_limit", ex.Message);
     }
 
     [Fact]
