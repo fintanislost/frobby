@@ -277,7 +277,7 @@ Status key:
   - Done: SVE scenario `tests/sdv/41-sve-martin-movie-worker-ticket-reject.test.json` seeds theater state, advances one day so Content Patcher schedule conditions reload, right-clicks Martin as the counter worker, selects a real `(O)809` ticket, verifies visible rejection feedback, and asserts the ticket remains in inventory.
   - Verified: focused headless scenario 41 passed with the existing neutral Frobby tools. No Frobby production capability was required.
 
-- [ ] Active: Slice 34, nested content asset collection assertions.
+- [x] Done: Slice 34, nested content asset collection assertions.
   - SVE pressure: Martin's worker-day movie rejection is represented as a
     conditional nested `Data/MoviesReactions` list item, but the previous
     `content.asset` projection exposed only collection counts.
@@ -286,6 +286,8 @@ Status key:
     raw unbounded asset dumps or mod-specific helpers.
   - Design spec: `docs/superpowers/specs/2026-06-01-sve-slice-34-content-asset-nested-collections-design.md`.
   - Implementation plan: `docs/superpowers/plans/2026-06-01-sve-slice-34-content-asset-nested-collections.md`.
+  - Done: `content.asset` requests and scenario assertions accept `nested_items_limit`; the harness projects bounded nested dictionary/list/array `items` with truncation metadata and item-node budget guards; runner expressions can assert nested fields such as `asset.entries.Martin.value.reactions.items contains response 'reject'`.
+  - Verified: focused Frobby Protocol, Harness, and Runner content-asset tests passed; full Frobby solution tests passed; SVE scenario 41 passed headlessly with the new runtime `Data/MoviesReactions` assertion; adjacent movie scenarios 36, 38, 39, 40, and 41 passed headlessly.
 
 ## Slice 1 Planning: Custom Locations, Maps, Warps, And Tile Actions
 
