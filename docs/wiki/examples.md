@@ -121,7 +121,10 @@ schedule conditions that depend on newly seeded mail or event state, advance to
 the next day before refreshing the NPC schedule so runtime content is reloaded.
 For worker movie-ticket rejection paths, keep the visible rejection matcher
 narrow to rejection-specific language and assert the ticket remains in
-`state.player.items`.
+`state.player.items`. When a runtime data entry contains nested list data,
+request a bounded `nested_items_limit` and assert against `.items`; for example,
+`asset.entries.Martin.value.reactions.items contains response 'reject'` proves
+the applied live movie reaction data, not just the source content file.
 For Stardew Fair grange judging flows, start with player-like festival entry and
 Lewis interaction, then use `festival.set_grange_display` for deterministic item
 setup and `festival.finish_grange_judging` only as the Fair-scoped fallback when

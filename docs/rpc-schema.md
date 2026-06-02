@@ -3316,6 +3316,7 @@ not parse content-pack files as source of truth.
   "asset_type": "data",
   "include_keys": true,
   "keys_limit": 25,
+  "nested_items_limit": 10,
   "entry_keys": ["ExampleTownEast"],
   "hash_texture": false
 }
@@ -3328,12 +3329,17 @@ not parse content-pack files as source of truth.
 - `include_keys` — for keyed data dictionaries or keyed list-style data assets,
   include a bounded key list.
 - `keys_limit` — max key count when `include_keys` is true. Valid range: 1-500.
+- `nested_items_limit` — max items to include for each nested list/array-style
+  collection under selected entries. Valid range: 1-100. Default: 25.
 - `entry_keys` — selected keyed data entries to summarize by exact key.
 - `hash_texture` — for textures, include a bounded content hash when possible.
 
 Selected data entries include public scalar fields/properties and bounded nested
-runtime data objects, with names converted to snake_case. Collections are
-summarized by runtime type and count instead of expanded.
+runtime data objects, with names converted to snake_case. List/array-style
+nested collections include `runtime_type`, `count`, `items_limit`,
+`items_truncated`, and a bounded `items` array. Nested dictionaries remain
+count-only in this slice. A per-entry projection budget also limits total nested
+item expansion so large runtime data cannot produce unbounded RPC payloads.
 Keyed list-style data assets are projected by stable entry identity where
 Stardew exposes one, such as movie reaction NPC names or concession taste names.
 
@@ -3375,6 +3381,13 @@ Stardew exposes one, such as movie reaction NPC names or concession taste names.
             "runtime_type": "StardewValley.GameData.Locations.CreateLocationData",
             "always_active": false,
             "map_path": "Maps\\ExampleTownEast"
+          },
+          "tags": {
+            "runtime_type": "System.Collections.Generic.List`1[...]",
+            "count": 1,
+            "items_limit": 10,
+            "items_truncated": false,
+            "items": ["town"]
           }
         }
       }
@@ -3393,7 +3406,7 @@ helper to be initialized, which is true during normal scenario execution.
 **Side effects:** read-only asset load through SMAPI/Stardew content APIs.
 **Errors:**
 - `InvalidParams -32602` — missing `name`, unsupported `asset_type`, or invalid
-  `keys_limit`.
+  `keys_limit` or `nested_items_limit`.
 - `GameStateInvalid -32003` — harness content loader was not initialized.
 **Tested in:** `tests/Protocol.Tests/ContentAssetSerializationTests.cs`,
 `tests/Harness.Tests/ContentAssetProjectorTests.cs`,
