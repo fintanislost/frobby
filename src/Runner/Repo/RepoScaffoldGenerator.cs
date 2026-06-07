@@ -313,7 +313,13 @@ public static class RepoScaffoldGenerator
               FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
               unset FROBBY_ROOT
               cd "$FROBBY_SOURCE_ROOT"
-              FROBBY_RUN_ARGS=(dotnet run --no-build --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" --)
+              RUNNER_DLL="$FROBBY_SOURCE_ROOT/src/Runner/bin/Debug/net10.0/sdv-test.dll"
+              if [ ! -f "$RUNNER_DLL" ]; then
+                echo "[preflight] Frobby source runner is not built: $RUNNER_DLL" >&2
+                echo "[preflight] Run dotnet build \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\" before preflight." >&2
+                exit 2
+              fi
+              FROBBY_RUN_ARGS=(dotnet "$RUNNER_DLL")
             fi
 
             RUN_TARGETS=()

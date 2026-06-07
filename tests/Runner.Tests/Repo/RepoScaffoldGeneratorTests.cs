@@ -145,11 +145,11 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("exec dotnet run", repeatText);
         Assert.Contains("exec dotnet run --no-build", scriptText);
         Assert.Contains("exec dotnet run --no-build", repeatText);
-        Assert.Contains("dotnet run", preflightText);
-        Assert.Contains("dotnet run --no-build", preflightText);
+        Assert.Contains("RUNNER_DLL=\"$FROBBY_SOURCE_ROOT/src/Runner/bin/Debug/net10.0/sdv-test.dll\"", preflightText);
+        Assert.Contains("FROBBY_RUN_ARGS=(dotnet \"$RUNNER_DLL\")", preflightText);
+        Assert.Contains("source runner is not built", preflightText);
         Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", scriptText);
         Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", repeatText);
-        Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", preflightText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", repeatText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", preflightText);
@@ -163,8 +163,11 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         var preflightText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-preflight"));
 
         Assert.Contains("RUN_TARGETS=(\"$REPO_ROOT/tests/sdv\")", preflightText);
-        Assert.Contains("FROBBY_RUN_ARGS=(dotnet run --no-build --project", preflightText);
-        Assert.DoesNotContain("dotnet build", preflightText);
+        Assert.Contains("FROBBY_RUN_ARGS=(dotnet \"$RUNNER_DLL\")", preflightText);
+        Assert.DoesNotContain(
+            preflightText.Split('\n'),
+            line => line.TrimStart().StartsWith("dotnet build ", StringComparison.Ordinal));
+        Assert.DoesNotContain("dotnet run --no-build", preflightText);
         Assert.Contains("run_sdv_test list \"$REPO_ROOT/tests/sdv\"", preflightText);
         Assert.Contains("run_sdv_test repo deps doctor --repo-root \"$REPO_ROOT\"", preflightText);
         Assert.Contains("run_sdv_test repo run --repo-root \"$REPO_ROOT\" --dry-run \"${RUN_TARGETS[@]}\"", preflightText);
