@@ -35,6 +35,7 @@ public static class RepoScaffoldGenerator
             [RepoTestConfig.FileName] = ConfigJson(scaffoldOptions),
             ["scripts/sdv-test"] = RunWrapper(),
             ["scripts/sdv-repeat"] = RepeatWrapper(),
+            ["scripts/sdv-preflight"] = PreflightWrapper(),
             [scenarioTarget] = SampleScenario(),
             ["tests/sdv/fragments/.gitkeep"] = string.Empty,
             ["tests/sdv/baselines/.gitkeep"] = string.Empty,
@@ -61,6 +62,7 @@ public static class RepoScaffoldGenerator
 
         MarkExecutableIfPossible(Path.Combine(fullRoot, "scripts/sdv-test"));
         MarkExecutableIfPossible(Path.Combine(fullRoot, "scripts/sdv-repeat"));
+        MarkExecutableIfPossible(Path.Combine(fullRoot, "scripts/sdv-preflight"));
         MarkExecutableIfPossible(Path.Combine(fullRoot, "tests/scripts/sdv-test-dry-run.sh"));
         MarkExecutableIfPossible(Path.Combine(fullRoot, "tests/scripts/sdv-repeat-dry-run.sh"));
     }
@@ -250,11 +252,19 @@ public static class RepoScaffoldGenerator
 
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+            FROBBY_ROOT_WAS_SET=0
+            if [ -n "${FROBBY_ROOT+x}" ]; then
+              FROBBY_ROOT_WAS_SET=1
+            fi
             FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
+              unset FROBBY_ROOT
               cd "$FROBBY_SOURCE_ROOT"
+              if [ "$FROBBY_ROOT_WAS_SET" -eq 1 ]; then
+                exec dotnet run --no-build --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo run --repo-root "$REPO_ROOT" "$@"
+              fi
               exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
@@ -269,15 +279,68 @@ public static class RepoScaffoldGenerator
 
             SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+            FROBBY_ROOT_WAS_SET=0
+            if [ -n "${FROBBY_ROOT+x}" ]; then
+              FROBBY_ROOT_WAS_SET=1
+            fi
             FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
 
             if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
               FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
+              unset FROBBY_ROOT
               cd "$FROBBY_SOURCE_ROOT"
+              if [ "$FROBBY_ROOT_WAS_SET" -eq 1 ]; then
+                exec dotnet run --no-build --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo repeat --repo-root "$REPO_ROOT" "$@"
+              fi
               exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
             exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"
+            """;
+
+    private static string PreflightWrapper()
+        =>
+            """
+            #!/usr/bin/env bash
+            set -euo pipefail
+
+            SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+            FROBBY_SOURCE_ROOT="${FROBBY_ROOT:-"$REPO_ROOT/../frobby/sdv-test-framework"}"
+            FROBBY_RUN_ARGS=()
+
+            if [ -f "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" ]; then
+              FROBBY_SOURCE_ROOT="$(cd "$FROBBY_SOURCE_ROOT" && pwd -P)"
+              unset FROBBY_ROOT
+              cd "$FROBBY_SOURCE_ROOT"
+              FROBBY_RUN_ARGS=(dotnet run --no-build --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" --)
+            fi
+
+            RUN_TARGETS=()
+            if [ "$#" -eq 0 ]; then
+              RUN_TARGETS=("$REPO_ROOT/tests/sdv")
+            else
+              for target in "$@"; do
+                case "$target" in
+                  /*) RUN_TARGETS+=("$target") ;;
+                  *) RUN_TARGETS+=("$REPO_ROOT/$target") ;;
+                esac
+              done
+            fi
+
+            run_sdv_test() {
+              if [ "${#FROBBY_RUN_ARGS[@]}" -ne 0 ]; then
+                "${FROBBY_RUN_ARGS[@]}" "$@"
+                return
+              fi
+
+              sdv-test "$@"
+            }
+
+            run_sdv_test list "$REPO_ROOT/tests/sdv"
+            run_sdv_test repo deps doctor --repo-root "$REPO_ROOT"
+            run_sdv_test repo run --repo-root "$REPO_ROOT" --dry-run "${RUN_TARGETS[@]}"
+            echo "PASS preflight checks"
             """;
 
     private static string DryRunScript(string wrapper)
@@ -325,6 +388,14 @@ public static class RepoScaffoldGenerator
 
             ```sh
             scripts/sdv-repeat --count 3
+            ```
+
+            Before launching SDV, use `scripts/sdv-preflight` to validate scenario JSON,
+            check cached dependency mods, and print the resolved dry-run command:
+
+            ```sh
+            scripts/sdv-preflight
+            scripts/sdv-preflight tests/sdv/01-example-core-loads.test.json
             ```
 
             The wrappers use a source checkout from `FROBBY_ROOT` when available, defaulting to `$REPO_ROOT/../frobby/sdv-test-framework`, and otherwise fall back to an installed `sdv-test`.

@@ -54,6 +54,17 @@ The generated scripts read `sdv-test.config.json`, default to headless execution
 stage every configured `extra_mod`, and write a stable
 `/tmp/<slug>-frobby-results-<version>/` report hub.
 
+Before launching SDV, run the generated preflight helper:
+
+```bash
+./scripts/sdv-preflight
+./scripts/sdv-preflight tests/sdv/01-example-core-loads.test.json
+```
+
+`sdv-preflight` validates scenario JSON, checks the configured dependency cache
+with `repo deps doctor`, and prints the resolved dry-run command without starting
+the game. Use it before a local smoke run or after changing `sdv-test.config.json`.
+
 Each configured `extra_mod` must resolve to a SMAPI mod directory that contains
 `manifest.json`. If a project writes DLLs to one folder but packages the actual
 mod elsewhere during its build, point the scaffold at the packaged mod folder.

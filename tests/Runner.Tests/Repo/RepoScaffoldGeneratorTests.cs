@@ -32,6 +32,7 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
             "sdv-test.config.json",
             "scripts/sdv-test",
             "scripts/sdv-repeat",
+            "scripts/sdv-preflight",
             "tests/sdv/baseline.test.json",
             "tests/sdv/fragments/.gitkeep",
             "tests/sdv/baselines/.gitkeep",
@@ -84,12 +85,18 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
 
         var scriptText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-test"));
         var repeatText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-repeat"));
+        var preflightText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-preflight"));
         var docsText = File.ReadAllText(Path.Combine(_repoRoot, "docs/FROBBY.md"));
 
         Assert.Contains("sdv-test repo run", scriptText);
         Assert.Contains("sdv-test repo repeat", repeatText);
+        Assert.Contains("run_sdv_test list", preflightText);
+        Assert.Contains("repo deps doctor", preflightText);
+        Assert.Contains("repo run", preflightText);
+        Assert.Contains("--dry-run", preflightText);
         Assert.Contains("sdv-test repo run", docsText);
         Assert.Contains("sdv-test repo repeat", docsText);
+        Assert.Contains("scripts/sdv-preflight", docsText);
         Assert.Contains("repo deps import", docsText);
         Assert.Contains("repo deps doctor", docsText);
         Assert.Contains("deps", docsText);
@@ -103,7 +110,9 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("\"profiles\": {", docsText);
         Assert.Contains("\"cacheNamespace\": \"alternate-pack\"", docsText);
         Assert.Contains("FROBBY_ROOT", scriptText);
+        Assert.Contains("FROBBY_ROOT", preflightText);
         Assert.Contains("../frobby/sdv-test-framework", scriptText);
+        Assert.Contains("../frobby/sdv-test-framework", preflightText);
         Assert.Contains("--visible", docsText);
         Assert.True(File.Exists(Path.Combine(_repoRoot, "tests/sdv/01-example-core-loads.test.json")));
         AssertNeutralGeneratedText();
@@ -116,21 +125,50 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
 
         var scriptText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-test"));
         var repeatText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-repeat"));
+        var preflightText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-preflight"));
 
         Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", scriptText);
         Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", repeatText);
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"${FROBBY_ROOT:-", preflightText);
+        Assert.Contains("FROBBY_ROOT_WAS_SET=0", scriptText);
+        Assert.Contains("FROBBY_ROOT_WAS_SET=0", repeatText);
         Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", scriptText);
         Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", repeatText);
+        Assert.Contains("FROBBY_SOURCE_ROOT=\"$(cd \"$FROBBY_SOURCE_ROOT\" && pwd -P)\"", preflightText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", scriptText);
         Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", repeatText);
-        Assert.DoesNotContain("unset FROBBY_ROOT", scriptText);
-        Assert.DoesNotContain("unset FROBBY_ROOT", repeatText);
+        Assert.Contains("cd \"$FROBBY_SOURCE_ROOT\"", preflightText);
+        Assert.Contains("unset FROBBY_ROOT", scriptText);
+        Assert.Contains("unset FROBBY_ROOT", repeatText);
+        Assert.Contains("unset FROBBY_ROOT", preflightText);
         Assert.Contains("exec dotnet run", scriptText);
         Assert.Contains("exec dotnet run", repeatText);
+        Assert.Contains("exec dotnet run --no-build", scriptText);
+        Assert.Contains("exec dotnet run --no-build", repeatText);
+        Assert.Contains("dotnet run", preflightText);
+        Assert.Contains("dotnet run --no-build", preflightText);
         Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", scriptText);
         Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", repeatText);
+        Assert.Contains("--project \"$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj\"", preflightText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", repeatText);
+        Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", preflightText);
+    }
+
+    [Fact]
+    public void Generate_preflight_script_validates_scenarios_deps_and_dry_run_without_launching_sdv()
+    {
+        RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
+
+        var preflightText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-preflight"));
+
+        Assert.Contains("RUN_TARGETS=(\"$REPO_ROOT/tests/sdv\")", preflightText);
+        Assert.Contains("FROBBY_RUN_ARGS=(dotnet run --no-build --project", preflightText);
+        Assert.DoesNotContain("dotnet build", preflightText);
+        Assert.Contains("run_sdv_test list \"$REPO_ROOT/tests/sdv\"", preflightText);
+        Assert.Contains("run_sdv_test repo deps doctor --repo-root \"$REPO_ROOT\"", preflightText);
+        Assert.Contains("run_sdv_test repo run --repo-root \"$REPO_ROOT\" --dry-run \"${RUN_TARGETS[@]}\"", preflightText);
+        Assert.Contains("PASS preflight checks", preflightText);
     }
 
     [Fact]
@@ -220,6 +258,8 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
             File.GetUnixFileMode(Path.Combine(_repoRoot, "scripts/sdv-test")).HasFlag(UnixFileMode.UserExecute));
         Assert.True(
             File.GetUnixFileMode(Path.Combine(_repoRoot, "scripts/sdv-repeat")).HasFlag(UnixFileMode.UserExecute));
+        Assert.True(
+            File.GetUnixFileMode(Path.Combine(_repoRoot, "scripts/sdv-preflight")).HasFlag(UnixFileMode.UserExecute));
         Assert.True(
             File.GetUnixFileMode(Path.Combine(_repoRoot, "tests/scripts/sdv-test-dry-run.sh")).HasFlag(UnixFileMode.UserExecute));
         Assert.True(
