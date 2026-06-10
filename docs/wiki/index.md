@@ -21,6 +21,10 @@ Use `sdv-test repo init` to scaffold repo-local config and scripts. The generate
 scripts read `sdv-test.config.json`, stage configured mod folders into an
 isolated test Mods directory, run headlessly by default, and write reports under
 `/tmp/<slug>-frobby-results-<version>/`.
+They resolve Frobby from `FROBBY_ROOT`, a repo-local dotnet tool manifest, or a
+global `sdv-test` command, in that order. Run `scripts/package-install-smoke.sh`
+from the Frobby repo when you need to validate the local package/install path
+before testing against another mod repo.
 
 Useful docs:
 

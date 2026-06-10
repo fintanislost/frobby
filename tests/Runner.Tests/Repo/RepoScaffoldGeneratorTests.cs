@@ -113,6 +113,9 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.Contains("FROBBY_ROOT", preflightText);
         Assert.Contains("../frobby/sdv-test-framework", scriptText);
         Assert.Contains("../frobby/sdv-test-framework", preflightText);
+        Assert.Contains("dotnet tool restore", docsText);
+        Assert.Contains("dotnet tool run sdv-test", docsText);
+        Assert.Contains("source checkout, then a repo-local dotnet tool, then a global `sdv-test`", docsText);
         Assert.Contains("--visible", docsText);
         Assert.True(File.Exists(Path.Combine(_repoRoot, "tests/sdv/01-example-core-loads.test.json")));
         AssertNeutralGeneratedText();
@@ -153,6 +156,32 @@ public sealed class RepoScaffoldGeneratorTests : IDisposable
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", scriptText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", repeatText);
         Assert.DoesNotContain("dotnet run --project \"$FROBBY_ROOT", preflightText);
+    }
+
+    [Fact]
+    public void Generate_wrappers_prefer_repo_local_dotnet_tool_before_global_command()
+    {
+        RepoScaffoldGenerator.Generate(_repoRoot, DefaultOptions());
+
+        var scriptText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-test"));
+        var repeatText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-repeat"));
+        var preflightText = File.ReadAllText(Path.Combine(_repoRoot, "scripts/sdv-preflight"));
+
+        Assert.Contains("if [ -f \"$REPO_ROOT/.config/dotnet-tools.json\" ] || [ -f \"$REPO_ROOT/dotnet-tools.json\" ]; then", scriptText);
+        Assert.Contains("if [ -f \"$REPO_ROOT/.config/dotnet-tools.json\" ] || [ -f \"$REPO_ROOT/dotnet-tools.json\" ]; then", repeatText);
+        Assert.Contains("if [ -f \"$REPO_ROOT/.config/dotnet-tools.json\" ] || [ -f \"$REPO_ROOT/dotnet-tools.json\" ]; then", preflightText);
+        Assert.Contains("exec dotnet tool run sdv-test -- repo run --repo-root \"$REPO_ROOT\" \"$@\"", scriptText);
+        Assert.Contains("exec dotnet tool run sdv-test -- repo repeat --repo-root \"$REPO_ROOT\" \"$@\"", repeatText);
+        Assert.Contains("FROBBY_RUN_ARGS=(dotnet tool run sdv-test --)", preflightText);
+        Assert.Contains("if command -v sdv-test >/dev/null 2>&1; then", scriptText);
+        Assert.Contains("if command -v sdv-test >/dev/null 2>&1; then", repeatText);
+        Assert.Contains("if command -v sdv-test >/dev/null 2>&1; then", preflightText);
+        Assert.True(
+            scriptText.IndexOf("dotnet tool run sdv-test", StringComparison.Ordinal)
+            < scriptText.IndexOf("command -v sdv-test", StringComparison.Ordinal));
+        Assert.True(
+            repeatText.IndexOf("dotnet tool run sdv-test", StringComparison.Ordinal)
+            < repeatText.IndexOf("command -v sdv-test", StringComparison.Ordinal));
     }
 
     [Fact]

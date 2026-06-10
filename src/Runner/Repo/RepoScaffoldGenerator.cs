@@ -268,7 +268,17 @@ public static class RepoScaffoldGenerator
               exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo run --repo-root "$REPO_ROOT" "$@"
             fi
 
-            exec sdv-test repo run --repo-root "$REPO_ROOT" "$@"
+            cd "$REPO_ROOT"
+            if [ -f "$REPO_ROOT/.config/dotnet-tools.json" ] || [ -f "$REPO_ROOT/dotnet-tools.json" ]; then
+              exec dotnet tool run sdv-test -- repo run --repo-root "$REPO_ROOT" "$@"
+            fi
+
+            if command -v sdv-test >/dev/null 2>&1; then
+              exec sdv-test repo run --repo-root "$REPO_ROOT" "$@"
+            fi
+
+            echo "[repo] sdv-test not found. Install SdvTestFramework.Cli as a local dotnet tool, install it globally, or set FROBBY_ROOT to a source checkout." >&2
+            exit 127
             """;
 
     private static string RepeatWrapper()
@@ -295,7 +305,17 @@ public static class RepoScaffoldGenerator
               exec dotnet run --project "$FROBBY_SOURCE_ROOT/src/Runner/Runner.csproj" -- repo repeat --repo-root "$REPO_ROOT" "$@"
             fi
 
-            exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"
+            cd "$REPO_ROOT"
+            if [ -f "$REPO_ROOT/.config/dotnet-tools.json" ] || [ -f "$REPO_ROOT/dotnet-tools.json" ]; then
+              exec dotnet tool run sdv-test -- repo repeat --repo-root "$REPO_ROOT" "$@"
+            fi
+
+            if command -v sdv-test >/dev/null 2>&1; then
+              exec sdv-test repo repeat --repo-root "$REPO_ROOT" "$@"
+            fi
+
+            echo "[repo] sdv-test not found. Install SdvTestFramework.Cli as a local dotnet tool, install it globally, or set FROBBY_ROOT to a source checkout." >&2
+            exit 127
             """;
 
     private static string PreflightWrapper()
@@ -320,6 +340,14 @@ public static class RepoScaffoldGenerator
                 exit 2
               fi
               FROBBY_RUN_ARGS=(dotnet "$RUNNER_DLL")
+            elif [ -f "$REPO_ROOT/.config/dotnet-tools.json" ] || [ -f "$REPO_ROOT/dotnet-tools.json" ]; then
+              cd "$REPO_ROOT"
+              FROBBY_RUN_ARGS=(dotnet tool run sdv-test --)
+            elif command -v sdv-test >/dev/null 2>&1; then
+              FROBBY_RUN_ARGS=(sdv-test)
+            else
+              echo "[preflight] sdv-test not found. Install SdvTestFramework.Cli as a local dotnet tool, install it globally, or set FROBBY_ROOT to a source checkout." >&2
+              exit 127
             fi
 
             RUN_TARGETS=()
@@ -335,12 +363,7 @@ public static class RepoScaffoldGenerator
             fi
 
             run_sdv_test() {
-              if [ "${#FROBBY_RUN_ARGS[@]}" -ne 0 ]; then
-                "${FROBBY_RUN_ARGS[@]}" "$@"
-                return
-              fi
-
-              sdv-test "$@"
+              "${FROBBY_RUN_ARGS[@]}" "$@"
             }
 
             run_sdv_test list "$REPO_ROOT/tests/sdv"
@@ -404,7 +427,12 @@ public static class RepoScaffoldGenerator
             scripts/sdv-preflight tests/sdv/01-example-core-loads.test.json
             ```
 
-            The wrappers use a source checkout from `FROBBY_ROOT` when available, defaulting to `$REPO_ROOT/../frobby/sdv-test-framework`, and otherwise fall back to an installed `sdv-test`.
+            The wrappers resolve Frobby in this order: source checkout, then a repo-local dotnet tool, then a global `sdv-test`. Set `FROBBY_ROOT` to a source checkout while developing Frobby itself. In ordinary mod repos, prefer a local tool manifest:
+
+            ```sh
+            dotnet tool restore
+            dotnet tool run sdv-test
+            ```
 
             ## Dependency mods
 

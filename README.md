@@ -50,6 +50,18 @@ sdv-test repo init --project-name "Example Mod" --slug example-mod \
 ./scripts/sdv-test --dry-run
 ```
 
+Generated repo scripts resolve Frobby in this order: `FROBBY_ROOT` source checkout,
+repo-local dotnet tool manifest, then a globally installed `sdv-test`. For a mod
+repo that should not depend on a sibling Frobby source checkout, install the CLI
+as a local tool and commit the generated dotnet tool manifest:
+
+```bash
+dotnet new tool-manifest
+dotnet tool install SdvTestFramework.Cli --version 0.1.0
+dotnet tool restore
+dotnet tool run sdv-test
+```
+
 The generated scripts read `sdv-test.config.json`, default to headless execution,
 stage every configured `extra_mod`, and write a stable
 `/tmp/<slug>-frobby-results-<version>/` report hub.

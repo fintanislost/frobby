@@ -78,6 +78,15 @@ Full CI-equivalent run:
 ./scripts/ci.sh
 ```
 
+Package/install smoke before release or local mod testing:
+```bash
+./scripts/package-install-smoke.sh
+```
+
+This packs Frobby locally, installs `SdvTestFramework.Cli` into a clean temporary
+mod repo as a local dotnet tool, scaffolds repo scripts, and verifies list,
+preflight, repo-run dry-run, and repeat dry-run paths without launching SDV.
+
 ## Debugging the harness mod
 
 The harness mod is a normal SMAPI mod. Debug it like any other:
