@@ -23,6 +23,17 @@ When working from the source tree:
 dotnet run --project src/Runner -- --help
 ```
 
+Maintainers can validate the release-shaped package flow without publishing:
+
+```bash
+./scripts/release-dry-run.sh
+```
+
+The dry-run builds local NuGet packages, installs the CLI package into a clean
+temporary mod repo, runs the generated repo preflight/dry-run helpers, validates
+the expected package set, and writes `nupkg/release-dry-run.json` for CI artifact
+review.
+
 Run one scenario or a directory of `*.test.json` scenarios:
 
 ```bash

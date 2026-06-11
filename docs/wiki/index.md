@@ -96,6 +96,23 @@ Useful docs:
 - `docs/rpc-schema.md` - method reference.
 - `docs/wiki/examples.md` - SVE world/content scenario examples.
 
+## Release Dry-Run
+
+Use `scripts/release-dry-run.sh` before tagging or preparing a NuGet release. It
+builds the local packages, runs the package/install smoke in a clean temporary
+mod repo, validates the expected package artifacts, and writes
+`nupkg/release-dry-run.json`.
+
+The GitHub Actions release dry-run workflow runs the same command and uploads
+the package artifacts for review. It intentionally does not publish to NuGet;
+the guarded publish workflow remains a separate future step.
+
+Useful docs:
+
+- `README.md` - maintainer quick command.
+- `docs/developer-setup.md` - package/install smoke and release dry-run details.
+- `docs/roadmap.md` - remaining NuGet publish work.
+
 ## Reports And Debugging
 
 Frobby writes static HTML reports with per-step screenshots, final screenshots,

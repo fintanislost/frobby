@@ -17,6 +17,7 @@ test-results/
 *~
 
 # NuGet/package artifacts
+nupkg/
 *.nupkg
 *.snupkg
 packages/

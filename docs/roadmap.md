@@ -46,8 +46,13 @@ Makes the framework actually usable by other modders + Claude-via-MCP on arbitra
   flow is ready; just needs `dotnet nuget push *.nupkg --source nuget.org --api-key X`.
   Source: NuGet packaging out-of-scope.
 
-- [ ] **GitHub Actions release workflow** (~half-day). Automate `dotnet pack` +
-  `dotnet nuget push` on `git tag v0.1.x`. Source: NuGet packaging out-of-scope.
+- [x] **GitHub Actions release dry-run workflow**. Runs tests, validates the local
+  package/install flow, verifies package artifacts, writes
+  `nupkg/release-dry-run.json`, and uploads artifacts without publishing.
+
+- [ ] **Guarded NuGet publish workflow** (~half-day). After the dry-run has passed
+  on the public repo, add a tag-only publish job with a NuGet API key secret and
+  `dotnet nuget push --skip-duplicate`.
 
 - [ ] **Documentation site** (~2-3 weeks) — SvelteKit. Landing page + quickstart +
   scenario cookbook + API reference + MCP usage guide + examples. Claude reads docs to

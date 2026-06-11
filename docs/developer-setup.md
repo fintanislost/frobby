@@ -87,6 +87,16 @@ This packs Frobby locally, installs `SdvTestFramework.Cli` into a clean temporar
 mod repo as a local dotnet tool, scaffolds repo scripts, and verifies list,
 preflight, repo-run dry-run, and repeat dry-run paths without launching SDV.
 
+Release dry-run before tagging or opening a release PR:
+```bash
+./scripts/release-dry-run.sh
+```
+
+The release dry-run wraps the package/install smoke, verifies all expected
+`.nupkg` files for `SdvTestFrameworkVersion`, and writes
+`nupkg/release-dry-run.json`. The matching GitHub Actions workflow uploads those
+packages and the manifest as artifacts, but does not publish to NuGet.
+
 ## Debugging the harness mod
 
 The harness mod is a normal SMAPI mod. Debug it like any other:

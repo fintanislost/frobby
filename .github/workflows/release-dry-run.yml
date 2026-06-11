@@ -1,0 +1,45 @@
+name: Release Dry Run
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+
+permissions:
+  contents: read
+
+jobs:
+  release-dry-run:
+    name: Build packages without publishing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore sdv-test-framework.slnx
+
+      - name: Build
+        run: dotnet build sdv-test-framework.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test sdv-test-framework.slnx --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Release dry-run
+        run: ./scripts/release-dry-run.sh
+
+      - name: Upload package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frobby-release-dry-run-packages
+          path: |
+            nupkg/*.nupkg
+            nupkg/release-dry-run.json
+          if-no-files-found: error

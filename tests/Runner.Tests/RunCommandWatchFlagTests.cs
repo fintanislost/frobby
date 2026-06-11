@@ -7,6 +7,7 @@ using Xunit;
 
 namespace SdvTestFramework.Runner.Tests;
 
+[Collection("Console")]
 public class RunCommandWatchFlagTests
 {
     [Fact]
