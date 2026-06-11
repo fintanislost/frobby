@@ -22,7 +22,9 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: |
+            6.0.x
+            10.0.x
 
       - name: Validate release environment
         run: ./scripts/release-env-preflight.sh

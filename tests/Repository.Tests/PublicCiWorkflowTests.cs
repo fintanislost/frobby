@@ -20,6 +20,9 @@ public sealed class PublicCiWorkflowTests
         Assert.Contains("pull_request:", workflow);
         Assert.Contains("actions/checkout@v6", workflow);
         Assert.Contains("actions/setup-dotnet@v5", workflow);
+        Assert.Contains("dotnet-version: |", workflow);
+        Assert.Contains("6.0.x", workflow);
+        Assert.Contains("10.0.x", workflow);
         Assert.Contains("./scripts/ci-public.sh", workflow);
         Assert.DoesNotContain("./scripts/release-dry-run.sh", workflow);
         Assert.DoesNotContain("dotnet nuget push", workflow);

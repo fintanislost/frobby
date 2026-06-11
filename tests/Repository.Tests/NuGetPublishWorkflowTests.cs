@@ -21,6 +21,9 @@ public sealed class NuGetPublishWorkflowTests
         Assert.Contains("contents: read", workflow);
         Assert.Contains("uses: actions/checkout@v6", workflow);
         Assert.Contains("uses: actions/setup-dotnet@v5", workflow);
+        Assert.Contains("dotnet-version: |", workflow);
+        Assert.Contains("6.0.x", workflow);
+        Assert.Contains("10.0.x", workflow);
         Assert.Contains("uses: actions/upload-artifact@v7", workflow);
         Assert.Contains("runs-on: ${{ vars.FROBBY_RELEASE_RUNNER || 'ubuntu-latest' }}", workflow);
         Assert.Contains("FROBBY_RELEASE_RUNNER", workflow);
