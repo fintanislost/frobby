@@ -23,6 +23,19 @@ When working from the source tree:
 dotnet run --project src/Runner -- --help
 ```
 
+Public hosted validation:
+
+```bash
+./scripts/ci-public.sh
+```
+
+This runs the repo-neutral test subset that does not compile or package the
+Harness. The Harness and CLI package path use `Pathoschild.Stardew.ModBuildConfig`,
+which needs a real Stardew Valley + SMAPI install; public hosted GitHub runners
+do not include Stardew Valley. Use this path for hosted PR/main checks, and use
+the game-backed release commands below on a workstation or self-hosted runner
+with `FROBBY_GAME_PATH` set when autodetect is not enough.
+
 Maintainers can validate the release-shaped package flow without publishing:
 
 ```bash
@@ -32,11 +45,17 @@ Maintainers can validate the release-shaped package flow without publishing:
 The dry-run builds local NuGet packages, installs the CLI package into a clean
 temporary mod repo, runs the generated repo preflight/dry-run helpers, validates
 the expected package set, and writes `nupkg/release-dry-run.json` for CI artifact
-review.
+review. This is a game-backed check: it compiles the SMAPI Harness and must see a
+real Stardew install through ModBuildConfig autodetect or `FROBBY_GAME_PATH`.
 
 The guarded GitHub publish workflow uses the same validation path. Manual
 dispatch rehearses the workflow without publishing; actual NuGet publish only
 runs on `v*` tag pushes and requires the repository secret `NUGET_API_KEY`.
+GitHub release workflows also require repository variable `FROBBY_GAME_PATH`
+when autodetect is not available. Set repository variable
+`FROBBY_RELEASE_RUNNER` to the runner label for a game-backed self-hosted runner;
+otherwise GitHub uses `ubuntu-latest`, where the release preflight fails with a
+clear missing-Stardew message.
 
 Run one scenario or a directory of `*.test.json` scenarios:
 

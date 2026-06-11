@@ -78,6 +78,18 @@ Full CI-equivalent run:
 ./scripts/ci.sh
 ```
 
+Public hosted CI subset:
+```bash
+./scripts/ci-public.sh
+```
+
+`scripts/ci-public.sh` is the path used by public hosted GitHub runners. It runs
+repo-neutral tests and avoids the game-backed Harness/package build because
+`Pathoschild.Stardew.ModBuildConfig` needs a real Stardew Valley + SMAPI install
+and public hosted runners do not include Stardew Valley. Use `scripts/ci.sh` or
+the release commands below on a local workstation or self-hosted runner with
+`FROBBY_GAME_PATH` set when autodetect cannot find the real Stardew install.
+
 Package/install smoke before release or local mod testing:
 ```bash
 ./scripts/package-install-smoke.sh
@@ -95,13 +107,20 @@ Release dry-run before tagging or opening a release PR:
 The release dry-run wraps the package/install smoke, verifies all expected
 `.nupkg` files for `SdvTestFrameworkVersion`, and writes
 `nupkg/release-dry-run.json`. The matching GitHub Actions workflow uploads those
-packages and the manifest as artifacts, but does not publish to NuGet.
+packages and the manifest as artifacts, but does not publish to NuGet. This is a
+game-backed path, so GitHub release workflows must run where a real Stardew
+install is available through ModBuildConfig autodetect or repository variable
+`FROBBY_GAME_PATH`.
 
 Guarded NuGet publish:
 
 1. Add `NUGET_API_KEY` as a repository secret.
-2. Run the publish workflow manually if you only want another hosted dry-run.
-3. Push a `v*` tag when you intend to publish.
+2. Configure `FROBBY_RELEASE_RUNNER` as the label for a game-backed self-hosted
+   runner when release jobs should not use `ubuntu-latest`.
+3. Configure `FROBBY_GAME_PATH` as a repository variable on that runner if
+   ModBuildConfig autodetect is not available.
+4. Run the publish workflow manually if you only want another game-backed dry-run.
+5. Push a `v*` tag when you intend to publish.
 
 The publish workflow runs restore, build, tests, and `scripts/release-dry-run.sh`
 before `dotnet nuget push --skip-duplicate`. The push step is gated to tag-push

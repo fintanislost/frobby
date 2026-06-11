@@ -45,14 +45,17 @@ Makes the framework actually usable by other modders + Claude-via-MCP on arbitra
   Requires a maintainer-owned NuGet API key, repository `NUGET_API_KEY` secret,
   and a deliberate `v*` tag push. Source: NuGet packaging out-of-scope.
 
-- [x] **GitHub Actions release dry-run workflow**. Runs tests, validates the local
-  package/install flow, verifies package artifacts, writes
-  `nupkg/release-dry-run.json`, and uploads artifacts without publishing.
+- [x] **GitHub Actions release dry-run workflow**. Runs game-backed tests,
+  validates the local package/install flow, verifies package artifacts, writes
+  `nupkg/release-dry-run.json`, and uploads artifacts without publishing. Public
+  hosted CI uses `scripts/ci-public.sh`; release packaging requires a real
+  Stardew/SMAPI install via autodetect or `FROBBY_GAME_PATH`, and can select a
+  game-backed runner with `FROBBY_RELEASE_RUNNER`.
 
 - [x] **Guarded NuGet publish workflow**. Runs restore, build, tests, and the
   release dry-run before publishing. Manual dispatch remains dry-run only; the
   `dotnet nuget push --skip-duplicate` step runs only for `v*` tag pushes with
-  `NUGET_API_KEY`.
+  `NUGET_API_KEY` on a game-backed runner.
 
 - [ ] **Documentation site** (~2-3 weeks) — SvelteKit. Landing page + quickstart +
   scenario cookbook + API reference + MCP usage guide + examples. Claude reads docs to

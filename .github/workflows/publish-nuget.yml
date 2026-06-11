@@ -10,8 +10,10 @@ permissions:
 
 jobs:
   publish-nuget:
-    name: Publish packages to nuget.org
-    runs-on: ubuntu-latest
+    name: Publish game-backed packages to nuget.org
+    runs-on: ${{ vars.FROBBY_RELEASE_RUNNER || 'ubuntu-latest' }}
+    env:
+      FROBBY_GAME_PATH: ${{ vars.FROBBY_GAME_PATH }}
 
     steps:
       - name: Check out repository
@@ -22,11 +24,19 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Validate release environment
+        run: ./scripts/release-env-preflight.sh
+
       - name: Restore
         run: dotnet restore sdv-test-framework.slnx
 
       - name: Build
-        run: dotnet build sdv-test-framework.slnx --configuration Release --no-restore
+        run: |
+          build_args=(sdv-test-framework.slnx --configuration Release --no-restore)
+          if [ -n "${FROBBY_GAME_PATH:-}" ]; then
+            build_args+=("/p:GamePath=$FROBBY_GAME_PATH")
+          fi
+          dotnet build "${build_args[@]}"
 
       - name: Test
         run: dotnet test sdv-test-framework.slnx --configuration Release --no-build --logger "console;verbosity=normal"

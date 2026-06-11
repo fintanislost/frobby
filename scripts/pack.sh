@@ -14,7 +14,11 @@ mkdir -p "$OUT"
 rm -f "$OUT"/*.nupkg
 
 echo "==> Build solution (so embedded harness resources are fresh)"
-dotnet build sdv-test-framework.slnx -c Release
+build_args=(sdv-test-framework.slnx -c Release)
+if [ -n "${FROBBY_GAME_PATH:-}" ]; then
+  build_args+=("/p:GamePath=$FROBBY_GAME_PATH")
+fi
+dotnet build "${build_args[@]}"
 
 echo "==> Pack Protocol"
 dotnet pack src/Protocol/Protocol.csproj -c Release -o "$OUT" --no-build

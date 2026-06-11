@@ -98,15 +98,23 @@ Useful docs:
 
 ## Release Dry-Run
 
+Use `scripts/ci-public.sh` for public hosted CI. It runs the repo-neutral test
+subset and avoids game-backed package builds, because
+`Pathoschild.Stardew.ModBuildConfig` compiles the Harness against a real Stardew
+Valley + SMAPI install and public hosted runners do not include Stardew Valley.
+For release packaging on GitHub, run on a self-hosted/game-backed runner and set
+repository variable `FROBBY_RELEASE_RUNNER` to that runner label plus
+`FROBBY_GAME_PATH` when autodetect is not available.
+
 Use `scripts/release-dry-run.sh` before tagging or preparing a NuGet release. It
 builds the local packages, runs the package/install smoke in a clean temporary
 mod repo, validates the expected package artifacts, and writes
-`nupkg/release-dry-run.json`.
+`nupkg/release-dry-run.json`. This release path needs a real Stardew install.
 
 The GitHub Actions release dry-run workflow runs the same command and uploads
 the package artifacts for review. The guarded publish workflow reuses the same
 validation path and only publishes on `v*` tag pushes when `NUGET_API_KEY` is
-configured. Manual publish workflow dispatch remains a hosted dry-run.
+configured. Manual publish workflow dispatch remains a game-backed dry-run.
 
 Useful docs:
 

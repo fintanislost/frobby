@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Harness.Tests/Harness.Tests.csproj" />
+    <Project Path="tests/Repository.Tests/Repository.Tests.csproj" />
     <Project Path="tests/Protocol.Tests/Protocol.Tests.csproj" />
     <Project Path="tests/Runner.Tests/Runner.Tests.csproj" />
     <Project Path="tests/Runner.Dsl.Tests/Runner.Dsl.Tests.csproj" />

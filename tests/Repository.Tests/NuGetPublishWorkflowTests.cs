@@ -2,14 +2,14 @@ using System;
 using System.IO;
 using Xunit;
 
-namespace SdvTestFramework.Runner.Tests;
+namespace SdvTestFramework.Repository.Tests;
 
 public sealed class NuGetPublishWorkflowTests
 {
-    private static readonly string RepoRoot = FindRepoRoot();
+    private static readonly string RepoRoot = RepositoryTestPaths.FindRepoRoot();
 
     [Fact]
-    public void Publish_workflow_is_tag_guarded_and_runs_dry_run_before_push()
+    public void Publish_workflow_is_tag_guarded_game_backed_and_runs_dry_run_before_push()
     {
         var workflowPath = Path.Combine(RepoRoot, ".github", "workflows", "publish-nuget.yml");
         Assert.True(File.Exists(workflowPath), workflowPath);
@@ -22,6 +22,10 @@ public sealed class NuGetPublishWorkflowTests
         Assert.Contains("uses: actions/checkout@v6", workflow);
         Assert.Contains("uses: actions/setup-dotnet@v5", workflow);
         Assert.Contains("uses: actions/upload-artifact@v7", workflow);
+        Assert.Contains("runs-on: ${{ vars.FROBBY_RELEASE_RUNNER || 'ubuntu-latest' }}", workflow);
+        Assert.Contains("FROBBY_RELEASE_RUNNER", workflow);
+        Assert.Contains("FROBBY_GAME_PATH: ${{ vars.FROBBY_GAME_PATH }}", workflow);
+        Assert.Contains("./scripts/release-env-preflight.sh", workflow);
         Assert.Contains("./scripts/release-dry-run.sh", workflow);
         Assert.Contains("nupkg/*.nupkg", workflow);
         Assert.Contains("nupkg/release-dry-run.json", workflow);
@@ -47,21 +51,5 @@ public sealed class NuGetPublishWorkflowTests
         Assert.Contains("if [ -z \"$NUGET_API_KEY\" ]; then", workflow);
         Assert.Contains("NUGET_API_KEY secret is required", workflow);
         Assert.Contains("exit 1", workflow);
-    }
-
-    private static string FindRepoRoot()
-    {
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current is not null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "sdv-test-framework.slnx")))
-            {
-                return current.FullName;
-            }
-
-            current = current.Parent;
-        }
-
-        throw new InvalidOperationException("Could not locate Frobby repository root.");
     }
 }

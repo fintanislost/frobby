@@ -25,6 +25,7 @@ if [ -z "$PACKAGE_VERSION" ]; then
   exit 2
 fi
 
+"$REPO_ROOT/scripts/release-env-preflight.sh"
 "$REPO_ROOT/scripts/package-install-smoke.sh"
 
 missing=0
