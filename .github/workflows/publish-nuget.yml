@@ -1,17 +1,16 @@
-name: Release Dry Run
+name: Publish NuGet
 
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
     tags: [ 'v*' ]
 
 permissions:
   contents: read
 
 jobs:
-  release-dry-run:
-    name: Build packages without publishing
+  publish-nuget:
+    name: Publish packages to nuget.org
     runs-on: ubuntu-latest
 
     steps:
@@ -38,8 +37,25 @@ jobs:
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: frobby-release-dry-run-packages
+          name: frobby-nuget-packages
           path: |
             nupkg/*.nupkg
             nupkg/release-dry-run.json
           if-no-files-found: error
+
+      - name: Publish to nuget.org
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "NUGET_API_KEY secret is required for tagged NuGet publish." >&2
+            exit 1
+          fi
+
+          for package in nupkg/*.nupkg; do
+            dotnet nuget push "$package" \
+              --api-key "$NUGET_API_KEY" \
+              --source https://api.nuget.org/v3/index.json \
+              --skip-duplicate
+          done

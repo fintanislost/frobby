@@ -42,17 +42,17 @@ packaging, docs site, example mod suites — or Tier 3 polish.)_
 Makes the framework actually usable by other modders + Claude-via-MCP on arbitrary repos.
 
 - [ ] **Publish 0.1.0 to nuget.org** (~2 hours once a real user has smoke-tested).
-  Requires NuGet API key + decision about who maintains. The `scripts/pack.sh`
-  flow is ready; just needs `dotnet nuget push *.nupkg --source nuget.org --api-key X`.
-  Source: NuGet packaging out-of-scope.
+  Requires a maintainer-owned NuGet API key, repository `NUGET_API_KEY` secret,
+  and a deliberate `v*` tag push. Source: NuGet packaging out-of-scope.
 
 - [x] **GitHub Actions release dry-run workflow**. Runs tests, validates the local
   package/install flow, verifies package artifacts, writes
   `nupkg/release-dry-run.json`, and uploads artifacts without publishing.
 
-- [ ] **Guarded NuGet publish workflow** (~half-day). After the dry-run has passed
-  on the public repo, add a tag-only publish job with a NuGet API key secret and
-  `dotnet nuget push --skip-duplicate`.
+- [x] **Guarded NuGet publish workflow**. Runs restore, build, tests, and the
+  release dry-run before publishing. Manual dispatch remains dry-run only; the
+  `dotnet nuget push --skip-duplicate` step runs only for `v*` tag pushes with
+  `NUGET_API_KEY`.
 
 - [ ] **Documentation site** (~2-3 weeks) — SvelteKit. Landing page + quickstart +
   scenario cookbook + API reference + MCP usage guide + examples. Claude reads docs to

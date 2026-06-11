@@ -97,6 +97,16 @@ The release dry-run wraps the package/install smoke, verifies all expected
 `nupkg/release-dry-run.json`. The matching GitHub Actions workflow uploads those
 packages and the manifest as artifacts, but does not publish to NuGet.
 
+Guarded NuGet publish:
+
+1. Add `NUGET_API_KEY` as a repository secret.
+2. Run the publish workflow manually if you only want another hosted dry-run.
+3. Push a `v*` tag when you intend to publish.
+
+The publish workflow runs restore, build, tests, and `scripts/release-dry-run.sh`
+before `dotnet nuget push --skip-duplicate`. The push step is gated to tag-push
+events, so manual dispatch does not publish packages.
+
 ## Debugging the harness mod
 
 The harness mod is a normal SMAPI mod. Debug it like any other:

@@ -34,6 +34,10 @@ temporary mod repo, runs the generated repo preflight/dry-run helpers, validates
 the expected package set, and writes `nupkg/release-dry-run.json` for CI artifact
 review.
 
+The guarded GitHub publish workflow uses the same validation path. Manual
+dispatch rehearses the workflow without publishing; actual NuGet publish only
+runs on `v*` tag pushes and requires the repository secret `NUGET_API_KEY`.
+
 Run one scenario or a directory of `*.test.json` scenarios:
 
 ```bash

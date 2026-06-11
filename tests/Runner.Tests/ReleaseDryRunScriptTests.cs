@@ -46,7 +46,7 @@ public sealed class ReleaseDryRunScriptTests
         Assert.Contains("tags: [ 'v*' ]", workflow);
         Assert.Contains("actions/checkout@v6", workflow);
         Assert.Contains("actions/setup-dotnet@v5", workflow);
-        Assert.Contains("actions/upload-artifact@v4", workflow);
+        Assert.Contains("actions/upload-artifact@v7", workflow);
         Assert.Contains("./scripts/release-dry-run.sh", workflow);
         Assert.Contains("nupkg/*.nupkg", workflow);
         Assert.Contains("nupkg/release-dry-run.json", workflow);

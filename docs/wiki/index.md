@@ -104,14 +104,15 @@ mod repo, validates the expected package artifacts, and writes
 `nupkg/release-dry-run.json`.
 
 The GitHub Actions release dry-run workflow runs the same command and uploads
-the package artifacts for review. It intentionally does not publish to NuGet;
-the guarded publish workflow remains a separate future step.
+the package artifacts for review. The guarded publish workflow reuses the same
+validation path and only publishes on `v*` tag pushes when `NUGET_API_KEY` is
+configured. Manual publish workflow dispatch remains a hosted dry-run.
 
 Useful docs:
 
 - `README.md` - maintainer quick command.
 - `docs/developer-setup.md` - package/install smoke and release dry-run details.
-- `docs/roadmap.md` - remaining NuGet publish work.
+- `docs/roadmap.md` - remaining NuGet publication decision and tag work.
 
 ## Reports And Debugging
 
